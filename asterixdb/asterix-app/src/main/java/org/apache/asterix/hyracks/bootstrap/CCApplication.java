@@ -205,7 +205,7 @@ public class CCApplication extends BaseCCApplication {
         LoggingConfigUtil.defaultIfMissing(GlobalConfig.ASTERIX_LOGGER_NAME, level);
     }
 
-    protected List<AsterixExtension> getExtensions() throws Exception {
+    protected List<AsterixExtension> getExtensions() throws Exception{
         return new ExtensionProperties(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig())).getExtensions();
     }
 

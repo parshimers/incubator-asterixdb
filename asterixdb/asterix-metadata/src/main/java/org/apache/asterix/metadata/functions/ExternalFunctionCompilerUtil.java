@@ -23,9 +23,11 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
+import org.apache.asterix.metadata.entities.Dataverse;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.AOrderedListType;
@@ -33,6 +35,7 @@ import org.apache.asterix.om.types.AUnorderedListType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 
@@ -68,13 +71,13 @@ public class ExternalFunctionCompilerUtil {
         IAType returnType;
         if (function.getReturnType() == null) {
             returnType = BuiltinType.ANY;
-        } else if (function.getReturnType().equalsIgnoreCase(BuiltinType.ANY.toString())) {
+        } else if (function.getReturnType().getSecond().equals(BuiltinType.ANY.getDisplayName())) {
             returnType = BuiltinType.ANY;
         } else {
-            returnType = getTypeInfo(function.getReturnType(), txnCtx, function);
+            returnType = getTypeInfo(function.getReturnType(), txnCtx);
         }
-        for (String arg : function.getArguments()) {
-            argumentTypes.add(getTypeInfo(arg, txnCtx, function));
+        for (Pair<DataverseName, String> arg : function.getArguments()) {
+            argumentTypes.add(getTypeInfo(arg, txnCtx));
         }
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, argumentTypes);
 
@@ -83,33 +86,37 @@ public class ExternalFunctionCompilerUtil {
                 function.getParams(), typeComputer);
     }
 
-    private static IAType getTypeInfo(String type, MetadataTransactionContext txnCtx, Function function)
+    private static IAType getTypeInfo(Pair<DataverseName, String> typePair, MetadataTransactionContext txnCtx)
             throws AlgebricksException {
-        IAType argType = null;
-        if (type != null) {
+        IAType argType = BuiltinType.ANY;
+        String type = typePair.getSecond();
+        if (type != null && !type.equals(BuiltinType.ANY.getDisplayName())) {
             if (type.indexOf("{{") != -1 || type.indexOf("[") != -1) {
-                argType = getCollectionType(type, txnCtx, function);
+                argType = getCollectionType(typePair, txnCtx);
             } else {
                 argType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                        function.getDataverseName(), type, false);
+                        typePair.getFirst(), type, false);
             }
         }
         return argType;
 
     }
 
-    private static IAType getCollectionType(String paramType, MetadataTransactionContext txnCtx, Function function)
+    private static IAType getCollectionType(Pair<DataverseName, String> typePair, MetadataTransactionContext txnCtx)
             throws AlgebricksException {
 
+        String paramType = typePair.getSecond();
         Matcher matcher = orderedListPattern.matcher(paramType);
         if (matcher.find()) {
             String subType = paramType.substring(paramType.indexOf('[') + 1, paramType.lastIndexOf(']'));
-            return new AOrderedListType(getTypeInfo(subType, txnCtx, function), "AOrderedList");
+            String[] subSplit = subType.split(",");
+            return new AOrderedListType(getTypeInfo(new Pair<>(DataverseName.createFromCanonicalForm(subSplit[0]),subSplit[1]), txnCtx), "AOrderedList");
         } else {
             matcher = unorderedListPattern.matcher(paramType);
             if (matcher.find()) {
                 String subType = paramType.substring(paramType.indexOf("{{") + 2, paramType.lastIndexOf("}}"));
-                return new AUnorderedListType(getTypeInfo(subType, txnCtx, function), "AUnorderedList");
+                return new AUnorderedListType(getTypeInfo(new Pair<>(typePair.getFirst(), subType), txnCtx),
+                        "AUnorderedList");
             }
         }
         return null;

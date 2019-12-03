@@ -23,13 +23,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.metadata.MetadataCache;
 import org.apache.asterix.metadata.api.IMetadataEntity;
-import org.apache.asterix.om.types.BuiltinType;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.common.utils.Triple;
 
 public class Function implements IMetadataEntity<Function> {
@@ -43,23 +42,24 @@ public class Function implements IMetadataEntity<Function> {
 
     private final FunctionSignature signature;
     private final List<List<Triple<DataverseName, String, String>>> dependencies;
-    private final List<String> arguments;
+    private final List<Pair<DataverseName, String>> arguments;
     private final String body;
-    private final String returnType;
+    private final Pair<DataverseName, String> returnType;
+    private final List<String> argNames;
     private final String language;
     private final String kind;
     private final String library;
     private final Map<String, String> params;
 
-    public Function(FunctionSignature signature, List<String> arguments, String returnType, String functionBody,
-            String language, String library, String functionKind,
-            List<List<Triple<DataverseName, String, String>>> dependencies, Map<String, String> params) {
+    public Function(FunctionSignature signature, List<Pair<DataverseName, String>> arguments, List<String> argNames,
+            Pair<DataverseName, String> returnType, String functionBody, String language, String library,
+            String functionKind, List<List<Triple<DataverseName, String, String>>> dependencies,
+            Map<String, String> params) {
         this.signature = signature;
-        this.arguments = arguments != null
-                ? arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList())
-                : new ArrayList<>();
+        this.arguments = arguments;
+        this.argNames = argNames;
         this.body = functionBody;
-        this.returnType = returnType == null ? BuiltinType.ANY.toString() : returnType;
+        this.returnType = returnType;
         this.language = language;
         this.kind = functionKind;
         if (library == null) {
@@ -97,8 +97,12 @@ public class Function implements IMetadataEntity<Function> {
         return signature.getArity();
     }
 
-    public List<String> getArguments() {
+    public List<Pair<DataverseName, String>> getArguments() {
         return arguments;
+    }
+
+    public List<String> getArgNames() {
+        return argNames;
     }
 
     public List<List<Triple<DataverseName, String, String>>> getDependencies() {
@@ -109,7 +113,7 @@ public class Function implements IMetadataEntity<Function> {
         return body;
     }
 
-    public String getReturnType() {
+    public Pair<DataverseName, String> getReturnType() {
         return returnType;
     }
 

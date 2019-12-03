@@ -168,6 +168,7 @@ import org.apache.asterix.metadata.utils.MetadataUtil;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeSignature;
 import org.apache.asterix.transaction.management.service.transaction.DatasetIdFactory;
@@ -1733,8 +1734,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         }
     }
 
-    private static String typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
+    private static Pair<DataverseName, String> typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
         String typeName = "ANY";
+        DataverseName typeDv = DataverseName.createBuiltinDataverseName("Default");
         switch (typ.getTypeKind()) {
             case ORDEREDLIST:
                 typeName =
@@ -1746,10 +1748,15 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             case RECORD:
                 break;
             case TYPEREFERENCE:
-                typeName = ((TypeReferenceExpression) typ).getIdent().getSecond().toString();
+                TypeReferenceExpression typeRef = ((TypeReferenceExpression) typ);
+                typeDv = typeRef.getIdent().getFirst();
+                if (typeDv == null) {
+                    typeDv = activeDataverse;
+                }
+                typeName = typeRef.getIdent().getSecond().toString();
                 break;
         }
-        return typeName;
+        return new Pair<>(typeDv, typeName);
     }
 
     protected void handleCreateFunctionStatement(MetadataProvider metadataProvider, Statement stmt) throws Exception {
@@ -1787,28 +1794,27 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
                 }
                 // Add functions
-                List<String> args = new ArrayList<>();
+                List<String> argNames = new ArrayList<>();
+                List<Pair<DataverseName, String>> argType = new ArrayList<>();
                 for (TypedVarIdentifier var : cfs.getArgs()) {
                     if (var.getType() != null) {
-                        args.add(typeExprToName(var.getType(), dataverseName));
+                        argType.add(typeExprToName(var.getType(), dataverseName));
+                        argNames.add(var.getValue());
                     } else {
-                        args.add(null);
+                        argType.add(new Pair(dataverseName, BuiltinType.ANY.getDisplayName()));
+                        argNames.add(var.getValue());
                     }
                 }
 
                 TypeExpression ret = cfs.getReturnType();
-                String retType;
+                Pair<DataverseName, String> retType;
                 if (ret != null) {
                     retType = typeExprToName(ret, dataverseName);
-                    //                    Map<TypeSignature, IAType> typeMap =
-                    //                            TypeTranslator.computeTypes(mdTxnCtx, ret, typeName, dataverse);
-                    //                    TypeSignature typeSignature = new TypeSignature(dataverse, typeName);
-                    //                    retType = typeMap.get(typeSignature).toString();
                 } else {
-                    retType = null;
+                    retType = new Pair(dataverseName, BuiltinType.ANY.getDisplayName());
                 }
-                Function f = new Function(signature, args, retType, cfs.getExternalIdent(), cfs.getLang(), libraryName,
-                        FunctionKind.SCALAR.toString(), null, cfs.getResources());
+                Function f = new Function(signature, argType, argNames, retType, cfs.getExternalIdent(), cfs.getLang(),
+                        libraryName, FunctionKind.SCALAR.toString(), null, cfs.getResources());
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("Installed function: " + signature);
@@ -1842,7 +1848,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<List<Triple<DataverseName, String, String>>> dependencies = FunctionUtil.getFunctionDependencies(
                         rewriterFactory.createQueryRewriter(), cfs.getFunctionBodyExpression(), metadataProvider);
 
-                Function function = new Function(signature, args, Function.RETURNTYPE_VOID, cfs.getFunctionBody(),
+                Function function = new Function(signature, null, args,
+                        new Pair<DataverseName, String>(dataverseName, Function.RETURNTYPE_VOID), cfs.getFunctionBody(),
                         getFunctionLanguage(), null, FunctionKind.SCALAR.toString(), dependencies, null);
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);

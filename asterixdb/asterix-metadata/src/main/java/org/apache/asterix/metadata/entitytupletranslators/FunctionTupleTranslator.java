@@ -19,10 +19,13 @@
 
 package org.apache.asterix.metadata.entitytupletranslators;
 
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_NAME_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_VALUE_FIELD_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.TYPE_DV_FIELD_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.TYPE_NAME_FIELD_NAME;
 
 import java.io.DataOutput;
 import java.util.ArrayList;
@@ -48,6 +51,7 @@ import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -91,7 +95,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     }
 
     private Map<String, String> getFunctionWithParams(ARecord functionRecord) {
-        // restore configurations
+        // restore configurations        List<Pair<DataverseName,String>> args = getFunctionTypeArgs(functionRecord);
         String key = "";
         String value = "";
         Map<String, String> adaptorConfiguration = new HashMap<>();
@@ -117,6 +121,33 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         return adaptorConfiguration;
     }
 
+    private List<Pair<DataverseName, String>> getFunctionTypeArgs(ARecord functionRecord) {
+        // restore configurations
+        String dv = "";
+        String type = "";
+        List<Pair<DataverseName, String>> functionArgs = new ArrayList<>();
+
+        final ARecordType functionType = functionRecord.getType();
+        final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME);
+        if (functionLibraryIdx >= 0) {
+            IACursor cursor = ((AOrderedList) functionRecord.getValueByPos(functionLibraryIdx)).getCursor();
+            while (cursor.next()) {
+                ARecord field = (ARecord) cursor.get();
+                final ARecordType fieldType = field.getType();
+                final int keyIdx = fieldType.getFieldIndex(TYPE_DV_FIELD_NAME);
+                if (keyIdx >= 0) {
+                    dv = ((AString) field.getValueByPos(keyIdx)).getStringValue();
+                }
+                final int valueIdx = fieldType.getFieldIndex(TYPE_NAME_FIELD_NAME);
+                if (valueIdx >= 0) {
+                    type = ((AString) field.getValueByPos(valueIdx)).getStringValue();
+                }
+                functionArgs.add(new Pair<>(DataverseName.createFromCanonicalForm(dv), type));
+            }
+        }
+        return functionArgs;
+    }
+
     protected Function createMetadataEntityFromARecord(ARecord functionRecord) {
         String dataverseCanonicalName =
                 ((AString) functionRecord.getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_DATAVERSENAME_FIELD_INDEX))
@@ -130,13 +161,16 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
 
         IACursor argCursor = ((AOrderedList) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX)).getCursor();
-        List<String> args = new ArrayList<>();
+        List<String> argNames = new ArrayList<>();
         while (argCursor.next()) {
-            args.add(((AString) argCursor.get()).getStringValue());
+            argNames.add(((AString) argCursor.get()).getStringValue());
         }
 
         String returnType = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX)).getStringValue();
+        String[] returnSplit = returnType.split(",");
+        Pair<DataverseName, String> qualifiedType =
+                new Pair<>(DataverseName.createFromCanonicalForm(returnSplit[0]), returnSplit[1]);
 
         String definition = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX)).getStringValue();
@@ -162,12 +196,13 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
             dependencies.add(dependencyList);
         }
 
+        List<Pair<DataverseName, String>> args = getFunctionTypeArgs(functionRecord);
         String functionLibrary = getFunctionLibrary(functionRecord);
         Map<String, String> params = getFunctionWithParams(functionRecord);
 
         FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
-        return new Function(signature, args, returnType, definition, language, functionLibrary, functionKind,
-                dependencies, params);
+        return new Function(signature, args, argNames, qualifiedType, definition, language, functionLibrary,
+                functionKind, dependencies, params);
     }
 
     private Triple<DataverseName, String, String> getDependency(AOrderedList dependencySubnames) {
@@ -227,7 +262,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
         listBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
                 .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX]);
-        for (String p : function.getArguments()) {
+        for (String p : function.getArgNames()) {
             itemValue.reset();
             aString.setValue(p == null ? BuiltinType.ANY.toString() : p);
             stringSerde.serialize(aString, itemValue.getDataOutput());
@@ -239,7 +274,8 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
 
         // write field 4
         fieldValue.reset();
-        aString.setValue(function.getReturnType());
+        aString.setValue(
+                function.getReturnType().getFirst().getCanonicalForm() + "," + function.getReturnType().getSecond());
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX, fieldValue);
 
@@ -299,6 +335,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     }
 
     protected void writeOpenFields(Function function) throws HyracksDataException {
+        writeArgTypes(function);
         writeWithParameters(function);
         writeLibrary(function);
     }
@@ -315,6 +352,25 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
             String value = property.getValue();
             itemValue.reset();
             writePropertyTypeRecord(name, value, itemValue.getDataOutput());
+            listBuilder.addItem(itemValue);
+        }
+        fieldValue.reset();
+        listBuilder.write(fieldValue.getDataOutput(), true);
+        recordBuilder.addField(fieldName, fieldValue);
+    }
+
+    protected void writeArgTypes(Function function) throws HyracksDataException {
+        OrderedListBuilder listBuilder = new OrderedListBuilder();
+        ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
+        fieldName.reset();
+        aString.setValue(FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME);
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        listBuilder.reset(DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE);
+        for (Pair<DataverseName, String> p : function.getArguments()) {
+            String dv = p.getFirst().getCanonicalForm();
+            String type = p.getSecond();
+            itemValue.reset();
+            writePropertyTypeRecord(dv, type, itemValue.getDataOutput());
             listBuilder.addItem(itemValue);
         }
         fieldValue.reset();

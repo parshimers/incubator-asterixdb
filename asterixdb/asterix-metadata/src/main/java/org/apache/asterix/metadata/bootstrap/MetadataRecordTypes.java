@@ -110,6 +110,8 @@ public final class MetadataRecordTypes {
     public static final String PROPERTIES_NAME_FIELD_NAME = "name";
     public static final int PROPERTIES_VALUE_FIELD_INDEX = 1;
     public static final String PROPERTIES_VALUE_FIELD_NAME = "value";
+    public static final String TYPE_DV_FIELD_NAME = "dataverse";
+    public static final String TYPE_NAME_FIELD_NAME = "type";
     public static final ARecordType POLICY_PARAMS_RECORDTYPE = createPropertiesRecordType();
     public static final ARecordType DATASOURCE_ADAPTER_PROPERTIES_RECORDTYPE = createPropertiesRecordType();
     public static final ARecordType COMPACTION_POLICY_PROPERTIES_RECORDTYPE = createPropertiesRecordType();
@@ -337,6 +339,7 @@ public final class MetadataRecordTypes {
     public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME = "WithParams";
     public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_TYPE_NAME = "Parameter";
     public static final String FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME = "Library";
+    public static final String FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME = "ArgTypes";
     public static final ARecordType FUNCTION_RECORDTYPE = createRecordType(
             // RecordTypeName
             RECORD_NAME_FUNCTION,

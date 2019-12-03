@@ -902,24 +902,19 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
   AdapterIdentifier signature = null;
   Token beginPos;
   Token endPos;
-  FunctionName fctName = null;
+  Pair<DataverseName,Identifier> adaptName = null;
   DataverseName currentDataverse = defaultDataverse;
   String lang = null;
   String libName ="";
   String externalIdent = "";
   ListConstructor resources = null;
   boolean ifNotExists = false;
-  createNewScope();
 }
 {
-  <IDENTIFIER> {expectToken(ADAPTER);} fctName = FunctionName()
-  {
-     defaultDataverse = fctName.dataverse;
-  }
-  <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+  <IDENTIFIER> {expectToken(ADAPTER);} adaptName = QualifiedName()
+  <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString() ifNotExists = IfNotExists()
     {
-      signature = new AdapterIdentifier(currentDataverse == null ? DataverseName.createBuiltinDataverseName("Default") : currentDataverse, fctName.function);
-      defaultDataverse = currentDataverse;
+      signature = new AdapterIdentifier(adaptName.getFirst(),adaptName.getSecond().getValue());
       CreateAdapterStatement stmt =
         new CreateAdapterStatement(signature, lang, libName, externalIdent,  ifNotExists);
       return addSourceLocation(stmt, startStmtToken);
@@ -1007,7 +1002,6 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   String externalIdent = "";
   List<TypedVarIdentifier> args = new ArrayList<TypedVarIdentifier>();
   RecordConstructor resources = null;
-  createNewScope();
 }
 {
   <FUNCTION> fctName = FunctionName()
@@ -1016,31 +1010,9 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   }
   ifNotExists = IfNotExists()
   args = FunctionArgs()
-
-
-  ( LOOKAHEAD(2) (
-  //(RETURN ) (DETERMINISTIC ) (NULL CALL) (EXTERNAL ACTION) LANGUAGE id (WITH)
-  ( (<RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
-    (LOOKAHEAD(3,{getToken(1).kind == IDENTIFIER && getToken(2).kind == IDENTIFIER && getToken(3).kind != AS})(<IDENTIFIER> {deterministic = true;}))?
-    (<NULL> <IDENTIFIER> { if(isToken(CALL)) nullCall = true;})?
-    (<EXTERNAL> <IDENTIFIER> {if(isToken(ACTION)) externalAction = true;})?
-    <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
-    (<WITH> resources = RecordConstructor())?{
-      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
-      defaultDataverse = currentDataverse;
-      CreateFunctionStatement stmt = null;
-      try{
-        stmt =
-        new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
-                                    externalAction, lang, libName, externalIdent, resources,  ifNotExists);
-
-      } catch (AlgebricksException e) {
-         throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
-      }
-      return addSourceLocation(stmt, startStmtToken);
-    }) )
-   | ( <LEFTBRACE>
+  (LOOKAHEAD(2) (<LEFTBRACE>
   {
+   createNewScope();
      beginPos = token;
   }
   (functionBodyExpr = SelectExpression(true) | functionBodyExpr = Expression())
@@ -1056,7 +1028,29 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
       List<? extends VarIdentifier> paramList = args;
       CreateFunctionStatement stmt = new CreateFunctionStatement(signature, paramList, functionBody, functionBodyExpr, ifNotExists);
       return addSourceLocation(stmt, startStmtToken);
-    } ) )
+    } ) |
+  //(RETURN ) (DETERMINISTIC ) (NULL CALL) (EXTERNAL ACTION) LANGUAGE id (WITH)
+  ( ( <RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
+    (LOOKAHEAD({laIdentifier(DETERMINISTIC)}) <IDENTIFIER> {deterministic = true;})?
+    (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
+    (<EXTERNAL> <IDENTIFIER> {expectToken(ACTION); externalAction = true;})?
+    <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString()
+    <COMMA>  externalIdent = ConstantString()
+    (<WITH> resources = RecordConstructor())?
+    {
+      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+      defaultDataverse = currentDataverse;
+      CreateFunctionStatement stmt = null;
+      try{
+        stmt =
+        new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
+                                    externalAction, lang, libName, externalIdent, resources,  ifNotExists);
+
+      } catch (AlgebricksException e) {
+         throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
+      }
+      return addSourceLocation(stmt, startStmtToken);
+    }))
 
 }
 
@@ -1755,7 +1749,6 @@ void RecordField(RecordTypeDefinition recType) throws ParseException:
       recType.addField(fieldName, type, nullable, rfdg);
     }
 }
-
 
 TypeReferenceExpression TypeReference() throws ParseException:
 {

@@ -29,6 +29,7 @@ import org.apache.asterix.om.types.AUnorderedListType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -38,8 +39,9 @@ public class ExternalFunctionCompilerUtilTest {
         // given
         MetadataTransactionContext txnCtx = new MetadataTransactionContext(new TxnId(1));
         FunctionSignature signature = new FunctionSignature(DataverseName.createSinglePartName("test"), "test", 0);
-        Function function =
-                new Function(signature, new LinkedList<>(), "{{string}}", "", "JAVA", "", "SCALAR", null, null);
+        Function function = new Function(signature, new LinkedList<>(), new LinkedList<>(),
+                new Pair<DataverseName, String>(DataverseName.createBuiltinDataverseName("Default"), "{{string}}"), "",
+                "JAVA", "", "SCALAR", null, null);
 
         // when
         ExternalScalarFunctionInfo info =
