@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.lang.common.statement;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.expression.RecordConstructor;
 import org.apache.asterix.lang.common.expression.TypeExpression;
 import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
-import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.ConfigurationUtil;
 import org.apache.asterix.lang.common.util.ExpressionUtils;
 import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
@@ -43,7 +41,6 @@ public class CreateFunctionStatement extends AbstractStatement {
     private final String functionBody;
     private final Expression functionBodyExpression;
     private final boolean ifNotExists;
-    private final List<String> paramList;
 
     TypeExpression returnType;
     boolean returnNullable;
@@ -60,22 +57,19 @@ public class CreateFunctionStatement extends AbstractStatement {
         return functionBody;
     }
 
-    public CreateFunctionStatement(FunctionSignature signature, List<? extends VarIdentifier> parameterList,
-            String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
+    public CreateFunctionStatement(FunctionSignature signature, List<TypedVarIdentifier> parameterList,
+            TypeExpression returnType, String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
         this.signature = signature;
         this.functionBody = functionBody;
         this.functionBodyExpression = functionBodyExpression;
         this.ifNotExists = ifNotExists;
-        this.paramList = new ArrayList<String>();
-        for (VarIdentifier varId : parameterList) {
-            this.paramList.add(varId.getValue());
-        }
+        this.args = parameterList;
+        this.returnType = returnType;
     }
 
     public CreateFunctionStatement(FunctionSignature signature, List<TypedVarIdentifier> parameterList,
-            TypeExpression returnType, boolean returnNullable, boolean deterministic, boolean nullCall,
-            boolean externalAction, String lang, String libName, String externalIdent, RecordConstructor resources,
-            boolean ifNotExists) throws CompilationException {
+            TypeExpression returnType, boolean returnNullable, boolean deterministic, boolean nullCall, String lang,
+            String libName, String externalIdent, RecordConstructor resources, boolean ifNotExists) throws CompilationException {
         this.signature = signature;
         this.args = parameterList;
         this.returnType = returnType;
@@ -89,7 +83,6 @@ public class CreateFunctionStatement extends AbstractStatement {
         this.resources = resources == null ? null : ExpressionUtils.toNode(resources);
         functionBody = null;
         this.ifNotExists = ifNotExists;
-        this.paramList = null;
         this.functionBodyExpression = null;
 
     }
@@ -101,10 +94,6 @@ public class CreateFunctionStatement extends AbstractStatement {
     @Override
     public Kind getKind() {
         return Statement.Kind.CREATE_FUNCTION;
-    }
-
-    public List<String> getParamList() {
-        return paramList;
     }
 
     public FunctionSignature getFunctionSignature() {
@@ -129,10 +118,6 @@ public class CreateFunctionStatement extends AbstractStatement {
 
     public boolean isNullable() {
         return returnNullable;
-    }
-
-    public boolean isExternalAction() {
-        return externalAction;
     }
 
     public String getLang() {

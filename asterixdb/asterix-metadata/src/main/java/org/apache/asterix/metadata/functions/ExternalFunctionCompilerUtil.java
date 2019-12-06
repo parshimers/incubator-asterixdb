@@ -27,7 +27,6 @@ import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
-import org.apache.asterix.metadata.entities.Dataverse;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.AOrderedListType;
@@ -109,8 +108,7 @@ public class ExternalFunctionCompilerUtil {
         Matcher matcher = orderedListPattern.matcher(paramType);
         if (matcher.find()) {
             String subType = paramType.substring(paramType.indexOf('[') + 1, paramType.lastIndexOf(']'));
-            String[] subSplit = subType.split(",");
-            return new AOrderedListType(getTypeInfo(new Pair<>(DataverseName.createFromCanonicalForm(subSplit[0]),subSplit[1]), txnCtx), "AOrderedList");
+            return new AOrderedListType(getTypeInfo(new Pair<>(typePair.getFirst(), subType), txnCtx), "AOrderedList");
         } else {
             matcher = unorderedListPattern.matcher(paramType);
             if (matcher.find()) {

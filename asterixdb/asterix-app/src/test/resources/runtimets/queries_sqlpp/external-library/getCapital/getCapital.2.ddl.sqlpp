@@ -19,4 +19,4 @@
 
 use externallibtest;
 
-create function getCapital(a: string) return CountryCapitalType language java as "testlib","org.apache.asterix.external.library.CapitalFinderFactory";
+create function getCapital(a: string) return CountryCapitalType language java as ["testlib","org.apache.asterix.external.library.CapitalFinderFactory"];

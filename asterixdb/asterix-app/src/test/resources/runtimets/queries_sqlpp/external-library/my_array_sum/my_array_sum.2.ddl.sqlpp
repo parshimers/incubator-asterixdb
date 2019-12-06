@@ -19,4 +19,4 @@
  use externallibtest;
 
 
-create function my_array_sum(a: [int32]) return int32 language java as "testlib","org.apache.asterix.external.library.MyArraySumFactory";
+create function my_array_sum(a: [int32]) return int32 language java as ["testlib","org.apache.asterix.external.library.MyArraySumFactory"];

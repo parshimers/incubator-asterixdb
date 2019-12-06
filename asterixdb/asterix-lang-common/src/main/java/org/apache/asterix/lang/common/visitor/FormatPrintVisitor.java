@@ -816,7 +816,6 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         out.print(
                 this.generateFullName(cfs.getFunctionSignature().getNamespace(), cfs.getFunctionSignature().getName()));
         out.print("(");
-        printDelimitedStrings(cfs.getParamList(), COMMA);
         out.println(") {");
         out.println(cfs.getFunctionBody());
         out.println("}" + SEMICOLON);

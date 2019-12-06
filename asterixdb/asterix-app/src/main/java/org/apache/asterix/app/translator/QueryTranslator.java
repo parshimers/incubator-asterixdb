@@ -1739,9 +1739,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         DataverseName typeDv = DataverseName.createBuiltinDataverseName("Default");
         switch (typ.getTypeKind()) {
             case ORDEREDLIST:
-                typeName =
-                        "[" + typeExprToName(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse)
-                                + "]";
+                Pair<DataverseName, String> typePair =
+                        typeExprToName(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse);
+                typeName = "[" + typePair.getSecond() + "]";
+                typeDv = typePair.getFirst();
                 break;
             case UNORDEREDLIST:
                 break;
@@ -1837,10 +1838,25 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 wrappedQuery.setBody(cfs.getFunctionBodyExpression());
                 wrappedQuery.setTopLevel(false);
                 List<VarIdentifier> paramVars = new ArrayList<>();
-                List<String> args = new ArrayList<>();
-                for (String v : cfs.getParamList()) {
-                    paramVars.add(new VarIdentifier(v));
-                    args.add(v);
+                List<String> argNames = new ArrayList<>();
+                List<Pair<DataverseName, String>> argType = new ArrayList<>();
+                for (TypedVarIdentifier var : cfs.getArgs()) {
+                    paramVars.add(var);
+                    if (var.getType() != null) {
+                        argType.add(typeExprToName(var.getType(), dataverseName));
+                        argNames.add(var.getValue());
+                    } else {
+                        argType.add(new Pair(dataverseName, BuiltinType.ANY.getDisplayName()));
+                        argNames.add(var.getValue());
+                    }
+                }
+
+                TypeExpression ret = cfs.getReturnType();
+                Pair<DataverseName, String> retType;
+                if (ret != null) {
+                    retType = typeExprToName(ret, dataverseName);
+                } else {
+                    retType = new Pair(dataverseName, BuiltinType.ANY.getDisplayName());
                 }
                 apiFramework.reWriteQuery(declaredFunctions, metadataProvider, wrappedQuery, sessionOutput, false,
                         paramVars, warningCollector);
@@ -1848,8 +1864,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<List<Triple<DataverseName, String, String>>> dependencies = FunctionUtil.getFunctionDependencies(
                         rewriterFactory.createQueryRewriter(), cfs.getFunctionBodyExpression(), metadataProvider);
 
-                Function function = new Function(signature, null, args,
-                        new Pair<DataverseName, String>(dataverseName, Function.RETURNTYPE_VOID), cfs.getFunctionBody(),
+                Function function = new Function(signature, argType, argNames, retType
+                        , cfs.getFunctionBody(),
                         getFunctionLanguage(), null, FunctionKind.SCALAR.toString(), dependencies, null);
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);

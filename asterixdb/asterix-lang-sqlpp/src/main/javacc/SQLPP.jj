@@ -223,6 +223,7 @@ class SQLPPParser extends ScopeChecker implements IParser {
     private static final String UNBOUNDED = "UNBOUNDED";
     private static final String ACTION = "ACTION";
     private static final String LANGUAGE = "LANGUAGE";
+    private static final String INLINE = "INLINE";
     private static final String CALL = "CALL";
     private static final String ADAPTER = "ADAPTER";
     private static final String DETERMINISTIC = "DETERMINISTIC";
@@ -935,22 +936,22 @@ List<TypedVarIdentifier> FunctionArgs() :
     <LEFTPAREN>( LOOKAHEAD(2) (<IDENTIFIER>
     {
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString(),null));
+        paramList.add(new TypedVarIdentifier(var.toString()));
     }(<COMMA> <IDENTIFIER>{
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString(),null));
+        paramList.add(new TypedVarIdentifier(var.toString()));
     })* <RIGHTPAREN> ) | ( <IDENTIFIER> {
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString(),null));
-    } <COLON> type = TypeExpr()
+        paramList.add(new TypedVarIdentifier(var.toString()));
+    } (<COLON>)? type = TypeExpr()
     {
         typed = true;
         paramList.get(0).setType(type);
     }(<COMMA> <IDENTIFIER>
     {
         VarIdentifier varId = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(varId.toString(),null));
-    } <COLON> type = TypeExpr()  {
+        paramList.add(new TypedVarIdentifier(varId.toString()));
+    } (<COLON>)? type = TypeExpr()  {
         paramList.get(paramList.size() - 1).setType(type);
     })*<RIGHTPAREN> ) | <RIGHTPAREN> )
 
@@ -996,7 +997,6 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   boolean returnNullable = false;
   boolean deterministic = false;
   boolean nullCall = false;
-  boolean externalAction = false;
   String lang = null;
   String libName ="";
   String externalIdent = "";
@@ -1010,47 +1010,96 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   }
   ifNotExists = IfNotExists()
   args = FunctionArgs()
-  (LOOKAHEAD(2) (<LEFTBRACE>
-  {
-   createNewScope();
-     beginPos = token;
-  }
-  (functionBodyExpr = SelectExpression(true) | functionBodyExpr = Expression())
-  <RIGHTBRACE>
-    {
-      endPos = token;
-      functionBody = extractFragment(beginPos.beginLine, beginPos.beginColumn, endPos.beginLine, endPos.beginColumn);
-      // TODO use fctName.library
-      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
-      getCurrentScope().addFunctionDescriptor(signature, false);
-      removeCurrentScope();
-      defaultDataverse = currentDataverse;
-      List<? extends VarIdentifier> paramList = args;
-      CreateFunctionStatement stmt = new CreateFunctionStatement(signature, paramList, functionBody, functionBodyExpr, ifNotExists);
-      return addSourceLocation(stmt, startStmtToken);
-    } ) |
-  //(RETURN ) (DETERMINISTIC ) (NULL CALL) (EXTERNAL ACTION) LANGUAGE id (WITH)
-  ( ( <RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
-    (LOOKAHEAD({laIdentifier(DETERMINISTIC)}) <IDENTIFIER> {deterministic = true;})?
-    (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
-    (<EXTERNAL> <IDENTIFIER> {expectToken(ACTION); externalAction = true;})?
-    <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString()
-    <COMMA>  externalIdent = ConstantString()
-    (<WITH> resources = RecordConstructor())?
-    {
-      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
-      defaultDataverse = currentDataverse;
-      CreateFunctionStatement stmt = null;
-      try{
-        stmt =
-        new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
-                                    externalAction, lang, libName, externalIdent, resources,  ifNotExists);
-
-      } catch (AlgebricksException e) {
-         throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
+  ( <RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
+  (
+    LOOKAHEAD(2)(
+      <LEFTBRACE>
+      {
+          createNewScope();
+          beginPos = token;
       }
-      return addSourceLocation(stmt, startStmtToken);
-    }))
+      (functionBodyExpr = SelectExpression(true) | functionBodyExpr = Expression())
+      <RIGHTBRACE>{
+          endPos = token;
+          functionBody = extractFragment(beginPos.beginLine, beginPos.beginColumn, endPos.beginLine, endPos.beginColumn);
+          // TODO use fctName.library
+          signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+          getCurrentScope().addFunctionDescriptor(signature, false);
+          removeCurrentScope();
+          defaultDataverse = currentDataverse;
+          CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
+          return addSourceLocation(stmt, startStmtToken);
+        }
+    )
+  | (
+       LOOKAHEAD({laIdentifier(LANGUAGE)}) <IDENTIFIER>
+    (
+
+//    (
+//      <WHERE>
+//      {
+//        beginPos = token;
+//        whereClause = new WhereClause();
+//        Expression whereExpr;
+//      }
+//      whereExpr = Expression()
+//      {
+//        whereClause.setWhereExpr(whereExpr);
+//      }
+//    )?
+//    {
+//      if (whereClause != null) {
+//        endPos = token;
+//        whereClauseBody = extractFragment(beginPos.endLine, beginPos.endColumn, endPos.endLine, endPos.endColumn + 1);
+//      }
+//    }
+//      {
+//        stmt = new ConnectFeedStatement(feedNameComponents, datasetNameComponents, appliedFunctions,
+//         policy, whereClauseBody, getVarCounter());
+//      }
+//  )
+          LOOKAHEAD({laIdentifier(INLINE) }) <IDENTIFIER> <AS> {
+          lang = Identifier();
+          createNewScope();
+          beginPos = token;
+          }
+          functionBodyExpr = Expression()
+          {
+          if(functionBodyExpr!= null){
+              endPos = token;
+              functionBody = extractFragment(beginPos.endLine, beginPos.beginColumn-1, endPos.endLine, endPos.endColumn+1);
+          }
+          // TODO use fctName.library
+          signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+          getCurrentScope().addFunctionDescriptor(signature, false);
+          removeCurrentScope();
+          defaultDataverse = currentDataverse;
+          CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
+          return addSourceLocation(stmt, startStmtToken);
+          }
+    ) |
+    (
+         <IDENTIFIER> <AS> { lang = Identifier(); }
+         ((<NOT> <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = false;}) | ( <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;}) )?
+         (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
+         libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+         (<WITH> resources = RecordConstructor())?
+         {
+             signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+             defaultDataverse = currentDataverse;
+             CreateFunctionStatement stmt = null;
+             try{
+                 stmt =
+                 new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
+                                              lang, libName, externalIdent, resources,  ifNotExists);
+             } catch (AlgebricksException e) {
+                 throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
+             }
+             return addSourceLocation(stmt, startStmtToken);
+         }
+    )
+    )
+  )
 
 }
 

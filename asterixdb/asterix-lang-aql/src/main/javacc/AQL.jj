@@ -151,6 +151,7 @@ import org.apache.asterix.lang.common.struct.Identifier;
 import org.apache.asterix.lang.common.struct.OperatorType;
 import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
+import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.metadata.utils.MetadataConstants;
 import org.apache.asterix.om.types.BuiltinType;
@@ -713,7 +714,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
 {
   FunctionSignature signature;
   boolean ifNotExists = false;
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
+  List<TypedVarIdentifier> paramList = new ArrayList<TypedVarIdentifier>();
   String functionBody;
   VarIdentifier var = null;
   Expression functionBodyExpr;
@@ -739,7 +740,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
       signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
       removeCurrentScope();
-      return new CreateFunctionStatement(signature, paramList, functionBody, functionBodyExpr, ifNotExists);
+      return new CreateFunctionStatement(signature, paramList, null, functionBody, functionBodyExpr, ifNotExists);
     }
 }
 
@@ -795,21 +796,21 @@ CreateFeedPolicyStatement FeedPolicySpecification() throws ParseException:
 
 
 
-List<VarIdentifier> ParameterList() throws ParseException:
+List<TypedVarIdentifier> ParameterList() throws ParseException:
 {
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
-  VarIdentifier var = null;
+  List<TypedVarIdentifier> paramList = new ArrayList<TypedVarIdentifier>();
+  TypedVarIdentifier var = null;
 }
 {
   <LEFTPAREN> (<VARIABLE>
     {
-      var = new VarIdentifier(token.image);
+      var = new TypedVarIdentifier(token.image);
       paramList.add(var);
       getCurrentScope().addNewVarSymbolToScope(var);
     }
   ( <COMMA> <VARIABLE>
     {
-      var = new VarIdentifier(token.image);
+      var = new TypedVarIdentifier(token.image);
       paramList.add(var);
       getCurrentScope().addNewVarSymbolToScope(var);
     }
@@ -1616,15 +1617,20 @@ FunctionDecl FunctionDeclaration() throws ParseException:
   FunctionDecl funcDecl;
   FunctionSignature signature;
   String functionName;
+  List<TypedVarIdentifier> paramList_typ = new ArrayList<TypedVarIdentifier>();
   List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
   Expression funcBody;
   createNewScope();
 }
 {
   <DECLARE> <FUNCTION> functionName = Identifier()
-  paramList = ParameterList()
+
+  paramList_typ = ParameterList()
   <LEFTBRACE> funcBody = Expression() <RIGHTBRACE>
     {
+      for(VarIdentifier v: paramList_typ){
+            paramList.add(v);
+      }
       signature = new FunctionSignature(defaultDataverse, functionName, paramList.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
       funcDecl = new FunctionDecl(signature, paramList, funcBody);

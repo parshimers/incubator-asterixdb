@@ -29,6 +29,7 @@ import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.TYPE_NAM
 
 import java.io.DataOutput;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -168,9 +169,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
 
         String returnType = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX)).getStringValue();
-        String[] returnSplit = returnType.split(",");
-        Pair<DataverseName, String> qualifiedType =
-                new Pair<>(DataverseName.createFromCanonicalForm(returnSplit[0]), returnSplit[1]);
+        List<String> returnSplit = Arrays.asList(returnType.split("\\."));
+        Pair<DataverseName, String> qualifiedType = new Pair<>(
+                DataverseName.create(returnSplit, 0, returnSplit.size() - 1), returnSplit.get(returnSplit.size() - 1));
 
         String definition = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX)).getStringValue();
@@ -275,7 +276,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         // write field 4
         fieldValue.reset();
         aString.setValue(
-                function.getReturnType().getFirst().getCanonicalForm() + "," + function.getReturnType().getSecond());
+                function.getReturnType().getFirst().getCanonicalForm() + '.' + function.getReturnType().getSecond());
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX, fieldValue);
 
