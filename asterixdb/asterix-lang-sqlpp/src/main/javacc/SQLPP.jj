@@ -227,6 +227,7 @@ class SQLPPParser extends ScopeChecker implements IParser {
     private static final String CALL = "CALL";
     private static final String ADAPTER = "ADAPTER";
     private static final String DETERMINISTIC = "DETERMINISTIC";
+    private static final String DETERMINISTIC = "RETURNS";
 
 
     private static final String INT_TYPE_NAME = "int";
@@ -1010,7 +1011,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   }
   ifNotExists = IfNotExists()
   args = FunctionArgs()
-  ( <RETURNS> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
+  ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
   (
     LOOKAHEAD(2)(
       <LEFTBRACE>
@@ -1049,7 +1050,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
           defaultDataverse = currentDataverse;
           CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
           return addSourceLocation(stmt, startStmtToken);
-     } | <IDENTIFIER> <IDENTIFIER> { lang = Identifier(); } <AS>
+     } | LOOKAHEAD({laIdentifier(LANGUAGE)}) <IDENTIFIER> <IDENTIFIER> { lang = Identifier(); } <AS>
          ( <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;})?
          (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
          libName = ConstantString() <COMMA>  externalIdent = ConstantString()
@@ -3959,7 +3960,7 @@ TOKEN [IGNORE_CASE]:
   | <PRIMARY : "primary">
   | <RAW : "raw">
   | <REFRESH : "refresh">
-  | <RETURNS : "returns">
+  | <RETURN : "return">
   | <RETURNING : "returning">
   | <RTREE : "rtree">
   | <RUN : "run">
