@@ -1815,7 +1815,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     retType = new Pair(dataverseName, BuiltinType.ANY.getDisplayName());
                 }
                 Function f = new Function(signature, argType, argNames, retType, cfs.getExternalIdent(), cfs.getLang(),
-                        libraryName, FunctionKind.SCALAR.toString(), null, cfs.getResources());
+                        cfs.isNullable(), libraryName, FunctionKind.SCALAR.toString(), null, cfs.getResources());
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("Installed function: " + signature);
@@ -1864,9 +1864,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<List<Triple<DataverseName, String, String>>> dependencies = FunctionUtil.getFunctionDependencies(
                         rewriterFactory.createQueryRewriter(), cfs.getFunctionBodyExpression(), metadataProvider);
 
-                Function function = new Function(signature, argType, argNames, retType
-                        , cfs.getFunctionBody(),
-                        getFunctionLanguage(), null, FunctionKind.SCALAR.toString(), dependencies, null);
+                Function function = new Function(signature, argType, argNames, retType, cfs.getFunctionBody(),
+                        getFunctionLanguage(), false, null, FunctionKind.SCALAR.toString(), dependencies, null);
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             }

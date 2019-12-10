@@ -49,11 +49,12 @@ public class Function implements IMetadataEntity<Function> {
     private final String language;
     private final String kind;
     private final String library;
+    private final boolean nullable;
     private final Map<String, String> params;
 
     public Function(FunctionSignature signature, List<Pair<DataverseName, String>> arguments, List<String> argNames,
-            Pair<DataverseName, String> returnType, String functionBody, String language, String library,
-            String functionKind, List<List<Triple<DataverseName, String, String>>> dependencies,
+            Pair<DataverseName, String> returnType, String functionBody, String language, boolean nullable,
+            String library, String functionKind, List<List<Triple<DataverseName, String, String>>> dependencies,
             Map<String, String> params) {
         this.signature = signature;
         this.arguments = arguments;
@@ -61,6 +62,7 @@ public class Function implements IMetadataEntity<Function> {
         this.body = functionBody;
         this.returnType = returnType;
         this.language = language;
+        this.nullable = nullable;
         this.kind = functionKind;
         if (library == null) {
             this.library = "Default";
@@ -119,6 +121,10 @@ public class Function implements IMetadataEntity<Function> {
 
     public String getLanguage() {
         return language;
+    }
+
+    public boolean isNullable() {
+        return nullable;
     }
 
     public String getKind() {

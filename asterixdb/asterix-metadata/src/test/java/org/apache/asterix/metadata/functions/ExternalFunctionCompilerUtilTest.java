@@ -41,7 +41,7 @@ public class ExternalFunctionCompilerUtilTest {
         FunctionSignature signature = new FunctionSignature(DataverseName.createSinglePartName("test"), "test", 0);
         Function function = new Function(signature, new LinkedList<>(), new LinkedList<>(),
                 new Pair<DataverseName, String>(DataverseName.createBuiltinDataverseName("Default"), "{{string}}"), "",
-                "JAVA", "", "SCALAR", null, null);
+                "JAVA", false, "", "SCALAR", null, null);
 
         // when
         ExternalScalarFunctionInfo info =

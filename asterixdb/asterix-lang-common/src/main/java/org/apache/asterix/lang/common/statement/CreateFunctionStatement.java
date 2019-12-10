@@ -69,7 +69,8 @@ public class CreateFunctionStatement extends AbstractStatement {
 
     public CreateFunctionStatement(FunctionSignature signature, List<TypedVarIdentifier> parameterList,
             TypeExpression returnType, boolean returnNullable, boolean deterministic, boolean nullCall, String lang,
-            String libName, String externalIdent, RecordConstructor resources, boolean ifNotExists) throws CompilationException {
+            String libName, String externalIdent, RecordConstructor resources, boolean ifNotExists)
+            throws CompilationException {
         this.signature = signature;
         this.args = parameterList;
         this.returnType = returnType;

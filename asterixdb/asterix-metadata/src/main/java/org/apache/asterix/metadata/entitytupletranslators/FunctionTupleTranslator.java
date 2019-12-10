@@ -21,6 +21,7 @@ package org.apache.asterix.metadata.entitytupletranslators;
 
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_NAME_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_VALUE_FIELD_NAME;
@@ -95,8 +96,15 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
                 : "";
     }
 
+    private boolean getNullable(ARecord functionRecord) {
+        final ARecordType functionType = functionRecord.getType();
+        final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME);
+        return functionLibraryIdx >= 0
+                ? Boolean.getBoolean(((AString) functionRecord.getValueByPos(functionLibraryIdx)).getStringValue())
+                : false;
+    }
+
     private Map<String, String> getFunctionWithParams(ARecord functionRecord) {
-        // restore configurations        List<Pair<DataverseName,String>> args = getFunctionTypeArgs(functionRecord);
         String key = "";
         String value = "";
         Map<String, String> adaptorConfiguration = new HashMap<>();
@@ -123,7 +131,6 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     }
 
     private List<Pair<DataverseName, String>> getFunctionTypeArgs(ARecord functionRecord) {
-        // restore configurations
         String dv = "";
         String type = "";
         List<Pair<DataverseName, String>> functionArgs = new ArrayList<>();
@@ -200,9 +207,10 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         List<Pair<DataverseName, String>> args = getFunctionTypeArgs(functionRecord);
         String functionLibrary = getFunctionLibrary(functionRecord);
         Map<String, String> params = getFunctionWithParams(functionRecord);
+        boolean nullable = getNullable(functionRecord);
 
         FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
-        return new Function(signature, args, argNames, qualifiedType, definition, language, functionLibrary,
+        return new Function(signature, args, argNames, qualifiedType, definition, language, nullable, functionLibrary,
                 functionKind, dependencies, params);
     }
 
@@ -339,6 +347,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         writeArgTypes(function);
         writeWithParameters(function);
         writeLibrary(function);
+        writeNullable(function);
     }
 
     protected void writeWithParameters(Function function) throws HyracksDataException {
@@ -385,6 +394,16 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         stringSerde.serialize(aString, fieldName.getDataOutput());
         fieldValue.reset();
         aString.setValue(function.getLibrary());
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+        recordBuilder.addField(fieldName, fieldValue);
+    }
+
+    protected void writeNullable(Function function) throws HyracksDataException {
+        fieldName.reset();
+        aString.setValue(FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME);
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(Boolean.toString(function.isNullable()));
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(fieldName, fieldValue);
     }

@@ -1010,7 +1010,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   }
   ifNotExists = IfNotExists()
   args = FunctionArgs()
-  ( <RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
+  ( <RETURNS> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
   (
     LOOKAHEAD(2)(
       <LEFTBRACE>
@@ -1032,34 +1032,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
         }
     )
   | (
-       LOOKAHEAD({laIdentifier(LANGUAGE)}) <IDENTIFIER>
-    (
-
-//    (
-//      <WHERE>
-//      {
-//        beginPos = token;
-//        whereClause = new WhereClause();
-//        Expression whereExpr;
-//      }
-//      whereExpr = Expression()
-//      {
-//        whereClause.setWhereExpr(whereExpr);
-//      }
-//    )?
-//    {
-//      if (whereClause != null) {
-//        endPos = token;
-//        whereClauseBody = extractFragment(beginPos.endLine, beginPos.endColumn, endPos.endLine, endPos.endColumn + 1);
-//      }
-//    }
-//      {
-//        stmt = new ConnectFeedStatement(feedNameComponents, datasetNameComponents, appliedFunctions,
-//         policy, whereClauseBody, getVarCounter());
-//      }
-//  )
-          LOOKAHEAD({laIdentifier(INLINE) }) <IDENTIFIER> <AS> {
-          lang = Identifier();
+     LOOKAHEAD({laIdentifier(1, LANGUAGE) && laIdentifier(2, INLINE)})<IDENTIFIER> <IDENTIFIER> <AS> {
           createNewScope();
           beginPos = token;
           }
@@ -1067,7 +1040,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
           {
           if(functionBodyExpr!= null){
               endPos = token;
-              functionBody = extractFragment(beginPos.endLine, beginPos.beginColumn-1, endPos.endLine, endPos.endColumn+1);
+              functionBody = extractFragment(beginPos.endLine, beginPos.beginColumn+1, endPos.endLine, endPos.endColumn+1);
           }
           // TODO use fctName.library
           signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
@@ -1076,11 +1049,8 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
           defaultDataverse = currentDataverse;
           CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
           return addSourceLocation(stmt, startStmtToken);
-          }
-    ) |
-    (
-         <IDENTIFIER> <AS> { lang = Identifier(); }
-         ((<NOT> <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = false;}) | ( <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;}) )?
+     } | <IDENTIFIER> <IDENTIFIER> { lang = Identifier(); } <AS>
+         ( <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;})?
          (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
          libName = ConstantString() <COMMA>  externalIdent = ConstantString()
          (<WITH> resources = RecordConstructor())?
@@ -1099,8 +1069,6 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
          }
     )
     )
-  )
-
 }
 
 CreateFeedStatement FeedSpecification(Token startStmtToken) throws ParseException:
@@ -3991,7 +3959,7 @@ TOKEN [IGNORE_CASE]:
   | <PRIMARY : "primary">
   | <RAW : "raw">
   | <REFRESH : "refresh">
-  | <RETURN : "return">
+  | <RETURNS : "returns">
   | <RETURNING : "returning">
   | <RTREE : "rtree">
   | <RUN : "run">

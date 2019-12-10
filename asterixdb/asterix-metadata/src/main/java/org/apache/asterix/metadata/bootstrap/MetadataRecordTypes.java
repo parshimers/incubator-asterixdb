@@ -339,6 +339,7 @@ public final class MetadataRecordTypes {
     public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME = "WithParams";
     public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_TYPE_NAME = "Parameter";
     public static final String FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME = "Library";
+    public static final String FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME = "Nullable";
     public static final String FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME = "ArgTypes";
     public static final ARecordType FUNCTION_RECORDTYPE = createRecordType(
             // RecordTypeName
