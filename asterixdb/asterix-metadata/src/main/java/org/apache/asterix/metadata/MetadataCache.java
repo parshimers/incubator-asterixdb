@@ -242,7 +242,7 @@ public class MetadataCache {
                                             compactionPolicies.remove(dataverse.getDataverseName());
                                             List<FunctionSignature> markedFunctionsForRemoval = new ArrayList<>();
                                             for (FunctionSignature signature : functions.keySet()) {
-                                                if (signature.getNamespace().equals(dataverse.getDataverseName())) {
+                                                if (signature.getDataverseName().equals(dataverse.getDataverseName())) {
                                                     markedFunctionsForRemoval.add(signature);
                                                 }
                                             }

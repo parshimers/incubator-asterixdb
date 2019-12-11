@@ -117,6 +117,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     protected String dataverseSymbol = " dataverse ";
     protected String datasetSymbol = " dataset ";
     protected String assignSymbol = ":=";
+    private final List<String> dataverseNameParts = new ArrayList<>();
 
     public FormatPrintVisitor(PrintWriter out) {
         this.out = out;
@@ -216,7 +217,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     @Override
     public Void visit(CallExpr callExpr, Integer step) throws CompilationException {
         printHints(callExpr.getHints(), step);
-        out.print(generateFullName(callExpr.getFunctionSignature().getNamespace(),
+        out.print(generateFullName(callExpr.getFunctionSignature().getDataverseName(),
                 callExpr.getFunctionSignature().getName()) + "(");
         printDelimitedExpressions(callExpr.getExprList(), COMMA, step);
         out.print(")");
@@ -812,8 +813,8 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     public Void visit(CreateFunctionStatement cfs, Integer step) throws CompilationException {
         out.print(skip(step) + CREATE + " function ");
         out.print(generateIfNotExists(cfs.getIfNotExists()));
-        out.print(
-                this.generateFullName(cfs.getFunctionSignature().getNamespace(), cfs.getFunctionSignature().getName()));
+        out.print(this.generateFullName(cfs.getFunctionSignature().getDataverseName(),
+                cfs.getFunctionSignature().getName()));
         out.print("(");
         printDelimitedStrings(cfs.getParamList(), COMMA);
         out.println(") {");
@@ -999,10 +1000,13 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
 
     protected String generateDataverseName(DataverseName dataverseName) {
         StringBuilder sb = new StringBuilder();
-        String sep = "";
-        for (String part : dataverseName.getParts()) {
-            sb.append(sep).append(normalize(part));
-            sep = ".";
+        dataverseNameParts.clear();
+        dataverseName.getParts(dataverseNameParts);
+        for (int i = 0, ln = dataverseNameParts.size(); i < ln; i++) {
+            if (i > 0) {
+                sb.append(DataverseName.SEPARATOR_CHAR);
+            }
+            sb.append(normalize(dataverseNameParts.get(i)));
         }
         return sb.toString();
     }

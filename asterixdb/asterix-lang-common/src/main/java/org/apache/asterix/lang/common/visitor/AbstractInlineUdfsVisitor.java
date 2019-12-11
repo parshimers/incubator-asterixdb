@@ -379,7 +379,7 @@ public abstract class AbstractInlineUdfsVisitor extends AbstractQueryExpressionV
         wrappedQuery.setBody(fnDecl.getFuncBody());
         wrappedQuery.setTopLevel(false);
 
-        DataverseName fnDataverseName = fnDecl.getSignature().getNamespace();
+        DataverseName fnDataverseName = fnDecl.getSignature().getDataverseName();
         Dataverse defaultDataverse = metadataProvider.getDefaultDataverse();
 
         Dataverse fnDataverse;

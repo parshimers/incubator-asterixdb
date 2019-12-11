@@ -313,7 +313,7 @@ public class AQLToSQLPPPrintVisitor extends FormatPrintVisitor implements IAQLVi
             out.print(normalize(dataset.second));
         } else {
             printHints(callExpr.getHints(), step);
-            out.print(generateFullName(callExpr.getFunctionSignature().getNamespace(),
+            out.print(generateFullName(callExpr.getFunctionSignature().getDataverseName(),
                     callExpr.getFunctionSignature().getName()) + "(");
             printDelimitedExpressions(callExpr.getExprList(), COMMA, step);
             out.print(")");

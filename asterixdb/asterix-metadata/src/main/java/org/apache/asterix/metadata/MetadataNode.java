@@ -943,7 +943,7 @@ public class MetadataNode implements IMetadataNode {
         List<Function> functions = getAllFunctions(txnId);
         for (Function function : functions) {
             for (Triple<DataverseName, String, String> functionalDependency : function.getDependencies().get(1)) {
-                if (functionalDependency.first.equals(signature.getNamespace())
+                if (functionalDependency.first.equals(signature.getDataverseName())
                         && functionalDependency.second.equals(signature.getName())
                         && functionalDependency.third.equals(Integer.toString(signature.getArity()))) {
                     throw new AlgebricksException("Cannot drop function " + signature + " being used by function "
@@ -1124,7 +1124,7 @@ public class MetadataNode implements IMetadataNode {
     @Override
     public Function getFunction(TxnId txnId, FunctionSignature functionSignature) throws AlgebricksException {
         try {
-            ITupleReference searchKey = createTuple(functionSignature.getNamespace(), functionSignature.getName(),
+            ITupleReference searchKey = createTuple(functionSignature.getDataverseName(), functionSignature.getName(),
                     Integer.toString(functionSignature.getArity()));
             FunctionTupleTranslator tupleReaderWriter = tupleTranslatorProvider.getFunctionTupleTranslator(false);
             List<Function> results = new ArrayList<>();
@@ -1170,7 +1170,7 @@ public class MetadataNode implements IMetadataNode {
         }
         try {
             // Delete entry from the 'function' dataset.
-            ITupleReference searchKey = createTuple(functionSignature.getNamespace(), functionSignature.getName(),
+            ITupleReference searchKey = createTuple(functionSignature.getDataverseName(), functionSignature.getName(),
                     Integer.toString(functionSignature.getArity()));
             // Searches the index for the tuple to be deleted. Acquires an S
             // lock on the 'function' dataset.
@@ -1396,7 +1396,7 @@ public class MetadataNode implements IMetadataNode {
             return tuple;
         } catch (HyracksDataException e) {
             // This should never happen
-            throw new IllegalStateException("Failed to create search tuple!!!! This should never happen", e);
+            throw new IllegalStateException("Failed to create search tuple", e);
         }
     }
 

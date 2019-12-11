@@ -154,7 +154,7 @@ public class FunctionMapUtil {
                 throw new CompilationException(ErrorCode.COMPILATION_UNEXPECTED_WINDOW_EXPRESSION, sourceLoc);
             }
         }
-        return new FunctionSignature(ns.getNamespace(), ns.getName(), ns.getArity());
+        return new FunctionSignature(ns.getDataverseName(), ns.getName(), ns.getArity());
     }
 
     /**

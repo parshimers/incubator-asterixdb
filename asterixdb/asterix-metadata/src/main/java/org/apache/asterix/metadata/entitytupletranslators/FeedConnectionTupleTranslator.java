@@ -190,7 +190,7 @@ public class FeedConnectionTupleTranslator extends AbstractTupleTranslator<FeedC
             List<FunctionSignature> appliedFunctions = fc.getAppliedFunctions();
             for (FunctionSignature af : appliedFunctions) {
                 listEleBuffer.reset();
-                aString.setValue(af.getNamespace().getCanonicalForm() + '.' + af.getName()); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+                aString.setValue(af.getDataverseName().getCanonicalForm() + '.' + af.getName()); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
                 stringSerde.serialize(aString, listEleBuffer.getDataOutput());
                 listBuilder.addItem(listEleBuffer);
             }
