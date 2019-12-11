@@ -223,11 +223,11 @@ class SQLPPParser extends ScopeChecker implements IParser {
     private static final String UNBOUNDED = "UNBOUNDED";
     private static final String ACTION = "ACTION";
     private static final String LANGUAGE = "LANGUAGE";
-    private static final String INLINE = "INLINE";
     private static final String CALL = "CALL";
     private static final String ADAPTER = "ADAPTER";
     private static final String DETERMINISTIC = "DETERMINISTIC";
-    private static final String DETERMINISTIC = "RETURNS";
+    private static final String RETURNS = "RETURNS";
+    private static final String INLINE = "INLINE";
 
 
     private static final String INT_TYPE_NAME = "int";
@@ -934,7 +934,7 @@ List<TypedVarIdentifier> FunctionArgs() :
     boolean typed = false;
 }
 {
-    <LEFTPAREN>( LOOKAHEAD(2) (<IDENTIFIER>
+    <LEFTPAREN>( LOOKAHEAD(3) (<IDENTIFIER>
     {
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
         paramList.add(new TypedVarIdentifier(var.toString()));
@@ -952,9 +952,9 @@ List<TypedVarIdentifier> FunctionArgs() :
     {
         VarIdentifier varId = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
         paramList.add(new TypedVarIdentifier(varId.toString()));
-    } (<COLON>)? type = TypeExpr()  {
+    } (<COLON>)? (type = TypeExpr()  {
         paramList.get(paramList.size() - 1).setType(type);
-    })*<RIGHTPAREN> ) | <RIGHTPAREN> )
+    })? )*<RIGHTPAREN> ) | <RIGHTPAREN> )
 
     {
         return paramList;
@@ -1013,7 +1013,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   args = FunctionArgs()
   ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
   (
-    LOOKAHEAD(2)(
+    (
       <LEFTBRACE>
       {
           createNewScope();
@@ -1023,7 +1023,6 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
       <RIGHTBRACE>{
           endPos = token;
           functionBody = extractFragment(beginPos.beginLine, beginPos.beginColumn, endPos.beginLine, endPos.beginColumn);
-          // TODO use fctName.library
           signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
           getCurrentScope().addFunctionDescriptor(signature, false);
           removeCurrentScope();
@@ -1032,44 +1031,52 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
           return addSourceLocation(stmt, startStmtToken);
         }
     )
-  | (
-     LOOKAHEAD({laIdentifier(1, LANGUAGE) && laIdentifier(2, INLINE)})<IDENTIFIER> <IDENTIFIER> <AS> {
-          createNewScope();
-          beginPos = token;
-          }
-          functionBodyExpr = Expression()
-          {
-          if(functionBodyExpr!= null){
-              endPos = token;
-              functionBody = extractFragment(beginPos.endLine, beginPos.beginColumn+1, endPos.endLine, endPos.endColumn+1);
-          }
-          // TODO use fctName.library
-          signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
-          getCurrentScope().addFunctionDescriptor(signature, false);
-          removeCurrentScope();
-          defaultDataverse = currentDataverse;
-          CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
-          return addSourceLocation(stmt, startStmtToken);
-     } | LOOKAHEAD({laIdentifier(LANGUAGE)}) <IDENTIFIER> <IDENTIFIER> { lang = Identifier(); } <AS>
-         ( <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;})?
-         (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
-         libName = ConstantString() <COMMA>  externalIdent = ConstantString()
-         (<WITH> resources = RecordConstructor())?
-         {
-             signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
-             defaultDataverse = currentDataverse;
-             CreateFunctionStatement stmt = null;
-             try{
-                 stmt =
-                 new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
-                                              lang, libName, externalIdent, resources,  ifNotExists);
-             } catch (AlgebricksException e) {
-                 throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
-             }
-             return addSourceLocation(stmt, startStmtToken);
-         }
-    )
-    )
+  |
+     <IDENTIFIER> {expectToken(LANGUAGE);}
+     (
+        LOOKAHEAD({laIdentifier(INLINE)})
+        (
+              <IDENTIFIER> <AS> {
+                  createNewScope();
+                  beginPos = token;
+              }
+              functionBodyExpr = Expression()
+              {
+                  if(functionBodyExpr!= null){
+                      endPos = token;
+                      functionBody = extractFragment(beginPos.endLine, beginPos.beginColumn+1, endPos.endLine, endPos.endColumn+1);
+                  }
+                  signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+                  getCurrentScope().addFunctionDescriptor(signature, false);
+                  removeCurrentScope();
+                  defaultDataverse = currentDataverse;
+                  CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
+                  return addSourceLocation(stmt, startStmtToken);
+              }
+        )
+        |
+        (
+              lang = Identifier()  <AS>
+              ( <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;})?
+              (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
+              libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+              (<WITH> resources = RecordConstructor())?
+              {
+                  signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+                  defaultDataverse = currentDataverse;
+                  CreateFunctionStatement stmt = null;
+                  try{
+                      stmt =
+                      new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
+                                                   lang, libName, externalIdent, resources,  ifNotExists);
+                  } catch (AlgebricksException e) {
+                      throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
+                  }
+                  return addSourceLocation(stmt, startStmtToken);
+              }
+        )
+     )
+  )
 }
 
 CreateFeedStatement FeedSpecification(Token startStmtToken) throws ParseException:
