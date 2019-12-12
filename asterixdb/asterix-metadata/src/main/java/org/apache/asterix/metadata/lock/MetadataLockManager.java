@@ -18,8 +18,6 @@
  */
 package org.apache.asterix.metadata.lock;
 
-import static org.apache.asterix.common.metadata.MetadataEntityKind.*;
-
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -28,7 +26,6 @@ import org.apache.asterix.common.api.IMetadataLockManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.metadata.IMetadataLock;
 import org.apache.asterix.common.metadata.LockList;
-import org.apache.asterix.common.metadata.MetadataLockKey;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 
 public class MetadataLockManager implements IMetadataLockManager {

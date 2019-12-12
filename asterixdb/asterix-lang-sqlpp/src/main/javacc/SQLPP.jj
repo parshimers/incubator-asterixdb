@@ -985,7 +985,7 @@ CreateAdapterStatement CreateAdapterStatement(Token startStmtToken) throws Parse
   CreateAdapterStatement stmt = null;
 }
 {
-  <IDENTIFIER> {expectToken(ADAPTER); stmt = AdapterSpecification(startStmtToken)
+  <IDENTIFIER> { expectToken(ADAPTER); } stmt = AdapterSpecification(startStmtToken)
   {
     return stmt;
   }

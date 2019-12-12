@@ -1769,7 +1769,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             external = true;
         }
         DataverseName dataverseName = getActiveDataverseName(signature.getDataverseName());
-        signature.setNamespace(dataverseName);
+        signature.setDataverseName(dataverseName);
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean committed = false;

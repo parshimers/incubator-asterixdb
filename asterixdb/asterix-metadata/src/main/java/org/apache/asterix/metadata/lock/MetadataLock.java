@@ -22,7 +22,6 @@ import java.util.Objects;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.asterix.common.metadata.IMetadataLock;
-import org.apache.asterix.common.metadata.MetadataLockKey;
 
 public class MetadataLock implements IMetadataLock {
     private final MetadataLockKey key;
