@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-use externallibtest;
 
-SELECT VALUE getCapital(country) FROM ["England","Italy","China","United States","India","Jupiter"] as country;
-
+select element [position(x, 'ofo'), position(y,'ofo')]
+from  ['foofoo'] as x, ['barbar'] as y;
