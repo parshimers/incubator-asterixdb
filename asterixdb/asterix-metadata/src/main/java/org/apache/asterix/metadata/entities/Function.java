@@ -88,7 +88,7 @@ public class Function implements IMetadataEntity<Function> {
     }
 
     public DataverseName getDataverseName() {
-        return signature.getNamespace();
+        return signature.getDataverseName();
     }
 
     public String getName() {

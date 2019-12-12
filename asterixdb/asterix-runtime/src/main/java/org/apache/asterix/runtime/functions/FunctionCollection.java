@@ -297,6 +297,7 @@ import org.apache.asterix.runtime.evaluators.functions.ArrayAppendDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArrayConcatDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArrayContainsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArrayDistinctDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayExceptDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArrayFlattenDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArrayIfNullDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ArrayInsertDescriptor;
@@ -416,12 +417,14 @@ import org.apache.asterix.runtime.evaluators.functions.StringRegExpContainsDescr
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpContainsWithFlagDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpLikeDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpLikeWithFlagDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.StringRegExpMatchesDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpPositionDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpPositionOffset1Descriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpPositionOffset1WithFlagDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpPositionWithFlagDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpReplaceDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpReplaceWithFlagDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.StringRegExpSplitDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRepeatDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringReplaceDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringReplaceWithLimitDescriptor;
@@ -599,6 +602,7 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.add(ArraySymDiffDescriptor.FACTORY);
         fc.add(ArraySymDiffnDescriptor.FACTORY);
         fc.add(ArrayStarDescriptor.FACTORY);
+        fc.add(ArrayExceptDescriptor.FACTORY);
 
         // unnesting functions
         fc.add(TidRunningAggregateDescriptor.FACTORY);
@@ -997,6 +1001,8 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.add(StringRegExpPositionOffset1WithFlagDescriptor.FACTORY);
         fc.add(StringRegExpReplaceDescriptor.FACTORY);
         fc.add(StringRegExpReplaceWithFlagDescriptor.FACTORY);
+        fc.add(StringRegExpMatchesDescriptor.FACTORY);
+        fc.add(StringRegExpSplitDescriptor.FACTORY);
         fc.add(StringInitCapDescriptor.FACTORY);
         fc.add(StringTrimDescriptor.FACTORY);
         fc.add(StringLTrimDescriptor.FACTORY);

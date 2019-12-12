@@ -67,6 +67,7 @@ import org.apache.asterix.om.typecomputer.impl.ATimeTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AUUIDTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AYearMonthDurationTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AnyTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.ArrayExceptTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ArrayIfNullTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ArrayRangeTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ArrayRepeatTypeComputer;
@@ -93,6 +94,7 @@ import org.apache.asterix.om.typecomputer.impl.IfMissingTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.IfNanOrInfTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.IfNullTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.InjectFailureTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.Int64ArrayToStringTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.LocalAvgTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.LocalSingleVarStatisticsTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.MinMaxAggTypeComputer;
@@ -124,14 +126,8 @@ import org.apache.asterix.om.typecomputer.impl.RecordRemoveFieldsTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ScalarArrayAggTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ScalarVersionOfAggregateResultType;
 import org.apache.asterix.om.typecomputer.impl.SleepTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.StringBooleanTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.StringInt32TypeComputer;
 import org.apache.asterix.om.typecomputer.impl.StringJoinTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.StringStringTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.StringToInt64ListTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.StringToStringListTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.SubsetCollectionTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.SubstringTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.SwitchCaseComputer;
 import org.apache.asterix.om.typecomputer.impl.ToArrayTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ToBigIntTypeComputer;
@@ -141,7 +137,7 @@ import org.apache.asterix.om.typecomputer.impl.ToObjectTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.TreatAsTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.UnaryBinaryInt64TypeComputer;
 import org.apache.asterix.om.typecomputer.impl.UnaryMinusTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.UnaryStringInt64TypeComputer;
+import org.apache.asterix.om.typecomputer.impl.UniformInputTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.UnorderedListConstructorTypeComputer;
 import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.commons.lang3.mutable.Mutable;
@@ -260,6 +256,8 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-slice", 2);
     public static final FunctionIdentifier ARRAY_SLICE_WITH_END_POSITION =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-slice", 3);
+    public static final FunctionIdentifier ARRAY_EXCEPT =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-except", 2);
 
     // objects
     public static final FunctionIdentifier RECORD_MERGE =
@@ -442,6 +440,10 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "regexp-replace", 3);
     public static final FunctionIdentifier STRING_REGEXP_REPLACE_WITH_FLAG =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "regexp-replace", 4);
+    public static final FunctionIdentifier STRING_REGEXP_MATCHES =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "regexp-matches", 2);
+    public static final FunctionIdentifier STRING_REGEXP_SPLIT =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "regexp-split", 2);
     public static final FunctionIdentifier STRING_LOWERCASE =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "lowercase", 1);
     public static final FunctionIdentifier STRING_UPPERCASE =
@@ -1711,49 +1713,51 @@ public class BuiltinFunctions {
         addFunction(IS_BIT_SET_WITH_ALL_FLAG, BitValuePositionFlagTypeComputer.INSTANCE_TEST_WITH_FLAG, true);
 
         // string functions
-        addFunction(STRING_CONSTRUCTOR, AStringTypeComputer.INSTANCE, true); // TODO
+        addFunction(STRING_CONSTRUCTOR, AStringTypeComputer.INSTANCE, true); // TODO(ali)
         addFunction(STRING_LIKE, BooleanFunctionTypeComputer.INSTANCE, true);
-        addFunction(STRING_CONTAINS, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_TO_CODEPOINT, StringToInt64ListTypeComputer.INSTANCE, true);
-        addFunction(CODEPOINT_TO_STRING, AStringTypeComputer.INSTANCE, true); // TODO
-        addFunction(STRING_CONCAT, ConcatTypeComputer.INSTANCE_STRING, true); // TODO
-        addFunction(SUBSTRING, SubstringTypeComputer.INSTANCE, true); // TODO
-        addFunction(SUBSTRING_OFFSET_1, SubstringTypeComputer.INSTANCE, true); // TODO
+        addFunction(STRING_CONTAINS, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
+        addFunction(STRING_TO_CODEPOINT, UniformInputTypeComputer.STRING_INT64_LIST_INSTANCE, true);
+        addFunction(CODEPOINT_TO_STRING, Int64ArrayToStringTypeComputer.INSTANCE, true);
+        addFunction(STRING_CONCAT, ConcatTypeComputer.INSTANCE_STRING, true);
+        addFunction(SUBSTRING, AStringTypeComputer.INSTANCE_NULLABLE, true);
+        addFunction(SUBSTRING_OFFSET_1, AStringTypeComputer.INSTANCE_NULLABLE, true);
         addFunction(SUBSTRING2, AStringTypeComputer.INSTANCE_NULLABLE, true);
         addFunction(SUBSTRING2_OFFSET_1, AStringTypeComputer.INSTANCE_NULLABLE, true);
-        addFunction(STRING_LENGTH, UnaryStringInt64TypeComputer.INSTANCE, true);
-        addFunction(STRING_LOWERCASE, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_UPPERCASE, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_INITCAP, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_TRIM, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_LTRIM, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_RTRIM, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_TRIM2, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_LTRIM2, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_RTRIM2, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_POSITION, StringInt32TypeComputer.INSTANCE, true);
-        addFunction(STRING_POSITION_OFFSET_1, StringInt32TypeComputer.INSTANCE, true);
-        addFunction(STRING_STARTS_WITH, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_ENDS_WITH, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_MATCHES, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_MATCHES_WITH_FLAG, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_LIKE, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_LIKE_WITH_FLAG, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_POSITION, StringInt32TypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_POSITION_OFFSET_1, StringInt32TypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_POSITION_WITH_FLAG, StringInt32TypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_POSITION_OFFSET_1_WITH_FLAG, StringInt32TypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_REPLACE, StringStringTypeComputer.INSTANCE, true);
+        addFunction(STRING_LENGTH, UniformInputTypeComputer.STRING_INT64_INSTANCE, true);
+        addFunction(STRING_LOWERCASE, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_UPPERCASE, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_INITCAP, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_TRIM, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_LTRIM, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_RTRIM, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_TRIM2, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_LTRIM2, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_RTRIM2, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_POSITION, UniformInputTypeComputer.STRING_INT32_INSTANCE, true);
+        addFunction(STRING_POSITION_OFFSET_1, UniformInputTypeComputer.STRING_INT32_INSTANCE, true);
+        addFunction(STRING_STARTS_WITH, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
+        addFunction(STRING_ENDS_WITH, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
+        addFunction(STRING_MATCHES, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
+        addFunction(STRING_MATCHES_WITH_FLAG, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
+        addFunction(STRING_REGEXP_LIKE, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
+        addFunction(STRING_REGEXP_LIKE_WITH_FLAG, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
+        addFunction(STRING_REGEXP_POSITION, UniformInputTypeComputer.STRING_INT32_INSTANCE, true);
+        addFunction(STRING_REGEXP_POSITION_OFFSET_1, UniformInputTypeComputer.STRING_INT32_INSTANCE, true);
+        addFunction(STRING_REGEXP_POSITION_WITH_FLAG, UniformInputTypeComputer.STRING_INT32_INSTANCE, true);
+        addFunction(STRING_REGEXP_POSITION_OFFSET_1_WITH_FLAG, UniformInputTypeComputer.STRING_INT32_INSTANCE, true);
+        addFunction(STRING_REGEXP_REPLACE, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
         addFunction(STRING_REGEXP_REPLACE_WITH_FLAG, AStringTypeComputer.INSTANCE_NULLABLE, true);
-        addFunction(STRING_REPLACE, StringStringTypeComputer.INSTANCE, true);
+        addFunction(STRING_REPLACE, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(STRING_REGEXP_MATCHES, UniformInputTypeComputer.STRING_STRING_LIST_INSTANCE, true);
+        addFunction(STRING_REGEXP_SPLIT, UniformInputTypeComputer.STRING_STRING_LIST_INSTANCE, true);
         addFunction(STRING_REPLACE_WITH_LIMIT, AStringTypeComputer.INSTANCE_NULLABLE, true);
-        addFunction(STRING_REVERSE, StringStringTypeComputer.INSTANCE, true);
-        addFunction(SUBSTRING_BEFORE, StringStringTypeComputer.INSTANCE, true);
-        addFunction(SUBSTRING_AFTER, StringStringTypeComputer.INSTANCE, true);
-        addPrivateFunction(STRING_EQUAL, StringBooleanTypeComputer.INSTANCE, true);
+        addFunction(STRING_REVERSE, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(SUBSTRING_BEFORE, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addFunction(SUBSTRING_AFTER, UniformInputTypeComputer.STRING_STRING_INSTANCE, true);
+        addPrivateFunction(STRING_EQUAL, UniformInputTypeComputer.STRING_BOOLEAN_INSTANCE, true);
         addFunction(STRING_JOIN, StringJoinTypeComputer.INSTANCE, true);
         addFunction(STRING_REPEAT, AStringTypeComputer.INSTANCE_NULLABLE, true);
-        addFunction(STRING_SPLIT, StringToStringListTypeComputer.INSTANCE, true);
+        addFunction(STRING_SPLIT, UniformInputTypeComputer.STRING_STRING_LIST_INSTANCE, true);
 
         addPrivateFunction(ORDERED_LIST_CONSTRUCTOR, OrderedListConstructorTypeComputer.INSTANCE, true);
         addFunction(POINT_CONSTRUCTOR, APointTypeComputer.INSTANCE, true);
@@ -2204,6 +2208,7 @@ public class BuiltinFunctions {
         addFunction(ARRAY_STAR, OpenARecordTypeComputer.INSTANCE, true);
         addFunction(ARRAY_SLICE_WITH_END_POSITION, AListTypeComputer.INSTANCE_SLICE, true);
         addFunction(ARRAY_SLICE_WITHOUT_END_POSITION, AListTypeComputer.INSTANCE_SLICE, true);
+        addFunction(ARRAY_EXCEPT, ArrayExceptTypeComputer.INSTANCE, true);
 
         // objects
         addFunction(RECORD_MERGE, RecordMergeTypeComputer.INSTANCE, true);

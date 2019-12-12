@@ -31,8 +31,8 @@ public class FunctionSignatures {
         functionMap = new HashMap<>();
     }
 
-    public FunctionSignature get(DataverseName namespace, String name, int arity) {
-        FunctionSignature fid = new FunctionSignature(namespace, name, arity);
+    public FunctionSignature get(DataverseName dataverseName, String name, int arity) {
+        FunctionSignature fid = new FunctionSignature(dataverseName, name, arity);
         FunctionExpressionMap possibleFD = functionMap.get(fid);
         if (possibleFD == null) {
             return null;

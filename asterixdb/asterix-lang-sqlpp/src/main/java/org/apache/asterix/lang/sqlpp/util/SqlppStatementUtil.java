@@ -107,7 +107,8 @@ public class SqlppStatementUtil {
     }
 
     /**
-     * Encloses each part of the {@param dataverseName} in back-ticks and concatenates them with {@link #DOT} separator
+     * Encloses each part of the {@param dataverseName} in back-ticks and concatenates them with
+     * {@link DataverseName#SEPARATOR_CHAR} separator
      * @param stringBuilder where the dataverse name will be appended
      * @param dataverseName a dataverse name which could be a valid one or one that needs to be delimited
      * @return {@param stringBuilder} with the <i>delimited</i> dataverseName appended
@@ -116,7 +117,7 @@ public class SqlppStatementUtil {
         List<String> parts = dataverseName.getParts();
         for (int i = 0, ln = parts.size(); i < ln; i++) {
             if (i > 0) {
-                stringBuilder.append(DOT);
+                stringBuilder.append(DataverseName.SEPARATOR_CHAR);
             }
             enclose(stringBuilder, parts.get(i));
         }

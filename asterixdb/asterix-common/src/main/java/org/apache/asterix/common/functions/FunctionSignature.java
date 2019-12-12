@@ -77,7 +77,7 @@ public class FunctionSignature implements Serializable {
         return Objects.hash(dataverseName, name);
     }
 
-    public DataverseName getNamespace() {
+    public DataverseName getDataverseName() {
         return dataverseName;
     }
 
@@ -89,8 +89,8 @@ public class FunctionSignature implements Serializable {
         return arity;
     }
 
-    public void setNamespace(DataverseName namespace) {
-        this.dataverseName = namespace;
+    public void setDataverseName(DataverseName dataverseName) {
+        this.dataverseName = dataverseName;
     }
 
     public void setName(String name) {

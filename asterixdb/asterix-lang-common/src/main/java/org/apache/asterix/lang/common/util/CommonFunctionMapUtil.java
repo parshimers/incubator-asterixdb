@@ -70,6 +70,8 @@ public class CommonFunctionMapUtil {
         addFunctionMapping("regex_position1", "regexp-position1");
         addFunctionMapping("regexp_pos1", "regexp-position1");
         addFunctionMapping("regex_replace", "regexp-replace");
+        addFunctionMapping("regex_matches", "regexp-matches");
+        addFunctionMapping("regex_split", "regexp-split");
 
         // Type functions.
         addFunctionMapping("isnull", "is-null"); // isnull, internal: is-null
@@ -165,10 +167,10 @@ public class CommonFunctionMapUtil {
         String lowerCaseName = name.toLowerCase();
         String mappedName = getFunctionMapping(lowerCaseName);
         if (mappedName != null) {
-            return new FunctionSignature(fs.getNamespace(), mappedName, fs.getArity());
+            return new FunctionSignature(fs.getDataverseName(), mappedName, fs.getArity());
         }
         String understoreName = lowerCaseName.replace('_', '-');
-        FunctionSignature newFs = new FunctionSignature(fs.getNamespace(), understoreName, fs.getArity());
+        FunctionSignature newFs = new FunctionSignature(fs.getDataverseName(), understoreName, fs.getArity());
         return BuiltinFunctions.isBuiltinCompilerFunction(newFs, true) ? newFs : fs;
     }
 

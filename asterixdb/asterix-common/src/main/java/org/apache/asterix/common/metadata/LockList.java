@@ -34,7 +34,7 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
  */
 public class LockList {
     private final List<MutablePair<IMetadataLock, IMetadataLock.Mode>> locks = new ArrayList<>();
-    private final Map<MetadataLockKey, Integer> indexes = new HashMap<>();
+    private final Map<IMetadataLock.LockKey, Integer> indexes = new HashMap<>();
     private boolean lockPhase = true;
 
     /**

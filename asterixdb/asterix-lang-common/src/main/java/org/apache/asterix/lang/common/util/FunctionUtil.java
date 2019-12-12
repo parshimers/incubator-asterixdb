@@ -127,10 +127,10 @@ public class FunctionUtil {
             if (declaredFunctions != null && declaredFunctions.contains(signature)) {
                 continue;
             }
-            if (signature.getNamespace() == null) {
-                signature.setNamespace(metadataProvider.getDefaultDataverseName());
+            if (signature.getDataverseName() == null) {
+                signature.setDataverseName(metadataProvider.getDefaultDataverseName());
             }
-            DataverseName namespace = signature.getNamespace();
+            DataverseName namespace = signature.getDataverseName();
             // Checks the existence of the referred dataverse.
             try {
                 if (!namespace.equals(FunctionConstants.ASTERIX_DV)
@@ -199,7 +199,7 @@ public class FunctionUtil {
                         ExpressionUtils::getStringLiteral);
                 datasourceDependencies.add(new Triple<>(datasetReference.first, datasetReference.second, null));
             } else if (!BuiltinFunctions.isBuiltinCompilerFunction(signature, false)) {
-                functionDependencies.add(new Triple<>(signature.getNamespace(), signature.getName(),
+                functionDependencies.add(new Triple<>(signature.getDataverseName(), signature.getName(),
                         Integer.toString(signature.getArity())));
             }
         }
@@ -211,14 +211,14 @@ public class FunctionUtil {
 
     private static Function lookupUserDefinedFunctionDecl(MetadataTransactionContext mdTxnCtx,
             FunctionSignature signature) throws AlgebricksException {
-        if (signature.getNamespace() == null) {
+        if (signature.getDataverseName() == null) {
             return null;
         }
         return MetadataManager.INSTANCE.getFunction(mdTxnCtx, signature);
     }
 
     public static boolean isBuiltinDatasetFunction(FunctionSignature fs) {
-        return Objects.equals(FN_DATASET_DATAVERSE_NAME, fs.getNamespace())
+        return Objects.equals(FN_DATASET_DATAVERSE_NAME, fs.getDataverseName())
                 && Objects.equals(FN_DATASET_NAME, fs.getName());
     }
 

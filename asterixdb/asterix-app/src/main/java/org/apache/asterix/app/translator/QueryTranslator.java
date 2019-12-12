@@ -308,7 +308,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     sessionOutput.out().println(ApiServlet.HTML_STATEMENT_SEPARATOR);
                 }
                 validateOperation(appCtx, activeDataverse, stmt);
-                MetadataProvider metadataProvider = new MetadataProvider(appCtx, activeDataverse);
+                MetadataProvider metadataProvider = MetadataProvider.create(appCtx, activeDataverse);
                 metadataProvider.getConfig().putAll(config);
                 metadataProvider.setWriterFactory(writerFactory);
                 metadataProvider.setResultSerializerFactoryProvider(resultSerializerFactoryProvider);
@@ -1768,7 +1768,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         if (cfs.getFunctionBody() == null) {
             external = true;
         }
-        DataverseName dataverseName = getActiveDataverseName(signature.getNamespace());
+        DataverseName dataverseName = getActiveDataverseName(signature.getDataverseName());
         signature.setNamespace(dataverseName);
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
@@ -1966,10 +1966,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         FunctionDropStatement stmtDropFunction = (FunctionDropStatement) stmt;
         SourceLocation sourceLoc = stmtDropFunction.getSourceLocation();
         FunctionSignature signature = stmtDropFunction.getFunctionSignature();
-        signature.setNamespace(getActiveDataverseName(signature.getNamespace()));
+        signature.setDataverseName(getActiveDataverseName(signature.getDataverseName()));
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        MetadataLockUtil.dropFunctionBegin(lockManager, metadataProvider.getLocks(), signature.getNamespace(),
+        MetadataLockUtil.dropFunctionBegin(lockManager, metadataProvider.getLocks(), signature.getDataverseName(),
                 signature.getName());
         try {
             Function function = MetadataManager.INSTANCE.getFunction(mdTxnCtx, signature);

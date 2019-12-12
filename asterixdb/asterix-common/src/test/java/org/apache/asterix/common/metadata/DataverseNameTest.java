@@ -33,6 +33,9 @@ import org.apache.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFun
 import org.junit.Assert;
 import org.junit.Test;
 
+/**
+ * Unit test for {@link DataverseName}
+ */
 public class DataverseNameTest {
 
     private static final List<String> TEST_BUILTIN_DATAVERSE_NAME_PARAMS = Arrays.asList(
@@ -201,14 +204,13 @@ public class DataverseNameTest {
         testRuntimeException(() -> DataverseName.create(Collections.singletonList(null)), NullPointerException.class);
         testRuntimeException(() -> DataverseName.create(Arrays.asList(null, null)), NullPointerException.class);
         // 3. IndexOutOfBoundsException
-        testRuntimeException(() -> DataverseName.create(Collections.emptyList()), IndexOutOfBoundsException.class);
-        testRuntimeException(() -> DataverseName.create(Collections.emptyList(), 0, 0),
-                IndexOutOfBoundsException.class);
         testRuntimeException(() -> DataverseName.create(Collections.emptyList(), 0, 1),
                 IndexOutOfBoundsException.class);
         testRuntimeException(() -> DataverseName.create(Collections.emptyList(), 0, 2),
                 IndexOutOfBoundsException.class);
         // 4. IllegalArgumentException
+        testRuntimeException(() -> DataverseName.create(Collections.emptyList()), IllegalArgumentException.class);
+        testRuntimeException(() -> DataverseName.create(Collections.emptyList(), 0, 0), IllegalArgumentException.class);
         testRuntimeException(() -> DataverseName.create(Arrays.asList("a", "b", "c"), 2, 1),
                 IllegalArgumentException.class);
     }

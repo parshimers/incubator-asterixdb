@@ -888,7 +888,7 @@ class LangExpressionToPlanTranslator
     private AbstractFunctionCallExpression lookupUserDefinedFunction(FunctionSignature signature,
             List<Mutable<ILogicalExpression>> args, SourceLocation sourceLoc) throws CompilationException {
         try {
-            if (signature.getNamespace() == null) {
+            if (signature.getDataverseName() == null) {
                 return null;
             }
             Function function =

@@ -138,9 +138,9 @@ public class ScopeChecker {
      *
      * @return functionDescriptor
      */
-    public final FunctionSignature lookupFunctionSignature(DataverseName namespace, String name, int arity) {
-        if (namespace != null) {
-            return getCurrentScope().findFunctionSignature(namespace, name, arity);
+    public final FunctionSignature lookupFunctionSignature(DataverseName dataverseName, String name, int arity) {
+        if (dataverseName != null) {
+            return getCurrentScope().findFunctionSignature(dataverseName, name, arity);
         } else {
             return null;
         }
