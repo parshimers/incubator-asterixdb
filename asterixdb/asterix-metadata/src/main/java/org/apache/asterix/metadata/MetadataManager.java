@@ -586,7 +586,7 @@ public abstract class MetadataManager implements IMetadataManager {
             return null;
         }
         if (ctx.getDataverse(functionSignature.getDataverseName()) != null) {
-            // This transaction has dropped and subsequently created the same
+            // This transaction has dropped and subsequenthandledataly created the same
             // dataverse.
             return null;
         }

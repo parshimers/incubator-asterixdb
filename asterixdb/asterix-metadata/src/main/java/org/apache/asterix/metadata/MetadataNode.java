@@ -935,6 +935,13 @@ public class MetadataNode implements IMetadataNode {
                                     + "." + functionDependency.second + "@" + functionDependency.third);
                 }
             }
+            for (Triple<DataverseName, String, String> type : function.getDependencies().get(2)) {
+                if (type.first.equals(dataverseName)) {
+                    throw new AlgebricksException(
+                            "Cannot drop dataverse. Function " + function.getDataverseName() + "." + function.getName()
+                                    + "@" + function.getArity() + " depends on type " + type.first + "." + type.second);
+                }
+            }
         }
     }
 
@@ -973,6 +980,7 @@ public class MetadataNode implements IMetadataNode {
             throws AlgebricksException {
         confirmDatatypeIsUnusedByDatatypes(txnId, dataverseName, datatypeName);
         confirmDatatypeIsUnusedByDatasets(txnId, dataverseName, datatypeName);
+        confirmDatatypeIsUnusedByFunctions(txnId, dataverseName, datatypeName);
     }
 
     private void confirmDatatypeIsUnusedByDatasets(TxnId txnId, DataverseName dataverseName, String datatypeName)
@@ -1006,6 +1014,21 @@ public class MetadataNode implements IMetadataNode {
             if (recType.containsType(typeToBeDropped)) {
                 throw new AlgebricksException("Cannot drop type " + dataverseName + "." + datatypeName
                         + " being used by type " + dataverseName + "." + recType.getTypeName());
+            }
+        }
+    }
+
+    private void confirmDatatypeIsUnusedByFunctions(TxnId txnId, DataverseName dataverseName, String dataTypeName)
+            throws AlgebricksException {
+        // If any function uses this type, throw an error
+        List<Function> functions = getAllFunctions(txnId);
+        for (Function function : functions) {
+            for (Triple<DataverseName, String, String> datasetDependency : function.getDependencies().get(2)) {
+                if (datasetDependency.first.equals(dataverseName) && datasetDependency.second.equals(dataTypeName)) {
+                    throw new AlgebricksException("Cannot drop type " + dataverseName + "." + dataTypeName
+                            + " is being used by function " + function.getDataverseName() + "." + function.getName()
+                            + "@" + function.getArity());
+                }
             }
         }
     }

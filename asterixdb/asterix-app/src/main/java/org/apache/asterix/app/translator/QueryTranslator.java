@@ -1814,6 +1814,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 } else {
                     retType = new Pair(dataverseName, BuiltinType.ANY.getDisplayName());
                 }
+                List<List<Triple<DataverseName, String, String>>> dependencies =
+                        FunctionUtil.getExternalFunctionDependencies(argType);
                 Function f = new Function(signature, argType, argNames, retType, cfs.getExternalIdent(), cfs.getLang(),
                         cfs.isNullable(), libraryName, FunctionKind.SCALAR.toString(), null, cfs.getResources());
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
@@ -1861,8 +1863,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 apiFramework.reWriteQuery(declaredFunctions, metadataProvider, wrappedQuery, sessionOutput, false,
                         paramVars, warningCollector);
 
-                List<List<Triple<DataverseName, String, String>>> dependencies = FunctionUtil.getFunctionDependencies(
-                        rewriterFactory.createQueryRewriter(), cfs.getFunctionBodyExpression(), metadataProvider);
+                List<List<Triple<DataverseName, String, String>>> dependencies =
+                        FunctionUtil.getFunctionDependencies(rewriterFactory.createQueryRewriter(),
+                                cfs.getFunctionBodyExpression(), metadataProvider, argType);
 
                 Function function = new Function(signature, argType, argNames, retType, cfs.getFunctionBody(),
                         getFunctionLanguage(), false, null, FunctionKind.SCALAR.toString(), dependencies, null);
@@ -1887,12 +1890,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         SourceLocation sourceLoc = cas.getSourceLocation();
         AdapterIdentifier aid = cas.getAdapterId();
         DataverseName dataverse = getActiveDataverseName(aid.getDataverseName());
-        List<List<org.apache.hyracks.algebricks.common.utils.Triple<DataverseName, String, String>>> dependencies =
-                FunctionUtil.getFunctionDependencies(rewriterFactory.createQueryRewriter(), null, metadataProvider);
-
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        //        MetadataLockUtil.functionStatementBegin(lockManager, metadataProvider.getLocks(), dataverse);
         String libraryName = cas.getLibName();
         try {
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);

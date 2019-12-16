@@ -20,6 +20,7 @@
 package org.apache.asterix.metadata;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -363,6 +364,12 @@ public class MetadataCache {
     public Function getFunction(FunctionSignature functionSignature) {
         synchronized (functions) {
             return functions.get(functionSignature);
+        }
+    }
+
+    public Collection<Function> getAllFunctions() {
+        synchronized (functions) {
+            return functions.values();
         }
     }
 

@@ -1148,10 +1148,10 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
         )
         |
         (
-              lang = Identifier()  <AS>
-              ( <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;})?
+              lang = Identifier()
+              ( (<NOT> <IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = false;}) | (<IDENTIFIER> {expectToken(DETERMINISTIC); deterministic = true;}) )?
               (<NULL> <IDENTIFIER> { expectToken(CALL); nullCall = true;})?
-              libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+              <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
               (<WITH> resources = RecordConstructor())?
               {
                   signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
