@@ -1017,61 +1017,29 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
 }
 
 
-List<TypedVarIdentifier> FunctionArgs() :
+List<Pair<VarIdentifier,IndexedTypeExpression>> FunctionParameters() :
 {
-    List<TypedVarIdentifier> paramList = new ArrayList<TypedVarIdentifier>();
-    TypedVarIdentifier varTyped = null;
+    List<Pair<VarIdentifier,IndexedTypeExpression>> paramList = new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>();
+    Pair<VarIdentifier,IndexedTypeExpression> varPair = new Pair<VarIdentifier,IndexedTypeExpression>(null,null);
     VarIdentifier var = null;
-    TypeExpression type = null;
+    IndexedTypeExpression type = null;
     boolean typed = false;
 }
 {
-    <LEFTPAREN>( LOOKAHEAD(3) (<IDENTIFIER>
+    <LEFTPAREN>( (<IDENTIFIER>
     {
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString()));
-    }(<COMMA> <IDENTIFIER>{
+        varPair.setFirst(new VarIdentifier(var.toString()));
+        paramList.add(varPair);
+    } (LOOKAHEAD(3)(<COLON>)? type = IndexedTypeExpr() {varPair.setSecond(type);} )? (<COMMA> <IDENTIFIER>{
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString()));
-    })* <RIGHTPAREN> ) | ( <IDENTIFIER> {
-        var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString()));
-    } (<COLON>)? type = TypeExpr()
-    {
-        typed = true;
-        paramList.get(0).setType(type);
-    }(<COMMA> <IDENTIFIER>
-    {
-        VarIdentifier varId = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(varId.toString()));
-    } (<COLON>)? (type = TypeExpr()  {
-        paramList.get(paramList.size() - 1).setType(type);
-    })? )*<RIGHTPAREN> ) | <RIGHTPAREN> )
+        varPair = new Pair<VarIdentifier,IndexedTypeExpression>(null,null);
+        varPair.setFirst(new VarIdentifier(var.toString()));
+        paramList.add(varPair);
+    } (LOOKAHEAD(3)(<COLON>)? type = IndexedTypeExpr() {varPair.setSecond(type);})?)*) ) <RIGHTPAREN>
 
     {
         return paramList;
-    }
-}
-
-List<VarIdentifier> ParameterList() throws ParseException:
-{
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
-  VarIdentifier var = null;
-}
-{
-  <LEFTPAREN> (<IDENTIFIER>
-    {
-      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-      paramList.add(var);
-    }
-  (<COMMA> <IDENTIFIER>
-    {
-      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-      paramList.add(var);
-    }
-  )*)? <RIGHTPAREN>
-    {
-      return paramList;
     }
 }
 
@@ -1093,7 +1061,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   String lang = null;
   String libName ="";
   String externalIdent = "";
-  List<TypedVarIdentifier> args = new ArrayList<TypedVarIdentifier>();
+  List<Pair<VarIdentifier,IndexedTypeExpression>> args = new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>();
   RecordConstructor resources = null;
 }
 {
@@ -1102,7 +1070,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
      defaultDataverse = fctName.dataverse;
   }
   ifNotExists = IfNotExists()
-  args = FunctionArgs()
+  args = FunctionParameters()
   ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
   (
     (
@@ -2327,7 +2295,7 @@ FunctionDecl FunctionDeclaration() throws ParseException:
 {
   <DECLARE> { startToken = token; } <FUNCTION>
     functionName = Identifier()
-    paramList = ParameterList()
+    paramList = FunctionParameters()
   <LEFTBRACE>
     (funcBody = SelectExpression(true) | funcBody = Expression())
   <RIGHTBRACE>

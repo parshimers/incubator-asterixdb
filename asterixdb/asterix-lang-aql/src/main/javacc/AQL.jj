@@ -740,7 +740,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
       signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
       removeCurrentScope();
-      return new CreateFunctionStatement(signature, paramList, null, functionBody, functionBodyExpr, ifNotExists);
+      return new CreateFunctionStatement(signature, new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>(), null, functionBody, functionBodyExpr, ifNotExists);
     }
 }
 

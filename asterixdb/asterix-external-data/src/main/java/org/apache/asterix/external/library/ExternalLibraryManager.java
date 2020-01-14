@@ -21,12 +21,10 @@ package org.apache.asterix.external.library;
 import java.io.IOException;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -35,13 +33,13 @@ import org.apache.logging.log4j.Logger;
 
 public class ExternalLibraryManager implements ILibraryManager {
 
-    private final Map<String, URLClassLoader> libraryClassLoaders = new HashMap<>();
+    private final Map<Pair<DataverseName, String>, URLClassLoader> libraryClassLoaders = new HashMap<>();
     private static final Logger LOGGER = LogManager.getLogger();
 
     @Override
-    public void registerLibraryClassLoader(DataverseName dataverseName, String libraryName, URLClassLoader classLoader)
-            throws RuntimeDataException {
-        String key = getKey(dataverseName, libraryName);
+    public void registerLibraryClassLoader(DataverseName dataverseName, String libraryName,
+            URLClassLoader classLoader) {
+        Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
         synchronized (libraryClassLoaders) {
             if (libraryClassLoaders.get(key) != null) {
                 return;
@@ -54,14 +52,14 @@ public class ExternalLibraryManager implements ILibraryManager {
     public List<Pair<DataverseName, String>> getAllLibraries() {
         ArrayList<Pair<DataverseName, String>> libs = new ArrayList<>();
         synchronized (libraryClassLoaders) {
-            libraryClassLoaders.forEach((key, value) -> libs.add(getDataverseAndLibararyName(key)));
+            libraryClassLoaders.forEach((key, value) -> libs.add(key));
         }
         return libs;
     }
 
     @Override
     public void deregisterLibraryClassLoader(DataverseName dataverseName, String libraryName) {
-        String key = getKey(dataverseName, libraryName);
+        Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
         synchronized (libraryClassLoaders) {
             URLClassLoader cl = libraryClassLoaders.get(key);
             if (cl != null) {
@@ -77,19 +75,12 @@ public class ExternalLibraryManager implements ILibraryManager {
 
     @Override
     public ClassLoader getLibraryClassLoader(DataverseName dataverseName, String libraryName) {
-        String key = getKey(dataverseName, libraryName);
+        Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
         return libraryClassLoaders.get(key);
     }
 
-    private static String getKey(DataverseName dataverseName, String libraryName) {
-        return dataverseName + "." + libraryName; //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
-    }
-
-    private static Pair<DataverseName, String> getDataverseAndLibararyName(String key) {
-        String[] parts = key.split("\\.");
-        DataverseName dataverse = DataverseName.create(Arrays.asList(parts), 0, parts.length - 2);
-        String library = parts[parts.length - 1];
-        return new Pair<>(dataverse, library);
+    private static Pair<DataverseName, String> getKey(DataverseName dataverseName, String libraryName) {
+        return new Pair(dataverseName, libraryName);
     }
 
 }

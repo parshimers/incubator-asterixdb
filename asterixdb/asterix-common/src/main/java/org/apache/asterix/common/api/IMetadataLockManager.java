@@ -154,6 +154,18 @@ public interface IMetadataLockManager {
     void acquireFunctionWriteLock(LockList locks, DataverseName dataverseName, String functionName)
             throws AlgebricksException;
 
+    void acquireLibraryReadLock(LockList locks, DataverseName dataverseName, String libraryName)
+            throws AlgebricksException;
+
+    void acquireLibraryWriteLock(LockList locks, DataverseName dataverseName, String libraryName)
+            throws AlgebricksException;
+
+    void acquireAdapterReadLock(LockList locks, DataverseName dataverseName, String libraryName)
+            throws AlgebricksException;
+
+    void acquireAdapterWriteLock(LockList locks, DataverseName dataverseName, String libraryName)
+            throws AlgebricksException;
+
     /**
      * Acquire read lock on the node group
      *

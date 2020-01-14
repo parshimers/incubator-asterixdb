@@ -22,7 +22,7 @@ import java.util.Objects;
 
 public class Identifier {
 
-    protected String value;
+    protected final String value;
 
     public Identifier(String value) {
         this.value = value;

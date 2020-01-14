@@ -80,6 +80,7 @@ public interface Statement extends ILangExpression {
         CREATE_FUNCTION,
         CREATE_ADAPTER,
         FUNCTION_DROP,
+        ADAPTER_DROP,
         COMPACT,
         EXTERNAL_DATASET_REFRESH,
         SUBSCRIBE_FEED,

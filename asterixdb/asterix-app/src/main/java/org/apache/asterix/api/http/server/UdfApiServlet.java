@@ -70,7 +70,7 @@ public class UdfApiServlet extends AbstractServlet {
             throw new IllegalArgumentException("Invalid resource.");
         }
         String resourceName = path[path.length - 1];
-        DataverseName dataverseName = DataverseName.createFromCanonicalForm(path[path.length - 2]);
+        DataverseName dataverseName = DataverseName.createFromCanonicalForm(path[path.length - 2]); // TODO: use path separators instead for multiparts
         return new Pair<>(resourceName, dataverseName);
     }
 

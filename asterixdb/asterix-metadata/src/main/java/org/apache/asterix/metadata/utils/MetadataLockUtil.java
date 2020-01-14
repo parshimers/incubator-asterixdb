@@ -86,8 +86,31 @@ public class MetadataLockUtil {
 
     public static void createFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
             String functionName) throws AlgebricksException {
+        createFunctionBegin(lockMgr, locks, dataverseName, functionName, null);
+    }
+
+    public static void createFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+            String functionName, String libraryName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
         lockMgr.acquireFunctionWriteLock(locks, dataverseName, functionName);
+        if (libraryName != null) {
+            lockMgr.acquireLibraryReadLock(locks, dataverseName, libraryName);
+        }
+    }
+
+    public static void createAdapterBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+            String functionName, String libraryName) throws AlgebricksException {
+        lockMgr.acquireDataverseReadLock(locks, dataverseName);
+        lockMgr.acquireAdapterWriteLock(locks, dataverseName, functionName);
+        if (libraryName != null) {
+            lockMgr.acquireLibraryReadLock(locks, dataverseName, libraryName);
+        }
+    }
+
+    public static void dropAdapterBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+            String functionName) throws AlgebricksException {
+        lockMgr.acquireDataverseReadLock(locks, dataverseName);
+        lockMgr.acquireAdapterWriteLock(locks, dataverseName, functionName);
     }
 
     public static void dropFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,

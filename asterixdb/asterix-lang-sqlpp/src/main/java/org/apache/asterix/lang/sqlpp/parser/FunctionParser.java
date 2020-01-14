@@ -20,17 +20,22 @@
 package org.apache.asterix.lang.sqlpp.parser;
 
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.IParserFactory;
 import org.apache.asterix.lang.common.base.Statement;
+import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
 import org.apache.asterix.lang.common.statement.FunctionDecl;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
+import org.apache.asterix.lang.common.util.DataverseNameUtils;
 import org.apache.asterix.lang.sqlpp.util.SqlppVariableUtil;
 import org.apache.asterix.metadata.entities.Function;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class FunctionParser {
 
@@ -45,19 +50,29 @@ public class FunctionParser {
             throw new CompilationException(ErrorCode.COMPILATION_INCOMPATIBLE_FUNCTION_LANGUAGE,
                     Function.LANGUAGE_SQLPP, function.getLanguage());
         }
+
         String functionBody = function.getFunctionBody();
-        List<String> params = function.getArgNames();
+        List<String> argNames = function.getArgNames();
+        List<Pair<DataverseName,String>> args = function.getArguments();
 
         StringBuilder builder = new StringBuilder();
-        builder.append(" use " + function.getDataverseName() + ";");
+        builder.append(" use " + DataverseNameUtils.generateDataverseName(function.getDataverseName()) + ";");
         builder.append(" declare function " + function.getName().split("@")[0]);
         builder.append("(");
-        for (String param : params) {
+        for (int i=0; i<argNames.size(); i++) {
+            String param = argNames.get(i);
+            String type = "ASTERIX.ANY";
+            if(args.get(i) != null){
+                Pair<DataverseName,String> t = args.get(i);
+                type = t.getFirst().getCanonicalForm()+ "." + t.getSecond();
+            }
+            builder.append(type);
+            builder.append(":");
             VarIdentifier varId = SqlppVariableUtil.toUserDefinedVariableName(param);
             builder.append(varId);
             builder.append(",");
         }
-        if (params.size() > 0) {
+        if (argNames.size() > 0) {
             builder.delete(builder.length() - 1, builder.length());
         }
         builder.append(")");

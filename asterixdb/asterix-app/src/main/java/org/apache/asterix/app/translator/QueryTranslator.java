@@ -18,6 +18,9 @@
  */
 package org.apache.asterix.app.translator;
 
+import static org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities.BUILTINTYPE_DATAVERSE_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -131,7 +134,6 @@ import org.apache.asterix.lang.common.statement.TypeDecl;
 import org.apache.asterix.lang.common.statement.TypeDropStatement;
 import org.apache.asterix.lang.common.statement.WriteStatement;
 import org.apache.asterix.lang.common.struct.Identifier;
-import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.IDatasetDetails;
@@ -1259,9 +1261,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         DataverseDropStatement stmtDelete = (DataverseDropStatement) stmt;
         SourceLocation sourceLoc = stmtDelete.getSourceLocation();
         DataverseName dataverseName = stmtDelete.getDataverseName();
-        if (dataverseName.equals(MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME)) {
+        if (dataverseName.equals(DEFAULT_DATAVERSE_NAME)) {
             throw new CompilationException(ErrorCode.COMPILATION_ERROR, sourceLoc,
-                    MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME + " dataverse can't be dropped");
+                    DEFAULT_DATAVERSE_NAME + " dataverse can't be dropped");
         }
         lockManager.acquireDataverseWriteLock(metadataProvider.getLocks(), dataverseName);
         try {
@@ -1736,7 +1738,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
     private static Pair<DataverseName, String> typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
         String typeName = "ANY";
-        DataverseName typeDv = DataverseName.createBuiltinDataverseName("Default");
+        DataverseName typeDv = BUILTINTYPE_DATAVERSE_NAME;
         switch (typ.getTypeKind()) {
             case ORDEREDLIST:
                 Pair<DataverseName, String> typePair =
@@ -1750,29 +1752,26 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 break;
             case TYPEREFERENCE:
                 TypeReferenceExpression typeRef = ((TypeReferenceExpression) typ);
-                typeDv = typeRef.getIdent().getFirst();
-                if (typeDv == null) {
+                typeName = typeRef.getIdent().getSecond().toString();
+                if (typeRef.getIdent().getFirst() != null) {
+                    typeDv = typeRef.getIdent().getFirst();
+                } else if (BuiltinTypeMap.getBuiltinType(typeName) == null) {
                     typeDv = activeDataverse;
                 }
-                typeName = typeRef.getIdent().getSecond().toString();
                 break;
         }
         return new Pair<>(typeDv, typeName);
     }
 
     protected void handleCreateFunctionStatement(MetadataProvider metadataProvider, Statement stmt) throws Exception {
-        boolean external = false;
         CreateFunctionStatement cfs = (CreateFunctionStatement) stmt;
         SourceLocation sourceLoc = cfs.getSourceLocation();
         FunctionSignature signature = cfs.getFunctionSignature();
-        if (cfs.getFunctionBody() == null) {
-            external = true;
-        }
         DataverseName dataverseName = getActiveDataverseName(signature.getDataverseName());
         signature.setDataverseName(dataverseName);
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-        boolean committed = false;
+        boolean bActiveTxn = false;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockUtil.createFunctionBegin(lockManager, metadataProvider.getLocks(), dataverseName,
                 signature.getName());
@@ -1781,29 +1780,26 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverseName);
             if (dv == null) {
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                committed = true;
+                bActiveTxn = true;
                 throw new CompilationException(ErrorCode.UNKNOWN_DATAVERSE, sourceLoc, dataverseName);
             }
-            if (external) {
+            if (cfs.isExternal()) {
                 Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverseName, libraryName);
                 if (libraryInMetadata == null) {
-                    // exists in metadata and was not un-installed, we return.
-                    // Another place which shows that our metadata transactions are broken
-                    // (we didn't call commit before!!!)
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                    committed = true;
+                    bActiveTxn = true;
                     throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
                 }
                 // Add functions
                 List<String> argNames = new ArrayList<>();
                 List<Pair<DataverseName, String>> argType = new ArrayList<>();
-                for (TypedVarIdentifier var : cfs.getArgs()) {
-                    if (var.getType() != null) {
-                        argType.add(typeExprToName(var.getType(), dataverseName));
-                        argNames.add(var.getValue());
+                for (Pair<VarIdentifier, IndexedTypeExpression> var : cfs.getArgs()) {
+                    if (var.getSecond() != null) {
+                        argType.add(typeExprToName(var.getSecond().getType(), dataverseName));
+                        argNames.add(var.getFirst().getValue());
                     } else {
-                        argType.add(new Pair(dataverseName, BuiltinType.ANY.getDisplayName()));
-                        argNames.add(var.getValue());
+                        argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName()));
+                        argNames.add(var.getFirst().getValue());
                     }
                 }
 
@@ -1812,12 +1808,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 if (ret != null) {
                     retType = typeExprToName(ret, dataverseName);
                 } else {
-                    retType = new Pair(dataverseName, BuiltinType.ANY.getDisplayName());
+                    retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName());
                 }
                 List<List<Triple<DataverseName, String, String>>> dependencies =
                         FunctionUtil.getExternalFunctionDependencies(argType);
                 Function f = new Function(signature, argType, argNames, retType, cfs.getExternalIdent(), cfs.getLang(),
-                        cfs.isNullable(), libraryName, FunctionKind.SCALAR.toString(), null, cfs.getResources());
+                        cfs.isNullable(), libraryName, FunctionKind.SCALAR.toString(), dependencies,
+                        cfs.getResources());
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("Installed function: " + signature);
@@ -1831,7 +1828,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     LOGGER.info("Installed adapters in library :" + libraryName);
                 }
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                committed = true;
+                bActiveTxn = true;
             } else {
                 //Check whether the function is use-able
                 metadataProvider.setDefaultDataverse(dv);
@@ -1842,14 +1839,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<VarIdentifier> paramVars = new ArrayList<>();
                 List<String> argNames = new ArrayList<>();
                 List<Pair<DataverseName, String>> argType = new ArrayList<>();
-                for (TypedVarIdentifier var : cfs.getArgs()) {
-                    paramVars.add(var);
-                    if (var.getType() != null) {
-                        argType.add(typeExprToName(var.getType(), dataverseName));
-                        argNames.add(var.getValue());
+                for (Pair<VarIdentifier, IndexedTypeExpression> var : cfs.getArgs()) {
+                    if (var.getSecond() != null) {
+                        argType.add(typeExprToName(var.getSecond().getType(), dataverseName));
+                        argNames.add(var.getFirst().getValue());
                     } else {
-                        argType.add(new Pair(dataverseName, BuiltinType.ANY.getDisplayName()));
-                        argNames.add(var.getValue());
+                        argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName()));
+                        argNames.add(var.getFirst().getValue());
                     }
                 }
 
@@ -1858,7 +1854,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 if (ret != null) {
                     retType = typeExprToName(ret, dataverseName);
                 } else {
-                    retType = new Pair(dataverseName, BuiltinType.ANY.getDisplayName());
+                    retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName());
                 }
                 apiFramework.reWriteQuery(declaredFunctions, metadataProvider, wrappedQuery, sessionOutput, false,
                         paramVars, warningCollector);
@@ -1874,7 +1870,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             }
 
         } catch (Exception e) {
-            if (!committed) {
+            if (!bActiveTxn) {
                 abort(e, e, mdTxnCtx);
             }
             throw e;
@@ -1890,9 +1886,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         SourceLocation sourceLoc = cas.getSourceLocation();
         AdapterIdentifier aid = cas.getAdapterId();
         DataverseName dataverse = getActiveDataverseName(aid.getDataverseName());
+        aid.setDataverseName(dataverse);
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         String libraryName = cas.getLibName();
+        MetadataLockUtil.createAdapterBegin(lockManager, metadataProvider.getLocks(), dataverse, aid.getName(),
+                libraryName);
         try {
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
             if (dv == null) {
@@ -1900,9 +1899,6 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             }
             Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
             if (libraryInMetadata == null) {
-                // exists in metadata and was not un-installed, we return.
-                // Another place which shows that our metadata transactions are broken
-                // (we didn't call commit before!!!)
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                 throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
             }
@@ -1913,9 +1909,6 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             MetadataManager.INSTANCE.addAdapter(mdTxnCtx, dsa);
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("Installed adapter: " + aid.getName());
-            }
-
-            if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("Installed adapters in library :" + libraryName);
             }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1925,7 +1918,6 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             throw e;
         } finally {
             metadataProvider.getLocks().unlock();
-            metadataProvider.setDefaultDataverse(activeDataverse);
         }
     }
 

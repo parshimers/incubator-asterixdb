@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
@@ -817,6 +818,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         out.print(this.generateFullName(cfs.getFunctionSignature().getDataverseName(),
                 cfs.getFunctionSignature().getName()));
         out.print("(");
+        printDelimitedStrings(cfs.getArgs().stream().map(p -> p.getFirst().getValue()).collect(Collectors.toList()), COMMA);
         out.println(") {");
         out.println(cfs.getFunctionBody());
         out.println("}" + SEMICOLON);
@@ -825,10 +827,9 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     }
 
     @Override
-    public Void visit(CreateAdapterStatement cfs, Integer step) throws CompilationException {
+    public Void visit(CreateAdapterStatement cas, Integer step) throws CompilationException {
         out.print(skip(step) + CREATE + " adapter");
-        out.print("(");
-        out.println(") {");
+        out.print(cas.getAdapterId().getName());
         out.println("}" + SEMICOLON);
         out.println();
         return null;
@@ -991,16 +992,6 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         return false;
     }
 
-    protected String normalize(DataverseName dataverseName) {
-        StringBuilder sb = new StringBuilder();
-        String sep = "";
-        for (String part : dataverseName.getParts()) {
-            sb.append(sep).append(normalize(part));
-            sep = ".";
-        }
-        return sb.toString();
-    }
-
     protected String normalize(String str) {
         if (needQuotes(str)) {
             return revertStringToQuoted(str);
@@ -1057,7 +1048,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         }
     }
 
-    public String revertStringToQuoted(String inputStr) {
+    public static String revertStringToQuoted(String inputStr) {
         int pos = 0;
         int size = inputStr.length();
         StringBuffer result = new StringBuffer();

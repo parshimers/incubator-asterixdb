@@ -27,13 +27,16 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.common.base.AbstractStatement;
 import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.Statement;
+import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
 import org.apache.asterix.lang.common.expression.RecordConstructor;
 import org.apache.asterix.lang.common.expression.TypeExpression;
-import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
+import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
+import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.ConfigurationUtil;
 import org.apache.asterix.lang.common.util.ExpressionUtils;
 import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
 import org.apache.asterix.object.base.AdmObjectNode;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class CreateFunctionStatement extends AbstractStatement {
 
@@ -42,42 +45,42 @@ public class CreateFunctionStatement extends AbstractStatement {
     private final Expression functionBodyExpression;
     private final boolean ifNotExists;
 
-    TypeExpression returnType;
-    boolean returnNullable;
-    boolean deterministic;
+    TypeReferenceExpression returnType;
+    boolean returnUnknownable;
+    Boolean deterministic;
     boolean nullCall;
-    boolean externalAction;
     String lang;
     String libName;
     String externalIdent;
-    List<TypedVarIdentifier> args;
+    List<Pair<VarIdentifier, IndexedTypeExpression>> args;
     AdmObjectNode resources;
 
     public String getFunctionBody() {
         return functionBody;
     }
 
-    public CreateFunctionStatement(FunctionSignature signature, List<TypedVarIdentifier> parameterList,
-            TypeExpression returnType, String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
+    public CreateFunctionStatement(FunctionSignature signature,
+            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, TypeReferenceExpression returnType, boolean returnUnknownable,
+            String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
         this.signature = signature;
         this.functionBody = functionBody;
+        this.returnUnknownable = returnUnknownable;
         this.functionBodyExpression = functionBodyExpression;
         this.ifNotExists = ifNotExists;
         this.args = parameterList;
         this.returnType = returnType;
     }
 
-    public CreateFunctionStatement(FunctionSignature signature, List<TypedVarIdentifier> parameterList,
-            TypeExpression returnType, boolean returnNullable, boolean deterministic, boolean nullCall, String lang,
-            String libName, String externalIdent, RecordConstructor resources, boolean ifNotExists)
-            throws CompilationException {
+    public CreateFunctionStatement(FunctionSignature signature,
+            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, TypeReferenceExpression returnType,
+            boolean returnUnknownable, boolean deterministic, boolean nullCall, String lang, String libName,
+            String externalIdent, RecordConstructor resources, boolean ifNotExists) throws CompilationException {
         this.signature = signature;
         this.args = parameterList;
         this.returnType = returnType;
-        this.returnNullable = returnNullable;
+        this.returnUnknownable = returnUnknownable;
         this.deterministic = deterministic;
         this.nullCall = nullCall;
-        this.externalAction = externalAction;
         this.lang = lang;
         this.libName = libName;
         this.externalIdent = externalIdent;
@@ -117,8 +120,12 @@ public class CreateFunctionStatement extends AbstractStatement {
         return nullCall;
     }
 
+    public boolean isExternal() {
+        return lang != null;
+    }
+
     public boolean isNullable() {
-        return returnNullable;
+        return returnUnknownable;
     }
 
     public String getLang() {
@@ -133,7 +140,7 @@ public class CreateFunctionStatement extends AbstractStatement {
         return externalIdent;
     }
 
-    public List<TypedVarIdentifier> getArgs() {
+    public List<Pair<VarIdentifier, IndexedTypeExpression>> getArgs() {
         return args;
     }
 
