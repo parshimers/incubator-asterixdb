@@ -60,8 +60,8 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public CreateFunctionStatement(FunctionSignature signature,
-            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, TypeReferenceExpression returnType, boolean returnUnknownable,
-            String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
+            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, TypeReferenceExpression returnType,
+            boolean returnUnknownable, String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
         this.signature = signature;
         this.functionBody = functionBody;
         this.returnUnknownable = returnUnknownable;

@@ -1054,8 +1054,8 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   Token endPos;
   FunctionName fctName = null;
   DataverseName currentDataverse = defaultDataverse;
-  TypeExpression returnType = null;
-  boolean returnNullable = false;
+  TypeReferenceExpression returnType = null;
+  boolean returnUnknownable = false;
   boolean deterministic = false;
   boolean nullCall = false;
   String lang = null;
@@ -1071,7 +1071,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   }
   ifNotExists = IfNotExists()
   args = FunctionParameters()
-  ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
+  ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = TypeReference() (<QUES> {returnUnknownable = true;})?)?
   (
     (
       <LEFTBRACE>
@@ -1087,7 +1087,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
           getCurrentScope().addFunctionDescriptor(signature, false);
           removeCurrentScope();
           defaultDataverse = currentDataverse;
-          CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
+          CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, returnUnknownable, functionBody, functionBodyExpr, ifNotExists);
           return addSourceLocation(stmt, startStmtToken);
         }
     )
@@ -1100,17 +1100,15 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
                   createNewScope();
                   beginPos = token;
               }
-              functionBodyExpr = Expression()
+              (functionBodyExpr = SelectExpression(true) | functionBodyExpr = Expression())
               {
-                  if(functionBodyExpr!= null){
-                      endPos = token;
-                      functionBody = extractFragment(beginPos.endLine, beginPos.beginColumn+1, endPos.endLine, endPos.endColumn+1);
-                  }
+                  endPos = token;
+                  functionBody = extractFragment(beginPos.endLine, beginPos.beginColumn+1, endPos.endLine, endPos.endColumn+1);
                   signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
                   getCurrentScope().addFunctionDescriptor(signature, false);
                   removeCurrentScope();
                   defaultDataverse = currentDataverse;
-                  CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
+                  CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, true, functionBody, functionBodyExpr, ifNotExists);
                   return addSourceLocation(stmt, startStmtToken);
               }
         )
@@ -1127,7 +1125,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
                   CreateFunctionStatement stmt = null;
                   try{
                       stmt =
-                      new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
+                      new CreateFunctionStatement(signature, args, returnType, returnUnknownable, deterministic, nullCall,
                                                    lang, libName, externalIdent, resources,  ifNotExists);
                   } catch (AlgebricksException e) {
                       throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
@@ -2288,7 +2286,8 @@ FunctionDecl FunctionDeclaration() throws ParseException:
 {
   Token startToken = null;
   String functionName;
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
+  List<Pair<VarIdentifier,IndexedTypeExpression>> paramList = new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>();
+  List<VarIdentifier> paramVarOnly = new ArrayList<VarIdentifier>();
   Expression funcBody;
   createNewScope();
 }
@@ -2302,7 +2301,10 @@ FunctionDecl FunctionDeclaration() throws ParseException:
   {
     FunctionSignature signature = new FunctionSignature(defaultDataverse, functionName, paramList.size());
     getCurrentScope().addFunctionDescriptor(signature, false);
-    FunctionDecl stmt = new FunctionDecl(signature, paramList, funcBody);
+    for(Pair<VarIdentifier,IndexedTypeExpression> p: paramList){
+        paramVarOnly.add(p.getFirst());
+    }
+    FunctionDecl stmt = new FunctionDecl(signature, paramVarOnly, funcBody);
     removeCurrentScope();
     return addSourceLocation(stmt, startToken);
   }

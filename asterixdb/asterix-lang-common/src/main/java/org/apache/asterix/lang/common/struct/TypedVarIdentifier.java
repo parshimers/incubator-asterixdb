@@ -25,7 +25,6 @@ public class TypedVarIdentifier extends VarIdentifier {
 
     public TypedVarIdentifier(int id, String value) {
         super(value, id);
-        this.value = value;
     }
 
     public TypedVarIdentifier(String value) {

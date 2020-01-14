@@ -1,17 +1,17 @@
 package org.apache.asterix.lang.common.util;
 
-import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.asterix.lang.common.visitor.FormatPrintVisitor;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.asterix.lang.common.visitor.FormatPrintVisitor;
+
 public class DataverseNameUtils {
 
-   static protected Set<Character> validIdentifierChars = new HashSet<>();
-   static protected Set<Character> validIdentifierStartChars = new HashSet<>();
+    static protected Set<Character> validIdentifierChars = new HashSet<>();
+    static protected Set<Character> validIdentifierStartChars = new HashSet<>();
 
     static {
         for (char ch = 'a'; ch <= 'z'; ++ch) {
