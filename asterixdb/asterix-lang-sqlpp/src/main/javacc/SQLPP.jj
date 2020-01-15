@@ -1054,7 +1054,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   Token endPos;
   FunctionName fctName = null;
   DataverseName currentDataverse = defaultDataverse;
-  TypeReferenceExpression returnType = null;
+  IndexedTypeExpression returnType = null;
   boolean returnUnknownable = false;
   boolean deterministic = false;
   boolean nullCall = false;
@@ -1071,7 +1071,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   }
   ifNotExists = IfNotExists()
   args = FunctionParameters()
-  ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = TypeReference() (<QUES> {returnUnknownable = true;})?)?
+  ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = IndexedTypeExpr() (<QUES> {returnUnknownable = true;})?)?
   (
     (
       <LEFTBRACE>

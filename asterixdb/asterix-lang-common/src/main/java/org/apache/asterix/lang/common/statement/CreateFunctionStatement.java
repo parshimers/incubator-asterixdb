@@ -29,8 +29,6 @@ import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
 import org.apache.asterix.lang.common.expression.RecordConstructor;
-import org.apache.asterix.lang.common.expression.TypeExpression;
-import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.ConfigurationUtil;
 import org.apache.asterix.lang.common.util.ExpressionUtils;

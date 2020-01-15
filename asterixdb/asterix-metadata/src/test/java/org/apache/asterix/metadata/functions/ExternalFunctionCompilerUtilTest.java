@@ -41,8 +41,9 @@ public class ExternalFunctionCompilerUtilTest {
         MetadataTransactionContext txnCtx = new MetadataTransactionContext(new TxnId(1));
         FunctionSignature signature = new FunctionSignature(DataverseName.createSinglePartName("test"), "test", 0);
         Function function = new Function(signature, new LinkedList<>(), new LinkedList<>(),
-                new Pair<>(MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME, new AUnorderedListType(BuiltinType.ASTRING,"foo")), "",
-                "JAVA", false, "", "SCALAR", null, null);
+                new Pair<>(MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME,
+                        new AUnorderedListType(BuiltinType.ASTRING, "foo")),
+                "", "JAVA", false, "", "SCALAR", null, null);
 
         // when
         ExternalScalarFunctionInfo info =

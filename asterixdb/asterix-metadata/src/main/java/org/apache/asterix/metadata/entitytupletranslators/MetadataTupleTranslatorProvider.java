@@ -60,7 +60,8 @@ public class MetadataTupleTranslatorProvider {
         return new FeedConnectionTupleTranslator(getTuple);
     }
 
-    public FunctionTupleTranslator getFunctionTupleTranslator(TxnId txnId, MetadataNode metadataNode, boolean getTuple) {
+    public FunctionTupleTranslator getFunctionTupleTranslator(TxnId txnId, MetadataNode metadataNode,
+            boolean getTuple) {
         return new FunctionTupleTranslator(txnId, metadataNode, getTuple);
     }
 

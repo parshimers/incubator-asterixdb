@@ -217,12 +217,12 @@ public class FunctionUtil {
     }
 
     public static List<List<Triple<DataverseName, String, String>>> getExternalFunctionDependencies(
-            List<Pair<DataverseName, String>> argTypes) {
+            List<Pair<DataverseName, IAType>> argTypes) {
         List<Triple<DataverseName, String, String>> datasourceDependencies = new ArrayList<>();
         List<Triple<DataverseName, String, String>> functionDependencies = new ArrayList<>();
         List<Triple<DataverseName, String, String>> typeDependencies = new ArrayList<>();
-        for (Pair<DataverseName, String> t : argTypes) {
-            typeDependencies.add(new Triple<>(t.getFirst(), t.getSecond(), null));
+        for (Pair<DataverseName, IAType> t : argTypes) {
+            typeDependencies.add(new Triple<>(t.getFirst(), t.getSecond().getTypeName(), null));
         }
         List<List<Triple<DataverseName, String, String>>> dependencies = new ArrayList<>(3);
         dependencies.add(datasourceDependencies);

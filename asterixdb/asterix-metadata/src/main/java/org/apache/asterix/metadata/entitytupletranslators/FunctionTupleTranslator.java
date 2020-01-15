@@ -83,7 +83,6 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     protected AOrderedListType stringList;
     protected AOrderedListType listOfLists;
 
-
     protected FunctionTupleTranslator(TxnId txnId, MetadataNode metadataNode, boolean getTuple) {
         super(getTuple, MetadataPrimaryIndexes.FUNCTION_DATASET, FUNCTION_PAYLOAD_TUPLE_FIELD_INDEX);
         this.txnId = txnId;
@@ -160,7 +159,8 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
                     type = ((AString) field.getValueByPos(valueIdx)).getStringValue();
                 }
                 DataverseName dvName = DataverseName.createFromCanonicalForm(dv);
-                functionArgs.add(new Pair<>(dvName, BuiltinTypeMap.getTypeFromTypeName(metadataNode,txnId,dvName,type,false)));
+                functionArgs.add(new Pair<>(dvName,
+                        BuiltinTypeMap.getTypeFromTypeName(metadataNode, txnId, dvName, type, false)));
             }
         }
         return functionArgs;
@@ -187,9 +187,10 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         String returnType = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX)).getStringValue();
         List<String> returnSplit = Arrays.asList(returnType.split("\\."));
-        DataverseName dvName =  DataverseName.create(returnSplit, 0, returnSplit.size() - 1);
-        String typeName =  returnSplit.get(returnSplit.size() - 1);
-        Pair<DataverseName,IAType> qualifiedType = new Pair(dvName, BuiltinTypeMap.getTypeFromTypeName(metadataNode,txnId,dvName,typeName,true));
+        DataverseName dvName = DataverseName.create(returnSplit, 0, returnSplit.size() - 1);
+        String typeName = returnSplit.get(returnSplit.size() - 1);
+        Pair<DataverseName, IAType> qualifiedType =
+                new Pair(dvName, BuiltinTypeMap.getTypeFromTypeName(metadataNode, txnId, dvName, typeName, true));
 
         String definition = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX)).getStringValue();

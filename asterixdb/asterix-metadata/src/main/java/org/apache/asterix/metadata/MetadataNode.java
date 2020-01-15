@@ -429,7 +429,8 @@ public class MetadataNode implements IMetadataNode {
     public void addFunction(TxnId txnId, Function function) throws AlgebricksException {
         try {
             // Insert into the 'function' dataset.
-            FunctionTupleTranslator tupleReaderWriter = tupleTranslatorProvider.getFunctionTupleTranslator(txnId,this, true);
+            FunctionTupleTranslator tupleReaderWriter =
+                    tupleTranslatorProvider.getFunctionTupleTranslator(txnId, this, true);
 
             ITupleReference functionTuple = tupleReaderWriter.getTupleFromMetadataEntity(function);
             insertTupleIntoIndex(txnId, MetadataPrimaryIndexes.FUNCTION_DATASET, functionTuple);
@@ -873,7 +874,8 @@ public class MetadataNode implements IMetadataNode {
 
     public List<Function> getAllFunctions(TxnId txnId) throws AlgebricksException {
         try {
-            FunctionTupleTranslator tupleReaderWriter = tupleTranslatorProvider.getFunctionTupleTranslator(txnId,this,false);
+            FunctionTupleTranslator tupleReaderWriter =
+                    tupleTranslatorProvider.getFunctionTupleTranslator(txnId, this, false);
             IValueExtractor<Function> valueExtractor = new MetadataEntityValueExtractor<>(tupleReaderWriter);
             List<Function> results = new ArrayList<>();
             searchIndex(txnId, MetadataPrimaryIndexes.FUNCTION_DATASET, null, valueExtractor, results);
@@ -1149,7 +1151,8 @@ public class MetadataNode implements IMetadataNode {
         try {
             ITupleReference searchKey = createTuple(functionSignature.getDataverseName(), functionSignature.getName(),
                     Integer.toString(functionSignature.getArity()));
-            FunctionTupleTranslator tupleReaderWriter = tupleTranslatorProvider.getFunctionTupleTranslator(txnId,this,false);
+            FunctionTupleTranslator tupleReaderWriter =
+                    tupleTranslatorProvider.getFunctionTupleTranslator(txnId, this, false);
             List<Function> results = new ArrayList<>();
             IValueExtractor<Function> valueExtractor = new MetadataEntityValueExtractor<>(tupleReaderWriter);
             searchIndex(txnId, MetadataPrimaryIndexes.FUNCTION_DATASET, searchKey, valueExtractor, results);
@@ -1166,7 +1169,8 @@ public class MetadataNode implements IMetadataNode {
     public List<Function> getDataverseFunctions(TxnId txnId, DataverseName dataverseName) throws AlgebricksException {
         try {
             ITupleReference searchKey = createTuple(dataverseName);
-            FunctionTupleTranslator tupleReaderWriter = tupleTranslatorProvider.getFunctionTupleTranslator(txnId,this,false);
+            FunctionTupleTranslator tupleReaderWriter =
+                    tupleTranslatorProvider.getFunctionTupleTranslator(txnId, this, false);
             List<Function> results = new ArrayList<>();
             IValueExtractor<Function> valueExtractor = new MetadataEntityValueExtractor<>(tupleReaderWriter);
             searchIndex(txnId, MetadataPrimaryIndexes.FUNCTION_DATASET, searchKey, valueExtractor, results);

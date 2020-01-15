@@ -1736,12 +1736,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         }
     }
 
-    private static Pair<DataverseName, IAType> typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
+    private static Pair<DataverseName, String> typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
         String typeName = "ANY";
         DataverseName typeDv = BUILTINTYPE_DATAVERSE_NAME;
         switch (typ.getTypeKind()) {
             case ORDEREDLIST:
-                Pair<DataverseName, IAType> typePair =
+                Pair<DataverseName, String> typePair =
                         typeExprToName(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse);
                 typeName = "[" + typePair.getSecond() + "]";
                 typeDv = typePair.getFirst();
@@ -1795,7 +1795,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<Pair<DataverseName, IAType>> argType = new ArrayList<>();
                 for (Pair<VarIdentifier, IndexedTypeExpression> var : cfs.getArgs()) {
                     if (var.getSecond() != null) {
-                        argType.add(typeExprToName(var.getSecond().getType(), dataverseName));
+                        Map<TypeSignature, IAType> typeMap = TypeTranslator.computeTypes(mdTxnCtx, var.second.getType(),
+                                var.first.getValue(), dataverseName);
+                        argType.add(new Pair(dataverseName,
+                                typeMap.get(new TypeSignature(dataverseName, var.first.getValue()))));
                         argNames.add(var.getFirst().getValue());
                     } else {
                         argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY));
@@ -1803,10 +1806,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     }
                 }
 
-                TypeExpression ret = cfs.getReturnType();
+                IndexedTypeExpression ret = cfs.getReturnType();
                 Pair<DataverseName, IAType> retType;
                 if (ret != null) {
-                    retType = typeExprToName(ret, dataverseName);
+                    retType = new Pair(dataverseName,
+                            TypeTranslator.computeTypes(mdTxnCtx, ret.getType(), "return", dataverseName)
+                                    .get(new TypeSignature(dataverseName, "return")));
                 } else {
                     retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY);
                 }
@@ -1841,7 +1846,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<Pair<DataverseName, IAType>> argType = new ArrayList<>();
                 for (Pair<VarIdentifier, IndexedTypeExpression> var : cfs.getArgs()) {
                     if (var.getSecond() != null) {
-                        argType.add(typeExprToName(var.getSecond().getType(), dataverseName));
+                        Map<TypeSignature, IAType> typeMap = TypeTranslator.computeTypes(mdTxnCtx, var.second.getType(),
+                                var.first.getValue(), dataverseName);
+                        argType.add(new Pair(dataverseName,
+                                typeMap.get(new TypeSignature(dataverseName, var.first.getValue()))));
                         argNames.add(var.getFirst().getValue());
                     } else {
                         argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY));
@@ -1849,10 +1857,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     }
                 }
 
-                TypeExpression ret = cfs.getReturnType();
+                IndexedTypeExpression ret = cfs.getReturnType();
                 Pair<DataverseName, IAType> retType;
                 if (ret != null) {
-                    retType = typeExprToName(ret, dataverseName);
+                    retType = new Pair(dataverseName,
+                            TypeTranslator.computeTypes(mdTxnCtx, ret.getType(), "return", dataverseName)
+                                    .get(new TypeSignature(dataverseName, "return")));
                 } else {
                     retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY);
                 }
