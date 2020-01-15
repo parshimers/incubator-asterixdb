@@ -1736,12 +1736,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         }
     }
 
-    private static Pair<DataverseName, String> typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
+    private static Pair<DataverseName, IAType> typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
         String typeName = "ANY";
         DataverseName typeDv = BUILTINTYPE_DATAVERSE_NAME;
         switch (typ.getTypeKind()) {
             case ORDEREDLIST:
-                Pair<DataverseName, String> typePair =
+                Pair<DataverseName, IAType> typePair =
                         typeExprToName(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse);
                 typeName = "[" + typePair.getSecond() + "]";
                 typeDv = typePair.getFirst();
@@ -1792,23 +1792,23 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 }
                 // Add functions
                 List<String> argNames = new ArrayList<>();
-                List<Pair<DataverseName, String>> argType = new ArrayList<>();
+                List<Pair<DataverseName, IAType>> argType = new ArrayList<>();
                 for (Pair<VarIdentifier, IndexedTypeExpression> var : cfs.getArgs()) {
                     if (var.getSecond() != null) {
                         argType.add(typeExprToName(var.getSecond().getType(), dataverseName));
                         argNames.add(var.getFirst().getValue());
                     } else {
-                        argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName()));
+                        argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY));
                         argNames.add(var.getFirst().getValue());
                     }
                 }
 
                 TypeExpression ret = cfs.getReturnType();
-                Pair<DataverseName, String> retType;
+                Pair<DataverseName, IAType> retType;
                 if (ret != null) {
                     retType = typeExprToName(ret, dataverseName);
                 } else {
-                    retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName());
+                    retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY);
                 }
                 List<List<Triple<DataverseName, String, String>>> dependencies =
                         FunctionUtil.getExternalFunctionDependencies(argType);
@@ -1838,23 +1838,23 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 wrappedQuery.setTopLevel(false);
                 List<VarIdentifier> paramVars = new ArrayList<>();
                 List<String> argNames = new ArrayList<>();
-                List<Pair<DataverseName, String>> argType = new ArrayList<>();
+                List<Pair<DataverseName, IAType>> argType = new ArrayList<>();
                 for (Pair<VarIdentifier, IndexedTypeExpression> var : cfs.getArgs()) {
                     if (var.getSecond() != null) {
                         argType.add(typeExprToName(var.getSecond().getType(), dataverseName));
                         argNames.add(var.getFirst().getValue());
                     } else {
-                        argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName()));
+                        argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY));
                         argNames.add(var.getFirst().getValue());
                     }
                 }
 
                 TypeExpression ret = cfs.getReturnType();
-                Pair<DataverseName, String> retType;
+                Pair<DataverseName, IAType> retType;
                 if (ret != null) {
                     retType = typeExprToName(ret, dataverseName);
                 } else {
-                    retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY.getDisplayName());
+                    retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY);
                 }
                 apiFramework.reWriteQuery(declaredFunctions, metadataProvider, wrappedQuery, sessionOutput, false,
                         paramVars, warningCollector);

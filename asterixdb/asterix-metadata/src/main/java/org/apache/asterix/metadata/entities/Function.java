@@ -28,6 +28,7 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.metadata.MetadataCache;
 import org.apache.asterix.metadata.api.IMetadataEntity;
+import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.common.utils.Triple;
 
@@ -42,9 +43,9 @@ public class Function implements IMetadataEntity<Function> {
 
     private final FunctionSignature signature;
     private final List<List<Triple<DataverseName, String, String>>> dependencies;
-    private final List<Pair<DataverseName, String>> arguments;
+    private final List<Pair<DataverseName, IAType>> arguments;
     private final String body;
-    private final Pair<DataverseName, String> returnType;
+    private final Pair<DataverseName, IAType> returnType;
     private final List<String> argNames;
     private final String language;
     private final String kind;
@@ -52,8 +53,8 @@ public class Function implements IMetadataEntity<Function> {
     private final boolean nullable;
     private final Map<String, String> params;
 
-    public Function(FunctionSignature signature, List<Pair<DataverseName, String>> arguments, List<String> argNames,
-            Pair<DataverseName, String> returnType, String functionBody, String language, boolean nullable,
+    public Function(FunctionSignature signature, List<Pair<DataverseName, IAType>> arguments, List<String> argNames,
+            Pair<DataverseName, IAType> returnType, String functionBody, String language, boolean nullable,
             String library, String functionKind, List<List<Triple<DataverseName, String, String>>> dependencies,
             Map<String, String> params) {
         this.signature = signature;
@@ -99,7 +100,7 @@ public class Function implements IMetadataEntity<Function> {
         return signature.getArity();
     }
 
-    public List<Pair<DataverseName, String>> getArguments() {
+    public List<Pair<DataverseName, IAType>> getArguments() {
         return arguments;
     }
 
@@ -115,7 +116,7 @@ public class Function implements IMetadataEntity<Function> {
         return body;
     }
 
-    public Pair<DataverseName, String> getReturnType() {
+    public Pair<DataverseName, IAType> getReturnType() {
         return returnType;
     }
 

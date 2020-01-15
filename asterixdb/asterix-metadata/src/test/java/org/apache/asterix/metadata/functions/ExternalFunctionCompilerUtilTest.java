@@ -24,6 +24,7 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.metadata.MetadataTransactionContext;
+import org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.types.AUnorderedListType;
 import org.apache.asterix.om.types.BuiltinType;
@@ -40,7 +41,7 @@ public class ExternalFunctionCompilerUtilTest {
         MetadataTransactionContext txnCtx = new MetadataTransactionContext(new TxnId(1));
         FunctionSignature signature = new FunctionSignature(DataverseName.createSinglePartName("test"), "test", 0);
         Function function = new Function(signature, new LinkedList<>(), new LinkedList<>(),
-                new Pair<DataverseName, String>(DataverseName.createBuiltinDataverseName("Default"), "{{string}}"), "",
+                new Pair<>(MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME, new AUnorderedListType(BuiltinType.ASTRING,"foo")), "",
                 "JAVA", false, "", "SCALAR", null, null);
 
         // when

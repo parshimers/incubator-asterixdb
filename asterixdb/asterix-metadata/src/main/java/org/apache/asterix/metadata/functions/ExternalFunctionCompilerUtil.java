@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.metadata.MetadataNode;
@@ -66,58 +67,13 @@ public class ExternalFunctionCompilerUtil {
 
     private static IFunctionInfo getScalarFunctionInfo(MetadataTransactionContext txnCtx, Function function)
             throws AlgebricksException {
-        List<IAType> argumentTypes = new ArrayList<>();
-        IAType returnType;
-        if (function.getReturnType() == null) {
-            returnType = BuiltinType.ANY;
-        } else if (function.getReturnType().getSecond().equals(BuiltinType.ANY.getDisplayName())) {
-            returnType = BuiltinType.ANY;
-        } else {
-            returnType = getTypeInfo(function.getReturnType(), txnCtx);
-        }
-        for (Pair<DataverseName, String> arg : function.getArguments()) {
-            argumentTypes.add(getTypeInfo(arg, txnCtx));
-        }
+        List<IAType> argumentTypes = function.getArguments().stream().map(Pair::getSecond).collect(Collectors.toList());
+        IAType returnType = function.getReturnType().getSecond();
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, argumentTypes);
 
         return new ExternalScalarFunctionInfo(function.getSignature().createFunctionIdentifier(), returnType,
                 function.getFunctionBody(), function.getLanguage(), function.getLibrary(), argumentTypes,
                 function.getParams(), typeComputer);
-    }
-
-    private static IAType getTypeInfo(Pair<DataverseName, String> typePair, MetadataTransactionContext txnCtx)
-            throws AlgebricksException {
-        IAType argType = BuiltinType.ANY;
-        String type = typePair.getSecond();
-        if (type != null && !type.equals(BuiltinType.ANY.getDisplayName())) {
-            if (type.indexOf("{{") != -1 || type.indexOf("[") != -1) {
-                argType = getCollectionType(typePair, txnCtx);
-            } else {
-                argType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                        typePair.getFirst(), type, false);
-            }
-        }
-        return argType;
-
-    }
-
-    private static IAType getCollectionType(Pair<DataverseName, String> typePair, MetadataTransactionContext txnCtx)
-            throws AlgebricksException {
-
-        String paramType = typePair.getSecond();
-        Matcher matcher = orderedListPattern.matcher(paramType);
-        if (matcher.find()) {
-            String subType = paramType.substring(paramType.indexOf('[') + 1, paramType.lastIndexOf(']'));
-            return new AOrderedListType(getTypeInfo(new Pair<>(typePair.getFirst(), subType), txnCtx), "AOrderedList");
-        } else {
-            matcher = unorderedListPattern.matcher(paramType);
-            if (matcher.find()) {
-                String subType = paramType.substring(paramType.indexOf("{{") + 2, paramType.lastIndexOf("}}"));
-                return new AUnorderedListType(getTypeInfo(new Pair<>(typePair.getFirst(), subType), txnCtx),
-                        "AUnorderedList");
-            }
-        }
-        return null;
     }
 
     private static IFunctionInfo getUnnestFunctionInfo(MetadataTransactionContext txnCtx, Function function) {

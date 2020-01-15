@@ -33,6 +33,7 @@ import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.DataverseNameUtils;
 import org.apache.asterix.lang.sqlpp.util.SqlppVariableUtil;
 import org.apache.asterix.metadata.entities.Function;
+import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class FunctionParser {
@@ -51,7 +52,7 @@ public class FunctionParser {
 
         String functionBody = function.getFunctionBody();
         List<String> argNames = function.getArgNames();
-        List<Pair<DataverseName, String>> args = function.getArguments();
+        List<Pair<DataverseName, IAType>> args = function.getArguments();
 
         StringBuilder builder = new StringBuilder();
         builder.append(" use " + DataverseNameUtils.generateDataverseName(function.getDataverseName()) + ";");
@@ -61,8 +62,8 @@ public class FunctionParser {
             String param = argNames.get(i);
             String type = "ASTERIX.ANY";
             if (args.get(i) != null) {
-                Pair<DataverseName, String> t = args.get(i);
-                type = t.getFirst().getCanonicalForm() + "." + t.getSecond();
+                Pair<DataverseName, IAType> t = args.get(i);
+                type = t.getFirst().getCanonicalForm() + "." + t.getSecond().getTypeName();
             }
             builder.append(type);
             builder.append(":");

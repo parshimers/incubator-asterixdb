@@ -40,9 +40,12 @@ import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.builders.RecordBuilder;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
+import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
+import org.apache.asterix.metadata.entities.BuiltinTypeMap;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.base.AMutableString;
 import org.apache.asterix.om.base.AOrderedList;
@@ -53,6 +56,8 @@ import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
+import org.apache.asterix.om.types.IAType;
+import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
@@ -68,6 +73,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     // Payload field containing serialized Function.
     private static final int FUNCTION_PAYLOAD_TUPLE_FIELD_INDEX = 3;
 
+    protected final TxnId txnId;
+    protected final MetadataNode metadataNode;
+
     protected OrderedListBuilder dependenciesListBuilder;
     protected OrderedListBuilder dependencyListBuilder;
     protected OrderedListBuilder dependencyNameListBuilder;
@@ -75,10 +83,11 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     protected AOrderedListType stringList;
     protected AOrderedListType listOfLists;
 
-    protected final transient ArrayBackedValueStorage fieldName = new ArrayBackedValueStorage();
 
-    protected FunctionTupleTranslator(boolean getTuple) {
+    protected FunctionTupleTranslator(TxnId txnId, MetadataNode metadataNode, boolean getTuple) {
         super(getTuple, MetadataPrimaryIndexes.FUNCTION_DATASET, FUNCTION_PAYLOAD_TUPLE_FIELD_INDEX);
+        this.txnId = txnId;
+        this.metadataNode = metadataNode;
         if (getTuple) {
             dependenciesListBuilder = new OrderedListBuilder();
             dependencyListBuilder = new OrderedListBuilder();
@@ -130,13 +139,13 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         return adaptorConfiguration;
     }
 
-    private List<Pair<DataverseName, String>> getFunctionTypeArgs(ARecord functionRecord) {
+    private List<Pair<DataverseName, IAType>> getFunctionTypeArgs(ARecord functionRecord) throws AlgebricksException {
         String dv = "";
         String type = "";
-        List<Pair<DataverseName, String>> functionArgs = new ArrayList<>();
+        List<Pair<DataverseName, IAType>> functionArgs = new ArrayList<>();
 
         final ARecordType functionType = functionRecord.getType();
-        final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME);
+        final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME);
         if (functionLibraryIdx >= 0) {
             IACursor cursor = ((AOrderedList) functionRecord.getValueByPos(functionLibraryIdx)).getCursor();
             while (cursor.next()) {
@@ -150,13 +159,14 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
                 if (valueIdx >= 0) {
                     type = ((AString) field.getValueByPos(valueIdx)).getStringValue();
                 }
-                functionArgs.add(new Pair<>(DataverseName.createFromCanonicalForm(dv), type));
+                DataverseName dvName = DataverseName.createFromCanonicalForm(dv);
+                functionArgs.add(new Pair<>(dvName, BuiltinTypeMap.getTypeFromTypeName(metadataNode,txnId,dvName,type,false)));
             }
         }
         return functionArgs;
     }
 
-    protected Function createMetadataEntityFromARecord(ARecord functionRecord) {
+    protected Function createMetadataEntityFromARecord(ARecord functionRecord) throws AlgebricksException {
         String dataverseCanonicalName =
                 ((AString) functionRecord.getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_DATAVERSENAME_FIELD_INDEX))
                         .getStringValue();
@@ -177,8 +187,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         String returnType = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX)).getStringValue();
         List<String> returnSplit = Arrays.asList(returnType.split("\\."));
-        Pair<DataverseName, String> qualifiedType = new Pair<>(
-                DataverseName.create(returnSplit, 0, returnSplit.size() - 1), returnSplit.get(returnSplit.size() - 1));
+        DataverseName dvName =  DataverseName.create(returnSplit, 0, returnSplit.size() - 1);
+        String typeName =  returnSplit.get(returnSplit.size() - 1);
+        Pair<DataverseName,IAType> qualifiedType = new Pair(dvName, BuiltinTypeMap.getTypeFromTypeName(metadataNode,txnId,dvName,typeName,true));
 
         String definition = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX)).getStringValue();
@@ -204,7 +215,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
             dependencies.add(dependencyList);
         }
 
-        List<Pair<DataverseName, String>> args = getFunctionTypeArgs(functionRecord);
+        List<Pair<DataverseName, IAType>> args = getFunctionTypeArgs(functionRecord);
         String functionLibrary = getFunctionLibrary(functionRecord);
         Map<String, String> params = getFunctionWithParams(functionRecord);
         boolean nullable = getNullable(functionRecord);
@@ -376,9 +387,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         aString.setValue(FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME);
         stringSerde.serialize(aString, fieldName.getDataOutput());
         listBuilder.reset(DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE);
-        for (Pair<DataverseName, String> p : function.getArguments()) {
+        for (Pair<DataverseName, IAType> p : function.getArguments()) {
             String dv = p.getFirst().getCanonicalForm();
-            String type = p.getSecond();
+            String type = p.getSecond().getTypeName();
             itemValue.reset();
             writePropertyTypeRecord(dv, type, itemValue.getDataOutput());
             listBuilder.addItem(itemValue);

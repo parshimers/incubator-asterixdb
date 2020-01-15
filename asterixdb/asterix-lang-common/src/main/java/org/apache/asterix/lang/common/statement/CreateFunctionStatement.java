@@ -45,7 +45,7 @@ public class CreateFunctionStatement extends AbstractStatement {
     private final Expression functionBodyExpression;
     private final boolean ifNotExists;
 
-    TypeReferenceExpression returnType;
+    IndexedTypeExpression returnType;
     boolean returnUnknownable;
     Boolean deterministic;
     boolean nullCall;
@@ -60,7 +60,7 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public CreateFunctionStatement(FunctionSignature signature,
-            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, TypeReferenceExpression returnType,
+            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
             boolean returnUnknownable, String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
         this.signature = signature;
         this.functionBody = functionBody;
@@ -72,7 +72,7 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public CreateFunctionStatement(FunctionSignature signature,
-            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, TypeReferenceExpression returnType,
+            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
             boolean returnUnknownable, boolean deterministic, boolean nullCall, String lang, String libName,
             String externalIdent, RecordConstructor resources, boolean ifNotExists) throws CompilationException {
         this.signature = signature;
@@ -108,7 +108,7 @@ public class CreateFunctionStatement extends AbstractStatement {
         return functionBodyExpression;
     }
 
-    public TypeExpression getReturnType() {
+    public IndexedTypeExpression getReturnType() {
         return returnType;
     }
 
