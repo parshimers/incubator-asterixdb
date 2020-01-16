@@ -1797,8 +1797,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     if (var.getSecond() != null) {
                         Map<TypeSignature, IAType> typeMap = TypeTranslator.computeTypes(mdTxnCtx, var.second.getType(),
                                 var.first.getValue(), dataverseName);
-                        argType.add(new Pair(dataverseName,
-                                typeMap.get(new TypeSignature(dataverseName, var.first.getValue()))));
+                        argType.add(new Pair(dataverseName, typeMap.values().iterator().next()));
                         argNames.add(var.getFirst().getValue());
                     } else {
                         argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY));
@@ -1809,9 +1808,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 IndexedTypeExpression ret = cfs.getReturnType();
                 Pair<DataverseName, IAType> retType;
                 if (ret != null) {
-                    retType = new Pair(dataverseName,
-                            TypeTranslator.computeTypes(mdTxnCtx, ret.getType(), "return", dataverseName)
-                                    .get(new TypeSignature(dataverseName, "return")));
+                    Map<TypeSignature, IAType> typeMap =
+                            TypeTranslator.computeTypes(mdTxnCtx, ret.getType(), "returns", dataverseName);
+                    if (typeMap.size() <= 0) {
+                        throw new CompilationException(ErrorCode.UNKNOWN_TYPE, sourceLoc, ret.getType().toString());
+                    }
+                    retType = new Pair(dataverseName, typeMap.values().iterator().next());
                 } else {
                     retType = new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY);
                 }
