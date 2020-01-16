@@ -359,14 +359,14 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_mixed">
-        <output-dir compare="Text">sum_mixed</output-dir>
+      <compilation-unit name="sum/sum_mixed">
+        <output-dir compare="Text">sum/sum_mixed</output-dir>
         <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_mixed">
-        <output-dir compare="Text">serial_sum_mixed</output-dir>
+      <compilation-unit name="sum/serial_sum_mixed">
+        <output-dir compare="Text">sum/serial_sum_mixed</output-dir>
         <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
       </compilation-unit>
     </test-case>
@@ -434,13 +434,13 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="issue425_sum_hetero_list_1">
-        <output-dir compare="Text">issue425_sum_hetero_list_1</output-dir>
+      <compilation-unit name="sum/issue425_sum_hetero_list_1">
+        <output-dir compare="Text">sum/issue425_sum_hetero_list_1</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="issue425_sum_hetero_list">
-        <output-dir compare="Text">issue425_sum_hetero_list</output-dir>
+      <compilation-unit name="sum/issue425_sum_hetero_list">
+        <output-dir compare="Text">sum/issue425_sum_hetero_list</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
@@ -779,18 +779,18 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="scalar_sum">
-        <output-dir compare="Text">scalar_sum</output-dir>
+      <compilation-unit name="sum/scalar_sum">
+        <output-dir compare="Text">sum/scalar_sum</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="scalar_sum_empty">
-        <output-dir compare="Text">scalar_sum_empty</output-dir>
+      <compilation-unit name="sum/scalar_sum_empty">
+        <output-dir compare="Text">sum/scalar_sum_empty</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="scalar_sum_null">
-        <output-dir compare="Text">scalar_sum_null</output-dir>
+      <compilation-unit name="sum/scalar_sum_null">
+        <output-dir compare="Text">sum/scalar_sum_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
@@ -1004,74 +1004,74 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_double">
-        <output-dir compare="Text">serial_sum_double</output-dir>
+      <compilation-unit name="sum/serial_sum_double">
+        <output-dir compare="Text">sum/serial_sum_double</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_double_null">
-        <output-dir compare="Text">serial_sum_double_null</output-dir>
+      <compilation-unit name="sum/serial_sum_double_null">
+        <output-dir compare="Text">sum/serial_sum_double_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_empty">
-        <output-dir compare="Text">serial_sum_empty</output-dir>
+      <compilation-unit name="sum/serial_sum_empty">
+        <output-dir compare="Text">sum/serial_sum_empty</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_float">
-        <output-dir compare="Text">serial_sum_float</output-dir>
+      <compilation-unit name="sum/serial_sum_float">
+        <output-dir compare="Text">sum/serial_sum_float</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_float_null">
-        <output-dir compare="Text">serial_sum_float_null</output-dir>
+      <compilation-unit name="sum/serial_sum_float_null">
+        <output-dir compare="Text">sum/serial_sum_float_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int16">
-        <output-dir compare="Text">serial_sum_int16</output-dir>
+      <compilation-unit name="sum/serial_sum_int16">
+        <output-dir compare="Text">sum/serial_sum_int16</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int16_null">
-        <output-dir compare="Text">serial_sum_int16_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int16_null">
+        <output-dir compare="Text">sum/serial_sum_int16_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int32">
-        <output-dir compare="Text">serial_sum_int32</output-dir>
+      <compilation-unit name="sum/serial_sum_int32">
+        <output-dir compare="Text">sum/serial_sum_int32</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int32_null">
-        <output-dir compare="Text">serial_sum_int32_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int32_null">
+        <output-dir compare="Text">sum/serial_sum_int32_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int64">
-        <output-dir compare="Text">serial_sum_int64</output-dir>
+      <compilation-unit name="sum/serial_sum_int64">
+        <output-dir compare="Text">sum/serial_sum_int64</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int64_null">
-        <output-dir compare="Text">serial_sum_int64_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int64_null">
+        <output-dir compare="Text">sum/serial_sum_int64_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int64_overflow">
-        <output-dir compare="Text">serial_sum_int64_overflow</output-dir>
+      <compilation-unit name="sum/serial_sum_int64_overflow">
+        <output-dir compare="Text">sum/serial_sum_int64_overflow</output-dir>
         <expected-error>Overflow in agg-sum</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int8">
-        <output-dir compare="Text">serial_sum_int8</output-dir>
+      <compilation-unit name="sum/serial_sum_int8">
+        <output-dir compare="Text">sum/serial_sum_int8</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="serial_sum_int8_null">
-        <output-dir compare="Text">serial_sum_int8_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int8_null">
+        <output-dir compare="Text">sum/serial_sum_int8_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
@@ -1300,99 +1300,99 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_double">
-        <output-dir compare="Text">sum_double</output-dir>
+      <compilation-unit name="sum/sum_double">
+        <output-dir compare="Text">sum/sum_double</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_double_null">
-        <output-dir compare="Text">sum_double_null</output-dir>
+      <compilation-unit name="sum/sum_double_null">
+        <output-dir compare="Text">sum/sum_double_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_empty_01">
-        <output-dir compare="Text">sum_empty_01</output-dir>
+      <compilation-unit name="sum/sum_empty_01">
+        <output-dir compare="Text">sum/sum_empty_01</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_empty_02">
-        <output-dir compare="Text">sum_empty_02</output-dir>
+      <compilation-unit name="sum/sum_empty_02">
+        <output-dir compare="Text">sum/sum_empty_02</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_float">
-        <output-dir compare="Text">sum_float</output-dir>
+      <compilation-unit name="sum/sum_float">
+        <output-dir compare="Text">sum/sum_float</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_float_null">
-        <output-dir compare="Text">sum_float_null</output-dir>
+      <compilation-unit name="sum/sum_float_null">
+        <output-dir compare="Text">sum/sum_float_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int16">
-        <output-dir compare="Text">sum_int16</output-dir>
+      <compilation-unit name="sum/sum_int16">
+        <output-dir compare="Text">sum/sum_int16</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int16_null">
-        <output-dir compare="Text">sum_int16_null</output-dir>
+      <compilation-unit name="sum/sum_int16_null">
+        <output-dir compare="Text">sum/sum_int16_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int32">
-        <output-dir compare="Text">sum_int32</output-dir>
+      <compilation-unit name="sum/sum_int32">
+        <output-dir compare="Text">sum/sum_int32</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int32_null">
-        <output-dir compare="Text">sum_int32_null</output-dir>
+      <compilation-unit name="sum/sum_int32_null">
+        <output-dir compare="Text">sum/sum_int32_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int64">
-        <output-dir compare="Text">sum_int64</output-dir>
+      <compilation-unit name="sum/sum_int64">
+        <output-dir compare="Text">sum/sum_int64</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int64_null">
-        <output-dir compare="Text">sum_int64_null</output-dir>
+      <compilation-unit name="sum/sum_int64_null">
+        <output-dir compare="Text">sum/sum_int64_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int64_null">
-        <output-dir compare="Text">sum_int64_null</output-dir>
+      <compilation-unit name="sum/sum_int64_null">
+        <output-dir compare="Text">sum/sum_int64_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int64_overflow">
-        <output-dir compare="Text">sum_int64_overflow</output-dir>
+      <compilation-unit name="sum/sum_int64_overflow">
+        <output-dir compare="Text">sum/sum_int64_overflow</output-dir>
         <expected-error>Overflow in agg-sum</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int8">
-        <output-dir compare="Text">sum_int8</output-dir>
+      <compilation-unit name="sum/sum_int8">
+        <output-dir compare="Text">sum/sum_int8</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_int8_null">
-        <output-dir compare="Text">sum_int8_null</output-dir>
+      <compilation-unit name="sum/sum_int8_null">
+        <output-dir compare="Text">sum/sum_int8_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_null-with-pred">
-        <output-dir compare="Text">sum_null-with-pred</output-dir>
+      <compilation-unit name="sum/sum_null-with-pred">
+        <output-dir compare="Text">sum/sum_null-with-pred</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_numeric_null">
-        <output-dir compare="Text">sum_numeric_null</output-dir>
+      <compilation-unit name="sum/sum_numeric_null">
+        <output-dir compare="Text">sum/sum_numeric_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_distinct">
-        <output-dir compare="Text">sum_distinct</output-dir>
+      <compilation-unit name="sum/sum_distinct">
+        <output-dir compare="Text">sum/sum_distinct</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
@@ -1553,14 +1553,14 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_mixed">
-        <output-dir compare="Text">sum_mixed</output-dir>
+      <compilation-unit name="sum/sum_mixed">
+        <output-dir compare="Text">sum/sum_mixed</output-dir>
         <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_mixed">
-        <output-dir compare="Text">serial_sum_mixed</output-dir>
+      <compilation-unit name="sum/serial_sum_mixed">
+        <output-dir compare="Text">sum/serial_sum_mixed</output-dir>
         <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
       </compilation-unit>
     </test-case>
@@ -1616,13 +1616,13 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="issue425_sum_hetero_list_1">
-        <output-dir compare="Text">issue425_sum_hetero_list_1</output-dir>
+      <compilation-unit name="sum/issue425_sum_hetero_list_1">
+        <output-dir compare="Text">sum/issue425_sum_hetero_list_1</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="issue425_sum_hetero_list">
-        <output-dir compare="Text">issue425_sum_hetero_list</output-dir>
+      <compilation-unit name="sum/issue425_sum_hetero_list">
+        <output-dir compare="Text">sum/issue425_sum_hetero_list</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
@@ -1971,18 +1971,18 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="scalar_sum">
-        <output-dir compare="Text">scalar_sum</output-dir>
+      <compilation-unit name="sum/scalar_sum">
+        <output-dir compare="Text">sum/scalar_sum</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="scalar_sum_empty">
-        <output-dir compare="Text">scalar_sum_empty</output-dir>
+      <compilation-unit name="sum/scalar_sum_empty">
+        <output-dir compare="Text">sum/scalar_sum_empty</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="scalar_sum_null">
-        <output-dir compare="Text">scalar_sum_null</output-dir>
+      <compilation-unit name="sum/scalar_sum_null">
+        <output-dir compare="Text">sum/scalar_sum_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
@@ -2196,74 +2196,74 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_double">
-        <output-dir compare="Text">serial_sum_double</output-dir>
+      <compilation-unit name="sum/serial_sum_double">
+        <output-dir compare="Text">sum/serial_sum_double</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_double_null">
-        <output-dir compare="Text">serial_sum_double_null</output-dir>
+      <compilation-unit name="sum/serial_sum_double_null">
+        <output-dir compare="Text">sum/serial_sum_double_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_empty">
-        <output-dir compare="Text">serial_sum_empty</output-dir>
+      <compilation-unit name="sum/serial_sum_empty">
+        <output-dir compare="Text">sum/serial_sum_empty</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_float">
-        <output-dir compare="Text">serial_sum_float</output-dir>
+      <compilation-unit name="sum/serial_sum_float">
+        <output-dir compare="Text">sum/serial_sum_float</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_float_null">
-        <output-dir compare="Text">serial_sum_float_null</output-dir>
+      <compilation-unit name="sum/serial_sum_float_null">
+        <output-dir compare="Text">sum/serial_sum_float_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int16">
-        <output-dir compare="Text">serial_sum_int16</output-dir>
+      <compilation-unit name="sum/serial_sum_int16">
+        <output-dir compare="Text">sum/serial_sum_int16</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int16_null">
-        <output-dir compare="Text">serial_sum_int16_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int16_null">
+        <output-dir compare="Text">sum/serial_sum_int16_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int32">
-        <output-dir compare="Text">serial_sum_int32</output-dir>
+      <compilation-unit name="sum/serial_sum_int32">
+        <output-dir compare="Text">sum/serial_sum_int32</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int32_null">
-        <output-dir compare="Text">serial_sum_int32_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int32_null">
+        <output-dir compare="Text">sum/serial_sum_int32_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int64">
-        <output-dir compare="Text">serial_sum_int64</output-dir>
+      <compilation-unit name="sum/serial_sum_int64">
+        <output-dir compare="Text">sum/serial_sum_int64</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int64_null">
-        <output-dir compare="Text">serial_sum_int64_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int64_null">
+        <output-dir compare="Text">sum/serial_sum_int64_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int64_overflow">
-        <output-dir compare="Text">serial_sum_int64_overflow</output-dir>
+      <compilation-unit name="sum/serial_sum_int64_overflow">
+        <output-dir compare="Text">sum/serial_sum_int64_overflow</output-dir>
         <expected-error>Overflow in agg-sum</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int8">
-        <output-dir compare="Text">serial_sum_int8</output-dir>
+      <compilation-unit name="sum/serial_sum_int8">
+        <output-dir compare="Text">sum/serial_sum_int8</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="serial_sum_int8_null">
-        <output-dir compare="Text">serial_sum_int8_null</output-dir>
+      <compilation-unit name="sum/serial_sum_int8_null">
+        <output-dir compare="Text">sum/serial_sum_int8_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
@@ -2492,94 +2492,94 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_double">
-        <output-dir compare="Text">sum_double</output-dir>
+      <compilation-unit name="sum/sum_double">
+        <output-dir compare="Text">sum/sum_double</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_double_null">
-        <output-dir compare="Text">sum_double_null</output-dir>
+      <compilation-unit name="sum/sum_double_null">
+        <output-dir compare="Text">sum/sum_double_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_empty_01">
-        <output-dir compare="Text">sum_empty_01</output-dir>
+      <compilation-unit name="sum/sum_empty_01">
+        <output-dir compare="Text">sum/sum_empty_01</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_empty_02">
-        <output-dir compare="Text">sum_empty_02</output-dir>
+      <compilation-unit name="sum/sum_empty_02">
+        <output-dir compare="Text">sum/sum_empty_02</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_float">
-        <output-dir compare="Text">sum_float</output-dir>
+      <compilation-unit name="sum/sum_float">
+        <output-dir compare="Text">sum/sum_float</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_float_null">
-        <output-dir compare="Text">sum_float_null</output-dir>
+      <compilation-unit name="sum/sum_float_null">
+        <output-dir compare="Text">sum/sum_float_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int16">
-        <output-dir compare="Text">sum_int16</output-dir>
+      <compilation-unit name="sum/sum_int16">
+        <output-dir compare="Text">sum/sum_int16</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int16_null">
-        <output-dir compare="Text">sum_int16_null</output-dir>
+      <compilation-unit name="sum/sum_int16_null">
+        <output-dir compare="Text">sum/sum_int16_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int32">
-        <output-dir compare="Text">sum_int32</output-dir>
+      <compilation-unit name="sum/sum_int32">
+        <output-dir compare="Text">sum/sum_int32</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int32_null">
-        <output-dir compare="Text">sum_int32_null</output-dir>
+      <compilation-unit name="sum/sum_int32_null">
+        <output-dir compare="Text">sum/sum_int32_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int64">
-        <output-dir compare="Text">sum_int64</output-dir>
+      <compilation-unit name="sum/sum_int64">
+        <output-dir compare="Text">sum/sum_int64</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int64_null">
-        <output-dir compare="Text">sum_int64_null</output-dir>
+      <compilation-unit name="sum/sum_int64_null">
+        <output-dir compare="Text">sum/sum_int64_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int64_overflow">
-        <output-dir compare="Text">sum_int64_overflow</output-dir>
+      <compilation-unit name="sum/sum_int64_overflow">
+        <output-dir compare="Text">sum/sum_int64_overflow</output-dir>
         <expected-error>Overflow in agg-sum</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int8">
-        <output-dir compare="Text">sum_int8</output-dir>
+      <compilation-unit name="sum/sum_int8">
+        <output-dir compare="Text">sum/sum_int8</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_int8_null">
-        <output-dir compare="Text">sum_int8_null</output-dir>
+      <compilation-unit name="sum/sum_int8_null">
+        <output-dir compare="Text">sum/sum_int8_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_null-with-pred">
-        <output-dir compare="Text">sum_null-with-pred</output-dir>
+      <compilation-unit name="sum/sum_null-with-pred">
+        <output-dir compare="Text">sum/sum_null-with-pred</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_numeric_null">
-        <output-dir compare="Text">sum_numeric_null</output-dir>
+      <compilation-unit name="sum/sum_numeric_null">
+        <output-dir compare="Text">sum/sum_numeric_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_distinct">
-        <output-dir compare="Text">sum_distinct</output-dir>
+      <compilation-unit name="sum/sum_distinct">
+        <output-dir compare="Text">sum/sum_distinct</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
@@ -3365,6 +3365,15 @@
     <test-case FilePath="comparison">
       <compilation-unit name="circle-point">
         <output-dir compare="Text">circle-point</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="comparison" check-warnings="true">
+      <compilation-unit name="incomparable_types">
+        <output-dir compare="Text">incomparable_types</output-dir>
+          <expected-warn>Incomparable input types: string and bigint (in line 25, at column 13)</expected-warn>
+          <expected-warn>Incomparable input types: array and bigint (in line 23, at column 7)</expected-warn>
+          <expected-warn>Incomparable input types: point and point (in line 24, at column 18)</expected-warn>
+          <expected-warn>Incomparable input types: bigint and string (in line 24, at column 46)</expected-warn>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -6106,6 +6115,21 @@
   </test-group>
   <test-group name="misc">
     <test-case FilePath="misc">
+      <compilation-unit name="big_in_list/000">
+        <output-dir compare="Text">big_in_list/000</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
+      <compilation-unit name="big_in_list/001">
+        <output-dir compare="Text">big_in_list/001</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
+      <compilation-unit name="multiple_and/000">
+        <output-dir compare="Text">multiple_and/000</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
       <compilation-unit name="record-serialization-ASTERIXDB-2567">
         <output-dir compare="Text">record-serialization-ASTERIXDB-2567</output-dir>
       </compilation-unit>
@@ -6138,6 +6162,11 @@
     <test-case FilePath="misc">
       <compilation-unit name="constant_folding">
         <output-dir compare="Text">constant_folding</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
+      <compilation-unit name="join-ASTERIXDB-2686">
+        <output-dir compare="Text">join-ASTERIXDB-2686</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="misc">
@@ -9923,6 +9952,13 @@
       </compilation-unit>
     </test-case>
   </test-group>
+  <test-group name="synonym">
+    <test-case FilePath="synonym">
+      <compilation-unit name="synonym-01">
+        <output-dir compare="Text">synonym-01</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
   <test-group name="tokenizers">
     <test-case FilePath="tokenizers">
       <compilation-unit name="counthashed-gram-tokens_01">
@@ -13702,6 +13738,111 @@
         <expected-warn>Type mismatch: function codepoint-to-string expects its 1st input parameter to be of type array, but the actual input type is string (in line 33, at column 1)</expected-warn>
         <expected-warn>Unsupported type: codepoint-to-string cannot process input type string (in line 34, at column 1)</expected-warn>
         <expected-warn>Unsupported type: codepoint-to-string cannot process input type double (in line 35, at column 1)</expected-warn>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="fun_return_null/numeric_fun" >
+    <test-case FilePath="fun_return_null/numeric_fun" check-warnings="true">
+      <compilation-unit name="numeric_fun_001">
+        <output-dir compare="Text">numeric_fun_001</output-dir>
+        <expected-warn>Type mismatch: function abs expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function acos expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string </expected-warn>
+        <expected-warn>Type mismatch: function asin expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function atan expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function atan2 expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function degrees expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function radians expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function cos expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function cosh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sin expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sinh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function tan expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function tanh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function exp expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function ln expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function log expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sqrt expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sign expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function ceiling expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function floor expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function numeric-unary-minus expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function random expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+
+        <expected-warn>Type mismatch: function abs expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function acos expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string </expected-warn>
+        <expected-warn>Type mismatch: function asin expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function atan expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function atan2 expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function degrees expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function radians expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function cos expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function cosh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sin expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sinh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function tan expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function tanh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function exp expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function ln expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function log expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sqrt expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sign expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function ceiling expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function floor expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function numeric-unary-minus expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function random expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+
+        <expected-warn>Type mismatch: function abs expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function acos expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string </expected-warn>
+        <expected-warn>Type mismatch: function asin expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function atan expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function atan2 expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function degrees expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function radians expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function cos expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function cosh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sin expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sinh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function tan expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function tanh expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function exp expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function ln expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function log expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sqrt expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function sign expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function ceiling expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function floor expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function numeric-unary-minus expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function random expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fun_return_null/numeric_fun" check-warnings="true">
+      <compilation-unit name="numeric_fun_002">
+        <output-dir compare="Text">numeric_fun_002</output-dir>
+        <expected-warn>Type mismatch: function round expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function trunc expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function trunc expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round expects its 2nd input parameter to be of type tinyint, smallint, integer or bigint, but the actual input type is string</expected-warn>
+
+        <expected-warn>Type mismatch: function round expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function trunc expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function trunc expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+
+        <expected-warn>Type mismatch: function round expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function trunc expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round expects its 1st input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function round-half-to-even expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <expected-warn>Type mismatch: function trunc expects its 2nd input parameter to be of type tinyint, smallint, integer, bigint, float or double, but the actual input type is string</expected-warn>
+        <source-location>false</source-location>
       </compilation-unit>
     </test-case>
   </test-group>

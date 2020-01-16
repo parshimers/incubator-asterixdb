@@ -80,4 +80,8 @@ public class MetadataTupleTranslatorProvider {
     public NodeGroupTupleTranslator getNodeGroupTupleTranslator(boolean getTuple) {
         return new NodeGroupTupleTranslator(getTuple);
     }
+
+    public SynonymTupleTranslator getSynonymTupleTranslator(boolean getTuple) {
+        return new SynonymTupleTranslator(getTuple);
+    }
 }

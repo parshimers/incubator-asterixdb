@@ -128,6 +128,7 @@ import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
 import org.apache.asterix.lang.common.statement.CreateFunctionStatement;
 import org.apache.asterix.lang.common.statement.CreateIndexStatement;
+import org.apache.asterix.lang.common.statement.CreateSynonymStatement;
 import org.apache.asterix.lang.common.statement.DatasetDecl;
 import org.apache.asterix.lang.common.statement.DataverseDecl;
 import org.apache.asterix.lang.common.statement.DataverseDropStatement;
@@ -148,6 +149,7 @@ import org.apache.asterix.lang.common.statement.NodegroupDecl;
 import org.apache.asterix.lang.common.statement.Query;
 import org.apache.asterix.lang.common.statement.RefreshExternalDatasetStatement;
 import org.apache.asterix.lang.common.statement.SetStatement;
+import org.apache.asterix.lang.common.statement.SynonymDropStatement;
 import org.apache.asterix.lang.common.statement.TypeDecl;
 import org.apache.asterix.lang.common.statement.TypeDropStatement;
 import org.apache.asterix.lang.common.statement.UpdateStatement;
@@ -596,6 +598,7 @@ Statement CreateStatement() throws ParseException:
     | stmt = CreateDataverseStatement(startToken)
     | stmt = CreateFunctionStatement(startToken)
     | stmt = CreateAdapterStatement(startToken)
+    | stmt = CreateSynonymStatement(startToken)
     | stmt = CreateFeedStatement(startToken)
     | stmt = CreateFeedPolicyStatement(startToken)
   )
@@ -1210,6 +1213,33 @@ CreateFeedPolicyStatement FeedPolicySpecification(Token startStmtToken) throws P
 }
 
 
+CreateSynonymStatement CreateSynonymStatement(Token startStmtToken) throws ParseException:
+{
+  CreateSynonymStatement stmt = null;
+}
+{
+  <SYNONYM> stmt = SynonymSpecification(startStmtToken)
+  {
+    return stmt;
+  }
+}
+
+CreateSynonymStatement SynonymSpecification(Token startStmtToken) throws ParseException:
+{
+  Pair<DataverseName,Identifier> nameComponents = null;
+  Pair<DataverseName,Identifier> objectNameComponents = null;
+  boolean ifNotExists = false;
+}
+{
+  nameComponents = QualifiedName() ifNotExists = IfNotExists()
+  <FOR> objectNameComponents = QualifiedName()
+  {
+    CreateSynonymStatement stmt = new CreateSynonymStatement(nameComponents.first, nameComponents.second.getValue(),
+      objectNameComponents.first, objectNameComponents.second.getValue(), ifNotExists);
+    return addSourceLocation(stmt, startStmtToken);
+  }
+}
+
 boolean IfNotExists() throws ParseException:
 {
 }
@@ -1314,6 +1344,7 @@ Statement DropStatement() throws ParseException:
     | stmt = DropFunctionStatement(startToken)
     | stmt = DropFeedStatement(startToken)
     | stmt = DropFeedPolicyStatement(startToken)
+    | stmt = DropSynonymStatement(startToken)
   )
   {
     return stmt;
@@ -1512,6 +1543,30 @@ FeedPolicyDropStatement DropFeedPolicySpecification(Token startStmtToken) throws
   }
 }
 
+SynonymDropStatement DropSynonymStatement(Token startStmtToken) throws ParseException:
+{
+  SynonymDropStatement stmt = null;
+}
+{
+  <SYNONYM> stmt = DropSynonymSpecification(startStmtToken)
+  {
+    return stmt;
+  }
+}
+
+SynonymDropStatement DropSynonymSpecification(Token startStmtToken) throws ParseException:
+{
+  Pair<DataverseName,Identifier> pairId = null;
+  boolean ifExists = false;
+}
+{
+  pairId = QualifiedName() ifExists = IfExists()
+  {
+    SynonymDropStatement stmt = new SynonymDropStatement(pairId.first, pairId.second.getValue(), ifExists);
+    return addSourceLocation(stmt, startStmtToken);
+  }
+}
+
 boolean IfExists() throws ParseException :
 {
 }
@@ -1544,8 +1599,8 @@ InsertStatement InsertStatement() throws ParseException:
         addSourceLocation(var, startToken);
       }
       query.setTopLevel(true);
-      InsertStatement stmt = new InsertStatement(nameComponents.first, nameComponents.second, query, getVarCounter(),
-        var, returnExpression);
+      InsertStatement stmt = new InsertStatement(nameComponents.first, nameComponents.second.getValue(), query,
+        getVarCounter(), var, returnExpression);
       return addSourceLocation(stmt, startToken);
     }
 }
@@ -1568,8 +1623,8 @@ UpsertStatement UpsertStatement() throws ParseException:
           addSourceLocation(var, startToken);
       }
       query.setTopLevel(true);
-      UpsertStatement stmt = new UpsertStatement(nameComponents.first, nameComponents.second, query, getVarCounter(),
-        var, returnExpression);
+      UpsertStatement stmt = new UpsertStatement(nameComponents.first, nameComponents.second.getValue(), query,
+        getVarCounter(), var, returnExpression);
       return addSourceLocation(stmt, startToken);
     }
 }
@@ -1590,7 +1645,7 @@ DeleteStatement DeleteStatement() throws ParseException:
         var = new VariableExpr(SqlppVariableUtil.toInternalVariableIdentifier(nameComponents.second.getValue()));
         addSourceLocation(var, startToken);
       }
-      DeleteStatement stmt = new DeleteStatement(var, nameComponents.first, nameComponents.second,
+      DeleteStatement stmt = new DeleteStatement(var, nameComponents.first, nameComponents.second.getValue(),
           condition, getVarCounter());
       return addSourceLocation(stmt, startToken);
   }
@@ -1703,7 +1758,8 @@ LoadStatement LoadStatement() throws ParseException:
     }
   )?
     {
-      LoadStatement stmt = new LoadStatement(dataverseName, datasetName, adapterName, properties, alreadySorted);
+      LoadStatement stmt = new LoadStatement(dataverseName, datasetName.getValue(), adapterName, properties,
+        alreadySorted);
       return addSourceLocation(stmt, startToken);
     }
 }
@@ -4212,6 +4268,7 @@ TOKEN [IGNORE_CASE]:
   | <SOME : "some">
   | <START : "start">
   | <STOP : "stop">
+  | <SYNONYM : "synonym">
   | <TEMPORARY : "temporary"> // intentionally not used but reserved for future usage
   | <THEN : "then">
   | <TYPE : "type">

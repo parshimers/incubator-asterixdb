@@ -81,6 +81,7 @@ public class ErrorCode {
     public static final int INVALID_LIKE_PATTERN = 46;
     public static final int INVALID_REQ_PARAM_VAL = 47;
     public static final int INVALID_REQ_JSON_VAL = 48;
+    public static final int INCOMPARABLE_TYPES = 49;
 
     public static final int UNSUPPORTED_JRE = 100;
 
@@ -194,7 +195,9 @@ public class ErrorCode {
     public static final int OPERATION_NOT_SUPPORTED_ON_PRIMARY_INDEX = 1105;
     public static final int EXPECTED_CONSTANT_VALUE = 1106;
     public static final int UNEXPECTED_HINT = 1107;
-    public static final int UNKNOWN_LIBRARY = 1108;
+    public static final int SYNONYM_EXISTS = 1108;
+    public static final int UNKNOWN_SYNONYM = 1109;
+    public static final int UNKNOWN_LIBRARY = 1110;
 
     // Feed errors
     public static final int DATAFLOW_ILLEGAL_STATE = 3001;

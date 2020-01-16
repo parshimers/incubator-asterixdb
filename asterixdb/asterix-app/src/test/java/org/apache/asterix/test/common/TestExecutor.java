@@ -19,6 +19,7 @@
 package org.apache.asterix.test.common;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hyracks.util.file.FileUtil.canonicalize;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -64,6 +65,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.apache.asterix.api.http.server.QueryServiceRequestParameters;
@@ -153,6 +156,8 @@ public class TestExecutor {
     private static final Pattern HANDLE_VARIABLE_PATTERN = Pattern.compile("handlevariable=(\\w+)");
     private static final Pattern RESULT_VARIABLE_PATTERN = Pattern.compile("resultvariable=(\\w+)");
     private static final Pattern COMPARE_UNORDERED_ARRAY_PATTERN = Pattern.compile("compareunorderedarray=(\\w+)");
+    private static final Pattern MACRO_PARAM_PATTERN =
+            Pattern.compile("macro (?<name>[\\w-$]+)=(?<value>.*)", Pattern.MULTILINE);
 
     private static final Pattern VARIABLE_REF_PATTERN = Pattern.compile("\\$(\\w+)");
     private static final Pattern HTTP_PARAM_PATTERN =
@@ -190,6 +195,11 @@ public class TestExecutor {
 
     private List<Charset> allCharsets;
     private final Queue<Charset> charsetsRemaining = new ArrayDeque<>();
+
+    // Macro parameter names
+    private static final String MACRO_START_FIELD = "start";
+    private static final String MACRO_END_FIELD = "end";
+    private static final String MACRO_SEPARATOR_FIELD = "separator";
 
     /*
      * Instance members
@@ -250,7 +260,7 @@ public class TestExecutor {
 
     public void runScriptAndCompareWithResult(File scriptFile, File expectedFile, File actualFile,
             ComparisonEnum compare, Charset actualEncoding, String statement) throws Exception {
-        LOGGER.info("Expected results file: {} ", expectedFile);
+        LOGGER.info("Expected results file: {} ", canonicalize(expectedFile));
         boolean regex = false;
         if (expectedFile.getName().endsWith(".ignore")) {
             return; //skip the comparison
@@ -322,7 +332,11 @@ public class TestExecutor {
                 throw createLineChangedException(scriptFile, "<EOF>", lineActual, num);
             }
         } catch (Exception e) {
-            LOGGER.info("Actual results file: {} encoding: {}", actualFile, actualEncoding);
+            if (!actualEncoding.equals(UTF_8)) {
+                LOGGER.info("Actual results file: {} encoding: {}", canonicalize(actualFile), actualEncoding);
+            } else {
+                LOGGER.info("Actual results file: {}", canonicalize(actualFile));
+            }
             throw e;
         }
 
@@ -330,8 +344,8 @@ public class TestExecutor {
 
     private ComparisonException createLineChangedException(File scriptFile, String lineExpected, String lineActual,
             int num) {
-        return new ComparisonException("Result for " + scriptFile + " changed at line " + num + ":\nexpected < "
-                + truncateIfLong(lineExpected) + "\nactual   > " + truncateIfLong(lineActual));
+        return new ComparisonException("Result for " + canonicalize(scriptFile) + " changed at line " + num
+                + ":\nexpected < " + truncateIfLong(lineExpected) + "\nactual   > " + truncateIfLong(lineActual));
     }
 
     private String truncateIfLong(String string) {
@@ -473,7 +487,7 @@ public class TestExecutor {
             if (match && !negate || negate && !match) {
                 continue;
             }
-            throw new Exception("Result for " + scriptFile + ": expected pattern '" + expression
+            throw new Exception("Result for " + canonicalize(scriptFile) + ": expected pattern '" + expression
                     + "' not found in result: " + actual);
         }
     }
@@ -502,7 +516,8 @@ public class TestExecutor {
                 }
                 endOfMatch = matcher.end();
             }
-            throw new Exception("Result for " + scriptFile + ": actual file did not match expected result");
+            throw new Exception(
+                    "Result for " + canonicalize(scriptFile) + ": actual file did not match expected result");
         }
     }
 
@@ -671,6 +686,11 @@ public class TestExecutor {
     public InputStream executeQueryService(String str, OutputFormat fmt, URI uri, List<Parameter> params,
             boolean jsonEncoded, Charset responseCharset, Predicate<Integer> responseCodeValidator, boolean cancellable)
             throws Exception {
+
+        final List<Parameter> macroParameters = extractMacro(str);
+        if (!macroParameters.isEmpty()) {
+            str = applySubstitution(str, macroParameters);
+        }
 
         final List<Parameter> additionalParams = extractParameters(str);
         for (Parameter param : additionalParams) {
@@ -1687,6 +1707,20 @@ public class TestExecutor {
         return Optional.empty();
     }
 
+    private static List<Parameter> extractMacro(String statement) {
+        List<Parameter> params = new ArrayList<>();
+        final Matcher m = MACRO_PARAM_PATTERN.matcher(statement);
+        while (m.find()) {
+            final Parameter param = new Parameter();
+            String name = m.group("name");
+            param.setName(name);
+            String value = m.group("value");
+            param.setValue(value);
+            params.add(param);
+        }
+        return params;
+    }
+
     public static List<Parameter> extractParameters(String statement) {
         List<Parameter> params = new ArrayList<>();
         final Matcher m = HTTP_PARAM_PATTERN.matcher(statement);
@@ -1881,6 +1915,114 @@ public class TestExecutor {
                 }
             }
         }
+    }
+
+    private String applySubstitution(String statement, List<Parameter> parameters) throws Exception {
+        // Ensure all macro parameters are available
+        Parameter startParameter = parameters.stream()
+                .filter(parameter -> parameter.getName().equalsIgnoreCase(MACRO_START_FIELD)).findFirst().orElse(null);
+        Parameter endParameter = parameters.stream()
+                .filter(parameter -> parameter.getName().equalsIgnoreCase(MACRO_END_FIELD)).findFirst().orElse(null);
+        Parameter separatorParameter =
+                parameters.stream().filter(parameter -> parameter.getName().equalsIgnoreCase(MACRO_SEPARATOR_FIELD))
+                        .findFirst().orElse(null);
+
+        // If any of the parameters is not found, throw an exception
+        if (startParameter == null || endParameter == null || separatorParameter == null) {
+            LOGGER.log(Level.ERROR, "Inappropriate use of macro command. Missing macro parameter");
+            throw new Exception("Inappropriate use of macro command. Missing macro parameter");
+        }
+
+        // Macro tokens
+        String startToken = startParameter.getValue();
+        String endToken = endParameter.getValue();
+        String separatorToken = separatorParameter.getValue();
+
+        // References to original and stripped statement to apply the substitution. To ensure the comments and
+        // parameters in the query will not cause any issues, the substitution will happen on the stripped query, then
+        // the update stripped query will be put back inside the original query
+        String originalStatement = statement;
+        statement = stripAllComments(statement);
+
+        // Repetitively apply the substitution to replace all macro
+        while (statement.contains(startToken) && statement.contains(endToken)) {
+            int startPosition = statement.indexOf(startToken);
+            int endPosition = statement.indexOf(endToken) + endToken.length();
+
+            // Basic check: Ensure start position is less than end position
+            if (endPosition < startPosition) {
+                LOGGER.log(Level.ERROR, "Inappropriate use of macro command. Invalid format");
+                throw new Exception("Inappropriate use of macro command. Invalid format");
+            }
+
+            String command = statement.substring(startPosition, endPosition);
+            String substitute =
+                    command.replace(command, doApplySubstitution(command, startToken, endToken, separatorToken));
+            originalStatement = originalStatement.replaceFirst(Pattern.quote(command), substitute);
+            statement = statement.replaceFirst(Pattern.quote(command), substitute);
+        }
+
+        return originalStatement;
+    }
+
+    private String doApplySubstitution(String command, String start, String end, String separator) throws Exception {
+        // Remove start and end markers
+        command = command.substring(start.length(), command.length() - end.length());
+        String[] commandSplits = command.split(separator);
+        String substitute = "";
+
+        switch (commandSplits[0].toLowerCase()) {
+            // "generate" command
+            case "gen":
+            case "generate":
+                // For generate command, generation type is 2nd argument
+                String type = commandSplits[1];
+
+                switch (type.toLowerCase()) {
+                    // "seq": Generates a sequence of integers, given start and end positions, and a separator
+                    case "seq":
+                    case "sequence":
+                        // sequence command expects start, end, and separator
+                        if (commandSplits.length < 5) {
+                            LOGGER.log(Level.ERROR, "generate sequence command is not formatted properly: " + command);
+                            throw new Exception("generate sequence command is not formatted properly: " + command);
+                        }
+
+                        int startPosition = Integer.parseInt(commandSplits[2]);
+                        int endPosition = Integer.parseInt(commandSplits[3]);
+                        String valuesSeparator = commandSplits[4];
+
+                        substitute = IntStream.range(startPosition, endPosition).mapToObj(Integer::toString)
+                                .collect(Collectors.joining(valuesSeparator));
+                        break;
+                    // "and": generate a sequence of AND clauses
+                    case "and":
+                        // and command expects count and separator
+                        if (commandSplits.length < 4) {
+                            LOGGER.log(Level.ERROR, "generate \"and\" command is not formatted properly: " + command);
+                            throw new Exception("generate \"and\" command is not formatted properly: " + command);
+                        }
+
+                        int count = Integer.parseInt(commandSplits[2]);
+                        String valueSeparator = commandSplits[3];
+
+                        StringBuilder builder = new StringBuilder();
+                        for (int i = 0; i < count - 1; i++) {
+                            builder.append("AND 1 = 1").append(valueSeparator);
+                        }
+                        builder.append("AND 1 = 1");
+                        substitute = builder.toString();
+                        break;
+                    default:
+                        LOGGER.log(Level.ERROR, "gen command - unknown type: " + type);
+                        throw new Exception("gen command - unknown type: " + type);
+                }
+                break;
+            default:
+                LOGGER.log(Level.ERROR, "Unknown macro command");
+                throw new Exception("Unknown macro command");
+        }
+        return substitute;
     }
 
     protected void fail(boolean runDiagnostics, TestCaseContext testCaseCtx, CompilationUnit cUnit,
