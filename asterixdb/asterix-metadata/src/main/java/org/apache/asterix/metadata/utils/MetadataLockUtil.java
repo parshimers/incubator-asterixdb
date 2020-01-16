@@ -116,7 +116,8 @@ public class MetadataLockUtil implements IMetadataLockUtil {
         createFunctionBegin(lockMgr, locks, dataverseName, functionName, null);
     }
 
-    public static void createFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+    @Override
+    public void createFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
             String functionName, String libraryName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
         lockMgr.acquireFunctionWriteLock(locks, dataverseName, functionName);
@@ -125,19 +126,21 @@ public class MetadataLockUtil implements IMetadataLockUtil {
         }
     }
 
-    public static void createAdapterBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
-            String functionName, String libraryName) throws AlgebricksException {
+    @Override
+    public void createAdapterBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+            String adapterName, String libraryName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
-        lockMgr.acquireAdapterWriteLock(locks, dataverseName, functionName);
+        lockMgr.acquireAdapterWriteLock(locks, dataverseName, adapterName);
         if (libraryName != null) {
             lockMgr.acquireLibraryReadLock(locks, dataverseName, libraryName);
         }
     }
 
-    public static void dropAdapterBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
-            String functionName) throws AlgebricksException {
+    @Override
+    public void dropAdapterBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+            String adapterName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
-        lockMgr.acquireAdapterWriteLock(locks, dataverseName, functionName);
+        lockMgr.acquireAdapterWriteLock(locks, dataverseName, adapterName);
     }
 
     @Override

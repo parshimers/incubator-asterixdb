@@ -1809,8 +1809,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = false;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        lockUtil.createFunctionBegin(lockManager, metadataProvider.getLocks(), dataverseName, signature.getName());
         String libraryName = cfs.getLibName();
+        lockUtil.createFunctionBegin(lockManager, metadataProvider.getLocks(), dataverseName, signature.getName(),
+                libraryName);
         try {
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverseName);
             if (dv == null) {
@@ -1937,8 +1938,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         String libraryName = cas.getLibName();
-        MetadataLockUtil.createAdapterBegin(lockManager, metadataProvider.getLocks(), dataverse, aid.getName(),
-                libraryName);
+        lockUtil.createAdapterBegin(lockManager, metadataProvider.getLocks(), dataverse, aid.getName(), libraryName);
         try {
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
             if (dv == null) {
