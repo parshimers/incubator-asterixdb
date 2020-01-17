@@ -226,7 +226,6 @@ class SQLPPParser extends ScopeChecker implements IParser {
     private static final String ACTION = "ACTION";
     private static final String LANGUAGE = "LANGUAGE";
     private static final String CALL = "CALL";
-    private static final String ADAPTER = "ADAPTER";
     private static final String DETERMINISTIC = "DETERMINISTIC";
     private static final String RETURNS = "RETURNS";
     private static final String INLINE = "INLINE";
@@ -988,7 +987,7 @@ CreateAdapterStatement CreateAdapterStatement(Token startStmtToken) throws Parse
   CreateAdapterStatement stmt = null;
 }
 {
-  <IDENTIFIER> { expectToken(ADAPTER); } stmt = AdapterSpecification(startStmtToken)
+  <ADAPTER> stmt = AdapterSpecification(startStmtToken)
   {
     return stmt;
   }
@@ -4170,7 +4169,8 @@ TOKEN_MGR_DECLS:
 <DEFAULT,IN_DBL_BRACE>
 TOKEN [IGNORE_CASE]:
 {
-  <ALL : "all">
+  <ADAPTER: "adapter">
+  | <ALL : "all">
   | <AND : "and">
   | <ANY : "any">
   | <APPLY : "apply">
