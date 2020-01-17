@@ -1888,9 +1888,11 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                                 var.first.getValue(), dataverseName);
                         argType.add(new Pair(dataverseName,
                                 typeMap.get(new TypeSignature(dataverseName, var.first.getValue()))));
+                        paramVars.add(var.getFirst());
                         argNames.add(var.getFirst().getValue());
                     } else {
                         argType.add(new Pair(BUILTINTYPE_DATAVERSE_NAME, BuiltinType.ANY));
+                        paramVars.add(var.getFirst());
                         argNames.add(var.getFirst().getValue());
                     }
                 }

@@ -1039,7 +1039,7 @@ List<Pair<VarIdentifier,IndexedTypeExpression>> FunctionParameters() :
         varPair = new Pair<VarIdentifier,IndexedTypeExpression>(null,null);
         varPair.setFirst(new VarIdentifier(var.toString()));
         paramList.add(varPair);
-    } (LOOKAHEAD(3)(<COLON>)? type = IndexedTypeExpr() {varPair.setSecond(type);})?)*) ) <RIGHTPAREN>
+    } (LOOKAHEAD(3)(<COLON>)? type = IndexedTypeExpr() {varPair.setSecond(type);})?)*)? ) <RIGHTPAREN>
 
     {
         return paramList;

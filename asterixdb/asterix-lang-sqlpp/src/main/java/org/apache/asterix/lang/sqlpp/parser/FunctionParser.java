@@ -60,15 +60,20 @@ public class FunctionParser {
         builder.append("(");
         for (int i = 0; i < argNames.size(); i++) {
             String param = argNames.get(i);
-            String type = "ASTERIX.ANY";
+            String type = null;
             if (args.get(i) != null) {
                 Pair<DataverseName, IAType> t = args.get(i);
-                type = t.getFirst().getCanonicalForm() + "." + t.getSecond().getTypeName();
+                String argToStringType = t.getFirst().getCanonicalForm() + "." + t.getSecond().getTypeName();
+                if (!"ASTERIX.any".equals(argToStringType)) {
+                    type = argToStringType;
+                }
             }
-            builder.append(type);
-            builder.append(":");
             VarIdentifier varId = SqlppVariableUtil.toUserDefinedVariableName(param);
             builder.append(varId);
+            if (type != null) {
+                builder.append(":");
+                builder.append(type);
+            }
             builder.append(",");
         }
         if (argNames.size() > 0) {
