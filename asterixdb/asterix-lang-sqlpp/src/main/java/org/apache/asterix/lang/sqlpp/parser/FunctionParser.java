@@ -64,7 +64,7 @@ public class FunctionParser {
             if (args.get(i) != null) {
                 Pair<DataverseName, IAType> t = args.get(i);
                 String argToStringType = t.getFirst().getCanonicalForm() + "." + t.getSecond().getTypeName();
-                if (!"ASTERIX.any".equals(argToStringType)) {
+                if (!"asterix.any".equalsIgnoreCase(argToStringType)) {
                     type = argToStringType;
                 }
             }

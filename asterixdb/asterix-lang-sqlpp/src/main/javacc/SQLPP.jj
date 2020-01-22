@@ -159,7 +159,6 @@ import org.apache.asterix.lang.common.struct.Identifier;
 import org.apache.asterix.lang.common.struct.OperatorType;
 import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
-import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.lang.sqlpp.clause.AbstractBinaryCorrelateClause;
 import org.apache.asterix.lang.sqlpp.clause.FromClause;
@@ -1073,7 +1072,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   }
   ifNotExists = IfNotExists()
   args = FunctionParameters()
-  ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = IndexedTypeExpr() (<QUES> {returnUnknownable = true;})?)?
+  ( LOOKAHEAD({laIdentifier(RETURNS)}) <IDENTIFIER> returnType = IndexedTypeExpr() )?
   (
     (
       <LEFTBRACE>

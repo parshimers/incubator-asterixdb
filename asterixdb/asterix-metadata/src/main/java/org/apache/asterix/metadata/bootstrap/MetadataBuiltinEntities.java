@@ -29,7 +29,6 @@ import org.apache.asterix.runtime.formats.NonTaggedDataFormat;
 public class MetadataBuiltinEntities {
     //--------------------------------------- Dataverses ----------------------------------------//
     public static final DataverseName DEFAULT_DATAVERSE_NAME = DataverseName.createBuiltinDataverseName("Default");
-    public static final DataverseName BUILTINTYPE_DATAVERSE_NAME = DataverseName.createBuiltinDataverseName("ASTERIX");
     public static final Dataverse DEFAULT_DATAVERSE =
             new Dataverse(DEFAULT_DATAVERSE_NAME, NonTaggedDataFormat.class.getName(), MetadataUtil.PENDING_NO_OP);
     //--------------------------------------- Datatypes -----------------------------------------//

@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
@@ -66,7 +65,6 @@ import org.apache.asterix.lang.common.expression.UnorderedListTypeDefinition;
 import org.apache.asterix.lang.common.expression.VariableExpr;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
-import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -820,19 +818,9 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         out.print(this.generateFullName(cfs.getFunctionSignature().getDataverseName(),
                 cfs.getFunctionSignature().getName()));
         out.print("(");
-        printDelimitedStrings(cfs.getArgs().stream().map(p -> p.getFirst().getValue()).collect(Collectors.toList()),
-                COMMA);
+        printDelimitedStrings(cfs.getParamList(), COMMA);
         out.println(") {");
         out.println(cfs.getFunctionBody());
-        out.println("}" + SEMICOLON);
-        out.println();
-        return null;
-    }
-
-    @Override
-    public Void visit(CreateAdapterStatement cas, Integer step) throws CompilationException {
-        out.print(skip(step) + CREATE + " adapter");
-        out.print(cas.getAdapterId().getName());
         out.println("}" + SEMICOLON);
         out.println();
         return null;
@@ -1067,7 +1055,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         }
     }
 
-    public static String revertStringToQuoted(String inputStr) {
+    public String revertStringToQuoted(String inputStr) {
         int pos = 0;
         int size = inputStr.length();
         StringBuffer result = new StringBuffer();

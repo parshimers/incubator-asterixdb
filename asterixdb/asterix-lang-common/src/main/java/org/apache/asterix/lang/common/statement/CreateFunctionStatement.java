@@ -18,10 +18,12 @@
  */
 package org.apache.asterix.lang.common.statement;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.inject.internal.util.$Collections2;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.common.base.AbstractStatement;
@@ -44,7 +46,6 @@ public class CreateFunctionStatement extends AbstractStatement {
     private final boolean ifNotExists;
 
     IndexedTypeExpression returnType;
-    boolean returnUnknownable;
     Boolean deterministic;
     boolean nullCall;
     String lang;
@@ -58,11 +59,10 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public CreateFunctionStatement(FunctionSignature signature,
-            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
-            boolean returnUnknownable, String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
+                                   List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
+                                   String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
         this.signature = signature;
         this.functionBody = functionBody;
-        this.returnUnknownable = returnUnknownable;
         this.functionBodyExpression = functionBodyExpression;
         this.ifNotExists = ifNotExists;
         this.args = parameterList;
@@ -70,13 +70,12 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public CreateFunctionStatement(FunctionSignature signature,
-            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
-            boolean returnUnknownable, boolean deterministic, boolean nullCall, String lang, String libName,
-            String externalIdent, RecordConstructor resources, boolean ifNotExists) throws CompilationException {
+                                   List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
+                                   boolean deterministic, boolean nullCall, String lang, String libName,
+                                   String externalIdent, RecordConstructor resources, boolean ifNotExists) throws CompilationException {
         this.signature = signature;
         this.args = parameterList;
         this.returnType = returnType;
-        this.returnUnknownable = returnUnknownable;
         this.deterministic = deterministic;
         this.nullCall = nullCall;
         this.lang = lang;
@@ -119,11 +118,10 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public boolean isExternal() {
-        return lang != null;
+        return externalIdent != null;
     }
-
     public boolean isNullable() {
-        return returnUnknownable;
+        return returnType.isUnknownable();
     }
 
     public String getLang() {
@@ -143,7 +141,7 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public Map<String, String> getResources() throws CompilationException {
-        return resources != null ? ConfigurationUtil.toProperties(resources) : new HashMap<>();
+        return resources != null ? ConfigurationUtil.toProperties(resources) : Collections.EMPTY_MAP;
     }
 
     @Override

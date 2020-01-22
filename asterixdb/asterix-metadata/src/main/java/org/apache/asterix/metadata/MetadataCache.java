@@ -377,12 +377,6 @@ public class MetadataCache {
         }
     }
 
-    public Collection<Function> getAllFunctions() {
-        synchronized (functions) {
-            return functions.values();
-        }
-    }
-
     public List<Dataset> getDataverseDatasets(DataverseName dataverseName) {
         synchronized (datasets) {
             Map<String, Dataset> m = datasets.get(dataverseName);

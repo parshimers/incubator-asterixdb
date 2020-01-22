@@ -108,12 +108,12 @@ final class MetadataLockKey implements IMetadataLock.LockKey {
         return new MetadataLockKey(EntityKind.FUNCTION, null, dataverseName, functionName);
     }
 
-    static MetadataLockKey createLibraryLockKey(DataverseName dataverseName, String functionName) {
-        return new MetadataLockKey(EntityKind.LIBRARY, null, dataverseName, functionName);
+    static MetadataLockKey createLibraryLockKey(DataverseName dataverseName, String libraryName) {
+        return new MetadataLockKey(EntityKind.LIBRARY, null, dataverseName, libraryName);
     }
 
-    static MetadataLockKey createAdapterLockKey(DataverseName dataverseName, String functionName) {
-        return new MetadataLockKey(EntityKind.ADAPTER, null, dataverseName, functionName);
+    static MetadataLockKey createAdapterLockKey(DataverseName dataverseName, String adapterName) {
+        return new MetadataLockKey(EntityKind.ADAPTER, null, dataverseName, adapterName);
     }
 
     static MetadataLockKey createActiveEntityLockKey(DataverseName dataverseName, String entityName) {

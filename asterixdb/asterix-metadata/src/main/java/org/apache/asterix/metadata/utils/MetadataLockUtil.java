@@ -111,9 +111,17 @@ public class MetadataLockUtil implements IMetadataLockUtil {
     }
 
     @Override
-    public void createFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
-            String functionName) throws AlgebricksException {
-        createFunctionBegin(lockMgr, locks, dataverseName, functionName, null);
+    public void createLibraryBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+                                    String libraryName) throws AlgebricksException {
+        lockMgr.acquireDataverseReadLock(locks, dataverseName);
+        lockMgr.acquireLibraryWriteLock(locks, dataverseName, libraryName);
+    }
+
+    @Override
+    public void dropLibraryBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+                                 String libraryName) throws AlgebricksException {
+        lockMgr.acquireDataverseReadLock(locks, dataverseName);
+        lockMgr.acquireLibraryWriteLock(locks, dataverseName, libraryName);
     }
 
     @Override
@@ -124,6 +132,13 @@ public class MetadataLockUtil implements IMetadataLockUtil {
         if (libraryName != null) {
             lockMgr.acquireLibraryReadLock(locks, dataverseName, libraryName);
         }
+    }
+
+    @Override
+    public void dropFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
+                                  String functionName) throws AlgebricksException {
+        lockMgr.acquireDataverseReadLock(locks, dataverseName);
+        lockMgr.acquireFunctionWriteLock(locks, dataverseName, functionName);
     }
 
     @Override
@@ -141,13 +156,6 @@ public class MetadataLockUtil implements IMetadataLockUtil {
             String adapterName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
         lockMgr.acquireAdapterWriteLock(locks, dataverseName, adapterName);
-    }
-
-    @Override
-    public void dropFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
-            String functionName) throws AlgebricksException {
-        lockMgr.acquireDataverseReadLock(locks, dataverseName);
-        lockMgr.acquireFunctionWriteLock(locks, dataverseName, functionName);
     }
 
     @Override

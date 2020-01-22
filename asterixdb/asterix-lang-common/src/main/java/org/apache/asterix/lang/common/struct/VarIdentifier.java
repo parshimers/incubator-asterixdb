@@ -21,7 +21,7 @@ package org.apache.asterix.lang.common.struct;
 import java.util.Objects;
 
 public class VarIdentifier extends Identifier {
-    protected int id = 0;
+    private int id;
 
     public VarIdentifier(VarIdentifier v) {
         this(v.getValue(), v.getId());

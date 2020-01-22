@@ -34,7 +34,7 @@ public class LoadUdfMessage extends AbstractUdfMessage {
 
     @Override
     protected void handleAction(ILibraryManager mgr, boolean isMdNode, INcApplicationContext appCtx) throws Exception {
-        ExternalLibraryUtils.setUpExternaLibrary(mgr, isMdNode,
+        ExternalLibraryUtils.setUpExternaLibrary(mgr,
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                         "applications", dataverseName.getCanonicalForm() + "." + libraryName)); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
     }

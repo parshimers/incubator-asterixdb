@@ -134,9 +134,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
                 jObject = pointableVisitor.visit((AListVisitablePointable) pointable, getTypeInfo(index, type));
                 break;
             case ANY:
-                TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
-                pointy.set(valueReference);
-                ATypeTag rtTypeTag = TaggedValuePointable.getTag*
+                ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(valueReference.getByteArray()[0]);
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
                 switch (rtTypeTag) {
                     case OBJECT:

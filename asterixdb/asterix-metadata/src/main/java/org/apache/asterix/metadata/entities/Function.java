@@ -39,8 +39,6 @@ public class Function implements IMetadataEntity<Function> {
     public static final String LANGUAGE_JAVA = "JAVA";
     public static final String LANGUAGE_PYTHON = "PYTHON";
 
-    public static final String RETURNTYPE_VOID = "VOID";
-
     private final FunctionSignature signature;
     private final List<List<Triple<DataverseName, String, String>>> dependencies;
     private final List<Pair<DataverseName, IAType>> arguments;
@@ -65,11 +63,7 @@ public class Function implements IMetadataEntity<Function> {
         this.language = language;
         this.nullable = nullable;
         this.kind = functionKind;
-        if (library == null) {
-            this.library = "Default";
-        } else {
-            this.library = library;
-        }
+        this.library = library;
         if (dependencies == null) {
             this.dependencies = new ArrayList<>(2);
             this.dependencies.add(Collections.emptyList());

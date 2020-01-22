@@ -37,7 +37,6 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.asterix.external.library.ExternalLibrary;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.DatasourceAdapter;
@@ -269,20 +268,6 @@ public class ExternalLibraryUtils {
         URLClassLoader classLoader = getLibraryClassLoader(dataverse, name, libraryPath);
         // register it with the external library manager
         externalLibraryManager.registerLibraryClassLoader(dataverse, name, classLoader);
-    }
-
-    /**
-     * Get the library from the xml file
-     *
-     * @param libraryXMLPath
-     * @return
-     * @throws Exception
-     */
-    private static ExternalLibrary getLibrary(File libraryXMLPath) throws Exception {
-        JAXBContext configCtx = JAXBContext.newInstance(ExternalLibrary.class);
-        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
-        ExternalLibrary library = (ExternalLibrary) unmarshaller.unmarshal(libraryXMLPath);
-        return library;
     }
 
     /**

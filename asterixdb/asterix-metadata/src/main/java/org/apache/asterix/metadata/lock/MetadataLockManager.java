@@ -126,17 +126,17 @@ public class MetadataLockManager implements IMetadataLockManager {
     }
 
     @Override
-    public void acquireAdapterReadLock(LockList locks, DataverseName dataverseName, String libraryName)
+    public void acquireAdapterReadLock(LockList locks, DataverseName dataverseName, String adapterName)
             throws AlgebricksException {
-        MetadataLockKey key = MetadataLockKey.createAdapterLockKey(dataverseName, libraryName);
+        MetadataLockKey key = MetadataLockKey.createAdapterLockKey(dataverseName, adapterName);
         IMetadataLock lock = mdlocks.computeIfAbsent(key, LOCK_FUNCTION);
         locks.add(IMetadataLock.Mode.READ, lock);
     }
 
     @Override
-    public void acquireAdapterWriteLock(LockList locks, DataverseName dataverseName, String libraryName)
+    public void acquireAdapterWriteLock(LockList locks, DataverseName dataverseName, String adapterName)
             throws AlgebricksException {
-        MetadataLockKey key = MetadataLockKey.createAdapterLockKey(dataverseName, libraryName);
+        MetadataLockKey key = MetadataLockKey.createAdapterLockKey(dataverseName, adapterName);
         IMetadataLock lock = mdlocks.computeIfAbsent(key, LOCK_FUNCTION);
         locks.add(IMetadataLock.Mode.WRITE, lock);
     }

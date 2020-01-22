@@ -1832,11 +1832,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     if (!ASTERIX_DV.equals(baseType.getFirst())) {
                         dependentTypes.add(baseType);
                     }
-                    argType.add(new Pair(baseType.first, t));
+                    argType.add(new Pair<>(baseType.first, t));
                     paramVars.add(var.getFirst());
                     argNames.add(var.getFirst().getValue());
                 } else {
-                    argType.add(new Pair(ASTERIX_DV, BuiltinType.ANY));
+                    paramVars.add(var.getFirst());
+                    argType.add(new Pair<>(ASTERIX_DV, BuiltinType.ANY));
                     argNames.add(var.getFirst().getValue());
                 }
             }
@@ -1854,9 +1855,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 if (!ASTERIX_DV.equals(baseType.getFirst())) {
                     dependentTypes.add(baseType);
                 }
-                retType = new Pair(baseType.first, t);
+                retType = new Pair<>(baseType.first, t);
             } else {
-                retType = new Pair(ASTERIX_DV, BuiltinType.ANY);
+                retType = new Pair<>(ASTERIX_DV, BuiltinType.ANY);
             }
             if (cfs.isExternal()) {
                 Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverseName, libraryName);
@@ -1919,7 +1920,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         SourceLocation sourceLoc = cas.getSourceLocation();
         AdapterIdentifier aid = cas.getAdapterId();
         DataverseName dataverse = getActiveDataverseName(aid.getDataverseName());
-        aid.setDataverseName(dataverse);
+        if (!aid.getDataverseName().equals(dataverse)) {
+            aid = new AdapterIdentifier(dataverse, aid.getName());
+        }
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         String libraryName = cas.getLibName();

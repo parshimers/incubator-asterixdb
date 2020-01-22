@@ -101,7 +101,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         final ARecordType functionType = functionRecord.getType();
         final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME);
         return functionLibraryIdx >= 0 ? ((AString) functionRecord.getValueByPos(functionLibraryIdx)).getStringValue()
-                : "";
+                : null;
     }
 
     private boolean getNullable(ARecord functionRecord) {
@@ -318,7 +318,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_KIND_FIELD_INDEX, fieldValue);
 
-        // write field 10
+        // write field 8
         dependenciesListBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
                 .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEPENDENCIES_FIELD_INDEX]);
         List<List<Triple<DataverseName, String, String>>> dependenciesList = function.getDependencies();
@@ -401,6 +401,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     }
 
     protected void writeLibrary(Function function) throws HyracksDataException {
+        if(null == function.getLibrary()) {
+            return;
+        }
         fieldName.reset();
         aString.setValue(FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME);
         stringSerde.serialize(aString, fieldName.getDataOutput());

@@ -151,7 +151,7 @@ import org.apache.asterix.lang.common.struct.Identifier;
 import org.apache.asterix.lang.common.struct.OperatorType;
 import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
-import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
+import org.apache.asterix.lang.common.struct.IndexedTypeExpression;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.metadata.utils.MetadataConstants;
 import org.apache.asterix.om.types.BuiltinType;
@@ -714,7 +714,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
 {
   FunctionSignature signature;
   boolean ifNotExists = false;
-  List<TypedVarIdentifier> paramList = new ArrayList<TypedVarIdentifier>();
+  List<IndexedTypeExpression> paramList = new ArrayList<IndexedTypeExpression>();
   String functionBody;
   VarIdentifier var = null;
   Expression functionBodyExpr;
@@ -796,21 +796,21 @@ CreateFeedPolicyStatement FeedPolicySpecification() throws ParseException:
 
 
 
-List<TypedVarIdentifier> ParameterList() throws ParseException:
+List<IndexedTypeExpression> ParameterList() throws ParseException:
 {
-  List<TypedVarIdentifier> paramList = new ArrayList<TypedVarIdentifier>();
-  TypedVarIdentifier var = null;
+  List<IndexedTypeExpression> paramList = new ArrayList<IndexedTypeExpression>();
+  IndexedVarIdentifier var = null;
 }
 {
   <LEFTPAREN> (<VARIABLE>
     {
-      var = new TypedVarIdentifier(token.image);
+      var = new IndexedTypeExpression(token.image);
       paramList.add(var);
       getCurrentScope().addNewVarSymbolToScope(var);
     }
   ( <COMMA> <VARIABLE>
     {
-      var = new TypedVarIdentifier(token.image);
+      var = new IndexedTypeExpression(token.image);
       paramList.add(var);
       getCurrentScope().addNewVarSymbolToScope(var);
     }
@@ -1617,7 +1617,7 @@ FunctionDecl FunctionDeclaration() throws ParseException:
   FunctionDecl funcDecl;
   FunctionSignature signature;
   String functionName;
-  List<TypedVarIdentifier> paramList_typ = new ArrayList<TypedVarIdentifier>();
+  List<IndexedTypeExpression> paramList_typ = new ArrayList<IndexedTypeExpression>();
   List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
   Expression funcBody;
   createNewScope();

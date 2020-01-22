@@ -43,7 +43,6 @@ import org.apache.asterix.lang.common.expression.UnorderedListTypeDefinition;
 import org.apache.asterix.lang.common.expression.VariableExpr;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
-import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -174,8 +173,6 @@ public interface ILangVisitor<R, T> {
     R visit(DataverseDecl dv, T arg) throws CompilationException;
 
     R visit(CreateFunctionStatement cfs, T arg) throws CompilationException;
-
-    R visit(CreateAdapterStatement cfs, T arg) throws CompilationException;
 
     R visit(FunctionDropStatement del, T arg) throws CompilationException;
 
