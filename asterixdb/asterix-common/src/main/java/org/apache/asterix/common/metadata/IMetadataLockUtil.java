@@ -74,9 +74,6 @@ public interface IMetadataLockUtil {
     // Function helpers
 
     void createFunctionBegin(IMetadataLockManager lockManager, LockList locks, DataverseName dataverseName,
-            String functionName) throws AlgebricksException;
-
-    void createFunctionBegin(IMetadataLockManager lockManager, LockList locks, DataverseName dataverseName,
             String functionName, String libraryName) throws AlgebricksException;
 
     void dropFunctionBegin(IMetadataLockManager lockManager, LockList locks, DataverseName dataverseName,

@@ -136,7 +136,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
             case ANY:
                 TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
                 pointy.set(valueReference);
-                ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
+                ATypeTag rtTypeTag = TaggedValuePointable.getTag*
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
                 switch (rtTypeTag) {
                     case OBJECT:

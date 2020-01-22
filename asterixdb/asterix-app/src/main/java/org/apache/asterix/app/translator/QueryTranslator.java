@@ -19,7 +19,6 @@
 package org.apache.asterix.app.translator;
 
 import static org.apache.asterix.common.functions.FunctionConstants.ASTERIX_DV;
-import static org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities.BUILTINTYPE_DATAVERSE_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME;
 
 import java.io.File;
@@ -41,8 +40,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.asterix.active.ActivityState;
 import org.apache.asterix.active.EntityId;
@@ -144,7 +141,6 @@ import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.IDatasetDetails;
 import org.apache.asterix.metadata.MetadataManager;
-import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities;
 import org.apache.asterix.metadata.dataset.hints.DatasetHints;
@@ -1776,69 +1772,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         }
     }
 
-    private static Pair<DataverseName, String> typeExprToName(TypeExpression typ, DataverseName activeDataverse) {
-        String typeName = "ANY";
-        DataverseName typeDv = ASTERIX_DV;
-        switch (typ.getTypeKind()) {
-            case ORDEREDLIST:
-                Pair<DataverseName, String> typePair =
-                        typeExprToName(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse);
-                typeName = "[" + typePair.getSecond() + "]";
-                typeDv = typePair.getFirst();
-                break;
-            case UNORDEREDLIST:
-                break;
-            case RECORD:
-                break;
-            case TYPEREFERENCE:
-                TypeReferenceExpression typeRef = ((TypeReferenceExpression) typ);
-                typeName = typeRef.getIdent().getSecond().toString();
-                if (typeRef.getIdent().getFirst() != null) {
-                    typeDv = typeRef.getIdent().getFirst();
-                } else if (BuiltinTypeMap.getBuiltinType(typeName) == null) {
-                    typeDv = activeDataverse;
-                }
-                break;
-        }
-        return new Pair<>(typeDv, typeName);
-    }
-
-        private static IAType getTypeInfo(String type, MetadataTransactionContext txnCtx, Function function)
-            throws AlgebricksException {
-        IAType argType = null;
-        if (type != null) {
-            if (type.indexOf("{{") != -1 || type.indexOf("[") != -1) {
-                argType = getCollectionType(type, txnCtx, function);
-            } else {
-                argType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                        function.getDataverseName(), type, false);
-            }
-        }
-        return argType;
-    }
-    private static IAType getCollectionType(String paramType, MetadataTransactionContext txnCtx, Function function)
-            throws AlgebricksException {
-
-        Pattern orderedListPattern = Pattern.compile("\\[*\\]");
-        Pattern unorderedListPattern = Pattern.compile("[{{*}}]");
-
-        Matcher matcher = orderedListPattern.matcher(paramType);
-        if (matcher.find()) {
-            String subType = paramType.substring(paramType.indexOf('[') + 1, paramType.lastIndexOf(']'));
-            return new AOrderedListType(getTypeInfo(subType, txnCtx, function), "AOrderedList");
-        } else {
-            matcher = unorderedListPattern.matcher(paramType);
-            if (matcher.find()) {
-                String subType = paramType.substring(paramType.indexOf("{{") + 2, paramType.lastIndexOf("}}"));
-                return new AUnorderedListType(getTypeInfo(subType, txnCtx, function), "AUnorderedList");
-            }
-        }
-        return null;
-    }
-
     private static Pair<DataverseName, String> drillComplexType(TypeExpression typ, DataverseName activeDataverse) {
         String typeName;
-        DataverseName typeDv = null;
+        DataverseName typeDv = ASTERIX_DV;
         switch (typ.getTypeKind()) {
             case ORDEREDLIST:
                 return drillComplexType(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse);
@@ -1885,14 +1821,18 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             List<Pair<DataverseName, String>> dependentTypes = new ArrayList<>();
             for (Pair<VarIdentifier, IndexedTypeExpression> var : cfs.getArgs()) {
                 if (var.getSecond() != null) {
-                    Pair<DataverseName, String> retTypeStr = typeExprToName(var.second.getType(), dataverseName);
-                    Pair<DataverseName,String> baseType = drillComplexType(var.second.getType(),dataverseName);
-                    IAType t = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, mdTxnCtx.getTxnId(),
-                            retTypeStr.first, baseType.getSecond(), var.getSecond().isUnknownable());
-                    if(!ASTERIX_DV.equals(retTypeStr.getFirst())) {
+                    Pair<DataverseName, String> baseType = drillComplexType(var.second.getType(), dataverseName);
+                    Map<TypeSignature, IAType> typeMap = TypeTranslator.computeTypes(mdTxnCtx, var.second.getType(),
+                            var.first.getValue(), dataverseName);
+                    IAType t = typeMap.values().iterator().next();
+                    if (typeMap.size() <= 0) {
+                        throw new CompilationException(ErrorCode.UNKNOWN_TYPE, sourceLoc,
+                                var.second.getType().toString());
+                    }
+                    if (!ASTERIX_DV.equals(baseType.getFirst())) {
                         dependentTypes.add(baseType);
                     }
-                    argType.add(new Pair(retTypeStr.first, t));
+                    argType.add(new Pair(baseType.first, t));
                     paramVars.add(var.getFirst());
                     argNames.add(var.getFirst().getValue());
                 } else {
@@ -1904,14 +1844,17 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             IndexedTypeExpression ret = cfs.getReturnType();
             Pair<DataverseName, IAType> retType;
             if (ret != null) {
-                Pair<DataverseName, String> retTypeStr = typeExprToName(ret.getType(), dataverseName);
-                Pair<DataverseName,String> baseType = drillComplexType(ret.getType(),dataverseName);
-                if(!ASTERIX_DV.equals(retTypeStr.getFirst())) {
+                Pair<DataverseName, String> baseType = drillComplexType(ret.getType(), dataverseName);
+                Map<TypeSignature, IAType> typeMap =
+                        TypeTranslator.computeTypes(mdTxnCtx, ret.getType(), "return", dataverseName);
+                IAType t = typeMap.values().iterator().next();
+                if (typeMap.size() <= 0) {
+                    throw new CompilationException(ErrorCode.UNKNOWN_TYPE, sourceLoc, ret.getType().toString());
+                }
+                if (!ASTERIX_DV.equals(baseType.getFirst())) {
                     dependentTypes.add(baseType);
                 }
-                IAType t = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, mdTxnCtx.getTxnId(),
-                        baseType.getFirst(),baseType.getSecond(), ret.isUnknownable());
-                retType = new Pair(retTypeStr.first, t);
+                retType = new Pair(baseType.first, t);
             } else {
                 retType = new Pair(ASTERIX_DV, BuiltinType.ANY);
             }

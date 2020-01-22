@@ -29,7 +29,7 @@ public class AdapterIdentifier implements Serializable {
 
     private static final long serialVersionUID = 2L;
 
-    private DataverseName dataverseName;
+    private final DataverseName dataverseName;
     private final String adapterName;
 
     public AdapterIdentifier(DataverseName dataverse, String name) {
@@ -64,9 +64,5 @@ public class AdapterIdentifier implements Serializable {
         }
         AdapterIdentifier a = (AdapterIdentifier) o;
         return dataverseName.equals(a.dataverseName) && adapterName.equals(a.adapterName);
-    }
-
-    public void setDataverseName(DataverseName dataverse) {
-        this.dataverseName = dataverse;
     }
 }

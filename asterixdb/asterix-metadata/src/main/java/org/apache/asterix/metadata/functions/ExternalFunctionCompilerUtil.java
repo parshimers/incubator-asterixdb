@@ -19,7 +19,6 @@
 package org.apache.asterix.metadata.functions;
 
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.metadata.MetadataTransactionContext;

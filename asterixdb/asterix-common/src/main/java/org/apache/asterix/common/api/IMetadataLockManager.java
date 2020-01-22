@@ -154,14 +154,65 @@ public interface IMetadataLockManager {
     void acquireFunctionWriteLock(LockList locks, DataverseName dataverseName, String functionName)
             throws AlgebricksException;
 
+    /**
+     * Acquire read lock on the library
+     *
+     * @param locks
+     *            the lock list to add the new lock to
+     * @param dataverseName
+     *            the dataverse name
+     * @param functionName
+     *            the name of the library in the given dataverse
+     * @throws AlgebricksException
+     *             if lock couldn't be acquired
+     */
+
     void acquireLibraryReadLock(LockList locks, DataverseName dataverseName, String libraryName)
             throws AlgebricksException;
 
+    /**
+     * Acquire write lock on the library
+     *
+     * @param locks
+     *            the lock list to add the new lock to
+     * @param dataverseName
+     *            the dataverse name
+     * @param functionName
+     *            the name of the library in the given dataverse
+     * @throws AlgebricksException
+     *             if lock couldn't be acquired
+     */
     void acquireLibraryWriteLock(LockList locks, DataverseName dataverseName, String libraryName)
             throws AlgebricksException;
 
+    /**
+     * Acquire read lock on the adapter
+     *
+     * @param locks
+     *            the lock list to add the new lock to
+     * @param dataverseName
+     *            the dataverse name
+     * @param functionName
+     *            the name of the adapter in the given dataverse
+     * @throws AlgebricksException
+     *             if lock couldn't be acquired
+     */
+
     void acquireAdapterReadLock(LockList locks, DataverseName dataverseName, String libraryName)
             throws AlgebricksException;
+
+    /**
+     * Acquire write lock on the adapter
+     *
+     * @param locks
+     *            the lock list to add the new lock to
+     * @param dataverseName
+     *            the dataverse name
+     * @param functionName
+     *            the name of the adapter in the given dataverse
+     * @throws AlgebricksException
+     *             if lock couldn't be acquired
+     */
 
     void acquireAdapterWriteLock(LockList locks, DataverseName dataverseName, String libraryName)
             throws AlgebricksException;
