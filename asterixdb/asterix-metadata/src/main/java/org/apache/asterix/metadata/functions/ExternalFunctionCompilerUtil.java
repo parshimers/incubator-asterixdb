@@ -33,9 +33,6 @@ import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 
 public class ExternalFunctionCompilerUtil {
 
-    private static Pattern orderedListPattern = Pattern.compile("\\[*\\]");
-    private static Pattern unorderedListPattern = Pattern.compile("[{{*}}]");
-
     private ExternalFunctionCompilerUtil() {
         // do nothing
     }

@@ -38,7 +38,6 @@ import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.functions.BuiltinFunctions;
-import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.utils.ConstantExpressionUtil;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -187,7 +186,7 @@ public class FunctionUtil {
     }
 
     public static List<List<Triple<DataverseName, String, String>>> getFunctionDependencies(IQueryRewriter rewriter,
-            Expression expression, MetadataProvider metadataProvider, List<Pair<DataverseName, IAType>> argTypes)
+            Expression expression, MetadataProvider metadataProvider, List<Pair<DataverseName, String>> argTypes)
             throws CompilationException {
         Set<CallExpr> functionCalls = rewriter.getFunctionCalls(expression);
         //Get the List of used functions and used datasets
@@ -206,8 +205,8 @@ public class FunctionUtil {
                         Integer.toString(signature.getArity())));
             }
         }
-        for (Pair<DataverseName, IAType> t : argTypes) {
-            typeDependencies.add(new Triple<>(t.getFirst(), t.getSecond().toString(), null));
+        for (Pair<DataverseName, String> t : argTypes) {
+            typeDependencies.add(new Triple<>(t.getFirst(), t.getSecond(), null));
         }
         List<List<Triple<DataverseName, String, String>>> dependencies = new ArrayList<>(3);
         dependencies.add(datasourceDependencies);
@@ -217,12 +216,12 @@ public class FunctionUtil {
     }
 
     public static List<List<Triple<DataverseName, String, String>>> getExternalFunctionDependencies(
-            List<Pair<DataverseName, IAType>> argTypes) {
+            List<Pair<DataverseName, String>> argTypes) {
         List<Triple<DataverseName, String, String>> datasourceDependencies = new ArrayList<>();
         List<Triple<DataverseName, String, String>> functionDependencies = new ArrayList<>();
         List<Triple<DataverseName, String, String>> typeDependencies = new ArrayList<>();
-        for (Pair<DataverseName, IAType> t : argTypes) {
-            typeDependencies.add(new Triple<>(t.getFirst(), t.getSecond().getTypeName(), null));
+        for (Pair<DataverseName, String> t : argTypes) {
+            typeDependencies.add(new Triple<>(t.getFirst(), t.getSecond(), null));
         }
         List<List<Triple<DataverseName, String, String>>> dependencies = new ArrayList<>(3);
         dependencies.add(datasourceDependencies);

@@ -132,14 +132,11 @@ public class UdfApiServlet extends AbstractServlet {
 
     }
 
-    private String makeDeploymentId(DataverseName dv, String resourceName) {
-        StringBuilder keyName = new StringBuilder();
-        for (String p : dv.getParts()) {
-            keyName.append(p);
-            keyName.append(".");
-        }
-        keyName.append(resourceName);
-        return keyName.toString();
+    public static String makeDeploymentId(DataverseName dv, String resourceName) {
+        List<String> dvParts = dv.getParts();
+        dvParts.add(resourceName);
+        DataverseName dvWithLibrarySuffix = DataverseName.create(dvParts);
+        return dvWithLibrarySuffix.getCanonicalForm();
     }
 
     private void deleteUdf(DataverseName dataverse, String resourceName) throws Exception {
