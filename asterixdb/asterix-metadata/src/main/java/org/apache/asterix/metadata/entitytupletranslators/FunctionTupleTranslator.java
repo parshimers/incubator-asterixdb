@@ -401,7 +401,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     }
 
     protected void writeLibrary(Function function) throws HyracksDataException {
-        if(null == function.getLibrary()) {
+        if (null == function.getLibrary()) {
             return;
         }
         fieldName.reset();

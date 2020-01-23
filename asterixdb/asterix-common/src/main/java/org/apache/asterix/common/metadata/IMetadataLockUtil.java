@@ -74,11 +74,10 @@ public interface IMetadataLockUtil {
     // Function helpers
 
     void createLibraryBegin(IMetadataLockManager lockManager, LockList locks, DataverseName dataverseName,
-                            String libraryName) throws AlgebricksException;
+            String libraryName) throws AlgebricksException;
 
     void dropLibraryBegin(IMetadataLockManager lockManager, LockList locks, DataverseName dataverseName,
-                           String libraryName) throws AlgebricksException;
-
+            String libraryName) throws AlgebricksException;
 
     // Function helpers
 

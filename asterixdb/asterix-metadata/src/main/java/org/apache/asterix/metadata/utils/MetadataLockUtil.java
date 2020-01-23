@@ -112,14 +112,14 @@ public class MetadataLockUtil implements IMetadataLockUtil {
 
     @Override
     public void createLibraryBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
-                                    String libraryName) throws AlgebricksException {
+            String libraryName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
         lockMgr.acquireLibraryWriteLock(locks, dataverseName, libraryName);
     }
 
     @Override
     public void dropLibraryBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
-                                 String libraryName) throws AlgebricksException {
+            String libraryName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
         lockMgr.acquireLibraryWriteLock(locks, dataverseName, libraryName);
     }
@@ -136,7 +136,7 @@ public class MetadataLockUtil implements IMetadataLockUtil {
 
     @Override
     public void dropFunctionBegin(IMetadataLockManager lockMgr, LockList locks, DataverseName dataverseName,
-                                  String functionName) throws AlgebricksException {
+            String functionName) throws AlgebricksException {
         lockMgr.acquireDataverseReadLock(locks, dataverseName);
         lockMgr.acquireFunctionWriteLock(locks, dataverseName, functionName);
     }

@@ -151,7 +151,6 @@ import org.apache.asterix.lang.common.struct.Identifier;
 import org.apache.asterix.lang.common.struct.OperatorType;
 import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
-import org.apache.asterix.lang.common.struct.IndexedTypeExpression;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.metadata.utils.MetadataConstants;
 import org.apache.asterix.om.types.BuiltinType;
@@ -714,7 +713,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
 {
   FunctionSignature signature;
   boolean ifNotExists = false;
-  List<IndexedTypeExpression> paramList = new ArrayList<IndexedTypeExpression>();
+  List<VarIdentifier> paramList;
   String functionBody;
   VarIdentifier var = null;
   Expression functionBodyExpr;
@@ -740,7 +739,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
       signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
       removeCurrentScope();
-      return new CreateFunctionStatement(signature, new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>(), null, false, functionBody, functionBodyExpr, ifNotExists);
+      return new CreateFunctionStatement(signature, new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>(), null, functionBody, functionBodyExpr, ifNotExists);
     }
 }
 
@@ -796,21 +795,21 @@ CreateFeedPolicyStatement FeedPolicySpecification() throws ParseException:
 
 
 
-List<IndexedTypeExpression> ParameterList() throws ParseException:
+List<VarIdentifier> ParameterList() throws ParseException:
 {
-  List<IndexedTypeExpression> paramList = new ArrayList<IndexedTypeExpression>();
-  IndexedVarIdentifier var = null;
+  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
+  VarIdentifier var = null;
 }
 {
   <LEFTPAREN> (<VARIABLE>
     {
-      var = new IndexedTypeExpression(token.image);
+      var = new VarIdentifier(token.image);
       paramList.add(var);
       getCurrentScope().addNewVarSymbolToScope(var);
     }
   ( <COMMA> <VARIABLE>
     {
-      var = new IndexedTypeExpression(token.image);
+      var = new VarIdentifier(token.image);
       paramList.add(var);
       getCurrentScope().addNewVarSymbolToScope(var);
     }
@@ -1617,7 +1616,7 @@ FunctionDecl FunctionDeclaration() throws ParseException:
   FunctionDecl funcDecl;
   FunctionSignature signature;
   String functionName;
-  List<IndexedTypeExpression> paramList_typ = new ArrayList<IndexedTypeExpression>();
+  List<VarIdentifier> paramList_typ = new ArrayList<VarIdentifier>();
   List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
   Expression funcBody;
   createNewScope();

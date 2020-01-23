@@ -19,11 +19,9 @@
 package org.apache.asterix.lang.common.statement;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.inject.internal.util.$Collections2;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.common.base.AbstractStatement;
@@ -59,8 +57,8 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public CreateFunctionStatement(FunctionSignature signature,
-                                   List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
-                                   String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
+            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
+            String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
         this.signature = signature;
         this.functionBody = functionBody;
         this.functionBodyExpression = functionBodyExpression;
@@ -70,9 +68,9 @@ public class CreateFunctionStatement extends AbstractStatement {
     }
 
     public CreateFunctionStatement(FunctionSignature signature,
-                                   List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
-                                   boolean deterministic, boolean nullCall, String lang, String libName,
-                                   String externalIdent, RecordConstructor resources, boolean ifNotExists) throws CompilationException {
+            List<Pair<VarIdentifier, IndexedTypeExpression>> parameterList, IndexedTypeExpression returnType,
+            boolean deterministic, boolean nullCall, String lang, String libName, String externalIdent,
+            RecordConstructor resources, boolean ifNotExists) throws CompilationException {
         this.signature = signature;
         this.args = parameterList;
         this.returnType = returnType;
@@ -120,8 +118,9 @@ public class CreateFunctionStatement extends AbstractStatement {
     public boolean isExternal() {
         return externalIdent != null;
     }
+
     public boolean isNullable() {
-        return returnType.isUnknownable();
+        return returnType == null || returnType.isUnknownable();
     }
 
     public String getLang() {

@@ -108,8 +108,7 @@ public class AQLToSQLPPConverter {
     }
 
     public static void main(String[] args) throws Exception {
-        convert("src/test/resources/runtimets/queries");
-        convert("src/test/resources/optimizerts/queries");
+        convert("/home/parshimers/asterixdb/asterixdb/asterix-app/src/test/resources/optimizerts/queries/udfs");
     }
 
 }

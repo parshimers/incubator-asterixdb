@@ -1088,7 +1088,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
           getCurrentScope().addFunctionDescriptor(signature, false);
           removeCurrentScope();
           defaultDataverse = currentDataverse;
-          CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, returnUnknownable, functionBody, functionBodyExpr, ifNotExists);
+          CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
           return addSourceLocation(stmt, startStmtToken);
         }
     )
@@ -1109,7 +1109,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
                   getCurrentScope().addFunctionDescriptor(signature, false);
                   removeCurrentScope();
                   defaultDataverse = currentDataverse;
-                  CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, true, functionBody, functionBodyExpr, ifNotExists);
+                  CreateFunctionStatement stmt = new CreateFunctionStatement(signature, args, returnType, functionBody, functionBodyExpr, ifNotExists);
                   return addSourceLocation(stmt, startStmtToken);
               }
         )
@@ -1126,7 +1126,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
                   CreateFunctionStatement stmt = null;
                   try{
                       stmt =
-                      new CreateFunctionStatement(signature, args, returnType, returnUnknownable, deterministic, nullCall,
+                      new CreateFunctionStatement(signature, args, returnType, deterministic, nullCall,
                                                    lang, libName, externalIdent, resources,  ifNotExists);
                   } catch (AlgebricksException e) {
                       throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
