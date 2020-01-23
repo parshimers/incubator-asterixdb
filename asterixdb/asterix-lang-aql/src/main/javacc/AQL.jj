@@ -720,7 +720,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
   Token beginPos;
   Token endPos;
   FunctionName fctName = null;
-
+  List<Pair<VarIdentifier,IndexedTypeExpression>> bodge = new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>();
   createNewScope();
 }
 {
@@ -739,7 +739,10 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
       signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
       removeCurrentScope();
-      return new CreateFunctionStatement(signature, new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>(), null, functionBody, functionBodyExpr, ifNotExists);
+      for(VarIdentifier v: paramList){
+          bodge.add(new Pair<VarIdentifier,IndexedTypeExpression>(v,null));
+      }
+      return new CreateFunctionStatement(signature, bodge, null, functionBody, functionBodyExpr, ifNotExists);
     }
 }
 
