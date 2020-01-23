@@ -18,21 +18,21 @@
  */
 
 
-drop dataverse emergencyTest if exists;
+drop  emergencyTest if exists;
 create dataverse emergencyTest;
-use dataverse emergencyTest;
+use  emergencyTest;
 
 create type CHPReport as
-{ "rid":uuid, "epicenter":point, "radius":double }
+{ rid:uuid, epicenter:point, radius:double };
 
 create type userLocation as
-{ "id":uuid, "user-id":int64, "location":point }
+{ id:uuid, `user-id`:int64, location:point };
 
 create type tornadoShelter as
-{ "tsid":uuid, "location":point }
+{ tsid:uuid, location:point };
 
 create type sub as closed
-{ "id":int, "param0":int64 }
+{ id:int, param0:int64 };
 
 create dataset NearbySheltersDuringTornadoDangerChannelSubscriptions(sub)
 primary key id;
