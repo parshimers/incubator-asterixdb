@@ -1056,7 +1056,6 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   FunctionName fctName = null;
   DataverseName currentDataverse = defaultDataverse;
   IndexedTypeExpression returnType = null;
-  boolean returnUnknownable = false;
   boolean deterministic = false;
   boolean nullCall = false;
   String lang = null;

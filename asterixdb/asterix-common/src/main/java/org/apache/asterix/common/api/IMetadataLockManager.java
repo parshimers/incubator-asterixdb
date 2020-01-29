@@ -161,7 +161,7 @@ public interface IMetadataLockManager {
      *            the lock list to add the new lock to
      * @param dataverseName
      *            the dataverse name
-     * @param functionName
+     * @param libraryName
      *            the name of the library in the given dataverse
      * @throws AlgebricksException
      *             if lock couldn't be acquired
@@ -177,7 +177,7 @@ public interface IMetadataLockManager {
      *            the lock list to add the new lock to
      * @param dataverseName
      *            the dataverse name
-     * @param functionName
+     * @param libraryName
      *            the name of the library in the given dataverse
      * @throws AlgebricksException
      *             if lock couldn't be acquired
@@ -192,13 +192,13 @@ public interface IMetadataLockManager {
      *            the lock list to add the new lock to
      * @param dataverseName
      *            the dataverse name
-     * @param functionName
+     * @param adapterName
      *            the name of the adapter in the given dataverse
      * @throws AlgebricksException
      *             if lock couldn't be acquired
      */
 
-    void acquireAdapterReadLock(LockList locks, DataverseName dataverseName, String libraryName)
+    void acquireAdapterReadLock(LockList locks, DataverseName dataverseName, String adapterName)
             throws AlgebricksException;
 
     /**
@@ -208,13 +208,13 @@ public interface IMetadataLockManager {
      *            the lock list to add the new lock to
      * @param dataverseName
      *            the dataverse name
-     * @param functionName
+     * @param adapterName
      *            the name of the adapter in the given dataverse
      * @throws AlgebricksException
      *             if lock couldn't be acquired
      */
 
-    void acquireAdapterWriteLock(LockList locks, DataverseName dataverseName, String libraryName)
+    void acquireAdapterWriteLock(LockList locks, DataverseName dataverseName, String adapterName)
             throws AlgebricksException;
 
     /**

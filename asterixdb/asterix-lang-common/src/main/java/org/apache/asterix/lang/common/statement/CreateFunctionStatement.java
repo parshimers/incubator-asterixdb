@@ -44,7 +44,7 @@ public class CreateFunctionStatement extends AbstractStatement {
     private final boolean ifNotExists;
 
     IndexedTypeExpression returnType;
-    Boolean deterministic;
+    boolean deterministic;
     boolean nullCall;
     String lang;
     String libName;
@@ -119,7 +119,7 @@ public class CreateFunctionStatement extends AbstractStatement {
         return externalIdent != null;
     }
 
-    public boolean isNullable() {
+    public boolean isUnknownable() {
         return returnType == null || returnType.isUnknownable();
     }
 

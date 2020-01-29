@@ -46,7 +46,6 @@ import org.apache.asterix.om.util.container.ListObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IDataOutputProvider;
 import org.apache.hyracks.data.std.api.IValueReference;
-import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
 
 public class JavaFunctionHelper implements IFunctionHelper {
 
@@ -134,9 +133,8 @@ public class JavaFunctionHelper implements IFunctionHelper {
                 jObject = pointableVisitor.visit((AListVisitablePointable) pointable, getTypeInfo(index, type));
                 break;
             case ANY:
-                TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
-                pointy.set(valueReference);
-                ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
+                ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER
+                        .deserialize(valueReference.getByteArray()[valueReference.getStartOffset()]);
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
                 switch (rtTypeTag) {
                     case OBJECT:

@@ -342,7 +342,9 @@ public final class MetadataRecordTypes {
     public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME = "WithParams";
     public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_TYPE_NAME = "Parameter";
     public static final String FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME = "Library";
-    public static final String FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME = "Nullable";
+    public static final String FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME = "Unknownable";
+    public static final String FUNCTION_ARECORD_FUNCTION_NULLCALL_FIELD_NAME = "NullCall";
+    public static final String FUNCTION_ARECORD_FUNCTION_DETERMINISTIC_FIELD_NAME = "Deterministic";
     public static final String FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME = "ArgTypes";
     public static final ARecordType FUNCTION_RECORDTYPE = createRecordType(
             // RecordTypeName
@@ -366,6 +368,10 @@ public final class MetadataRecordTypes {
     public static final int DATASOURCE_ADAPTER_ARECORD_CLASSNAME_FIELD_INDEX = 2;
     public static final int DATASOURCE_ADAPTER_ARECORD_TYPE_FIELD_INDEX = 3;
     public static final int DATASOURCE_ADAPTER_ARECORD_TIMESTAMP_FIELD_INDEX = 4;
+    //open types
+
+    public static final String DATASOURCE_ARECORD_FUNCTION_LIBRARY_FIELD_NAME = "Library";
+
     public static final ARecordType DATASOURCE_ADAPTER_RECORDTYPE = createRecordType(
             // RecordTypeName
             RECORD_NAME_DATASOURCE_ADAPTER,

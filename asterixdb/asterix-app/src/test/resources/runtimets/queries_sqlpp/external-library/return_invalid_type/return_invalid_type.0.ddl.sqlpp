@@ -23,7 +23,7 @@ use externallibtest;
 
 create type TwitterUserType as closed {
  screen_name: string,
- `language`: string,
+ language: string,
  friends_count: int32,
  status_count: int32,
  name: string,

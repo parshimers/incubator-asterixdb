@@ -43,7 +43,7 @@ public class ExternalFunctionCompilerUtilTest {
         Function function = new Function(signature, new LinkedList<>(), new LinkedList<>(),
                 new Pair<>(MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME,
                         new AUnorderedListType(BuiltinType.ASTRING, "foo")),
-                "", "JAVA", false, "", "SCALAR", null, null);
+                "", "JAVA", false, false, false, "", "SCALAR", null, null);
 
         // when
         ExternalScalarFunctionInfo info =

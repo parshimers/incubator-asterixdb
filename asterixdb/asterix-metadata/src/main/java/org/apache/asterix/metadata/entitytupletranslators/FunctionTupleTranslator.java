@@ -20,8 +20,10 @@
 package org.apache.asterix.metadata.entitytupletranslators;
 
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_ARGTYPES_FIELD_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DETERMINISTIC_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_NULLCALL_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_NAME_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_VALUE_FIELD_NAME;
@@ -104,9 +106,25 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
                 : null;
     }
 
-    private boolean getNullable(ARecord functionRecord) {
+    private boolean getUnknownable(ARecord functionRecord) {
         final ARecordType functionType = functionRecord.getType();
         final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME);
+        return functionLibraryIdx >= 0
+                ? Boolean.getBoolean(((AString) functionRecord.getValueByPos(functionLibraryIdx)).getStringValue())
+                : false;
+    }
+
+    private boolean getNullCall(ARecord functionRecord) {
+        final ARecordType functionType = functionRecord.getType();
+        final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_NULLCALL_FIELD_NAME);
+        return functionLibraryIdx >= 0
+                ? Boolean.getBoolean(((AString) functionRecord.getValueByPos(functionLibraryIdx)).getStringValue())
+                : false;
+    }
+
+    private boolean getDeterministic(ARecord functionRecord) {
+        final ARecordType functionType = functionRecord.getType();
+        final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_DETERMINISTIC_FIELD_NAME);
         return functionLibraryIdx >= 0
                 ? Boolean.getBoolean(((AString) functionRecord.getValueByPos(functionLibraryIdx)).getStringValue())
                 : false;
@@ -219,11 +237,13 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         List<Pair<DataverseName, IAType>> args = getFunctionTypeArgs(functionRecord);
         String functionLibrary = getFunctionLibrary(functionRecord);
         Map<String, String> params = getFunctionWithParams(functionRecord);
-        boolean nullable = getNullable(functionRecord);
+        boolean unknownable = getUnknownable(functionRecord);
+        boolean nullCall = getNullCall(functionRecord);
+        boolean deterministic = getDeterministic(functionRecord);
 
         FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
-        return new Function(signature, args, argNames, qualifiedType, definition, language, nullable, functionLibrary,
-                functionKind, dependencies, params);
+        return new Function(signature, args, argNames, qualifiedType, definition, language, unknownable, nullCall,
+                deterministic, functionLibrary, functionKind, dependencies, params);
     }
 
     private Triple<DataverseName, String, String> getDependency(AOrderedList dependencySubnames) {
@@ -359,7 +379,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         writeArgTypes(function);
         writeWithParameters(function);
         writeLibrary(function);
-        writeNullable(function);
+        writeUnknownable(function);
+        writeNullCall(function);
+        writeDeterministic(function);
     }
 
     protected void writeWithParameters(Function function) throws HyracksDataException {
@@ -413,12 +435,32 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         recordBuilder.addField(fieldName, fieldValue);
     }
 
-    protected void writeNullable(Function function) throws HyracksDataException {
+    protected void writeUnknownable(Function function) throws HyracksDataException {
         fieldName.reset();
         aString.setValue(FUNCTION_ARECORD_FUNCTION_NULLABILITY_FIELD_NAME);
         stringSerde.serialize(aString, fieldName.getDataOutput());
         fieldValue.reset();
-        aString.setValue(Boolean.toString(function.isNullable()));
+        aString.setValue(Boolean.toString(function.isUnknownable()));
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+        recordBuilder.addField(fieldName, fieldValue);
+    }
+
+    protected void writeNullCall(Function function) throws HyracksDataException {
+        fieldName.reset();
+        aString.setValue(FUNCTION_ARECORD_FUNCTION_NULLCALL_FIELD_NAME);
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(Boolean.toString(function.isNullCall()));
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+        recordBuilder.addField(fieldName, fieldValue);
+    }
+
+    protected void writeDeterministic(Function function) throws HyracksDataException {
+        fieldName.reset();
+        aString.setValue(FUNCTION_ARECORD_FUNCTION_DETERMINISTIC_FIELD_NAME);
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(Boolean.toString(function.isDeterministic()));
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(fieldName, fieldValue);
     }

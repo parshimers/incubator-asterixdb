@@ -50,18 +50,20 @@ public class Function implements IMetadataEntity<Function> {
     private final String library;
     private final boolean nullable;
     private final Map<String, String> params;
+    private final boolean deterministic;
+    private final boolean nullCall;
 
     public Function(FunctionSignature signature, List<Pair<DataverseName, IAType>> arguments, List<String> argNames,
-            Pair<DataverseName, IAType> returnType, String functionBody, String language, boolean nullable,
-            String library, String functionKind, List<List<Triple<DataverseName, String, String>>> dependencies,
-            Map<String, String> params) {
+            Pair<DataverseName, IAType> returnType, String functionBody, String language, boolean unknownable,
+            boolean nullCall, boolean deterministic, String library, String functionKind,
+            List<List<Triple<DataverseName, String, String>>> dependencies, Map<String, String> params) {
         this.signature = signature;
         this.arguments = arguments;
         this.argNames = argNames;
         this.body = functionBody;
         this.returnType = returnType;
         this.language = language;
-        this.nullable = nullable;
+        this.nullable = unknownable;
         this.kind = functionKind;
         this.library = library;
         if (dependencies == null) {
@@ -76,6 +78,8 @@ public class Function implements IMetadataEntity<Function> {
         } else {
             this.params = params;
         }
+        this.nullCall = nullCall;
+        this.deterministic = deterministic;
     }
 
     public FunctionSignature getSignature() {
@@ -118,8 +122,16 @@ public class Function implements IMetadataEntity<Function> {
         return language;
     }
 
-    public boolean isNullable() {
+    public boolean isUnknownable() {
         return nullable;
+    }
+
+    public boolean isNullCall() {
+        return nullCall;
+    }
+
+    public boolean isDeterministic() {
+        return deterministic;
     }
 
     public String getKind() {

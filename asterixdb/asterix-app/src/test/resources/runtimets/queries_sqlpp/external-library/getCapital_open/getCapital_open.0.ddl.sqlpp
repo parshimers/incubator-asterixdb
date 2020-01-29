@@ -20,9 +20,7 @@ DROP DATAVERSE externallibtest if exists;
 CREATE DATAVERSE  externallibtest;
 USE externallibtest;
 
-
 create type CountryCapitalType if not exists as closed {
 country: string,
 capital: string
 };
-
