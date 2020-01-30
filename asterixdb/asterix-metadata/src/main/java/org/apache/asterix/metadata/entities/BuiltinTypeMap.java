@@ -79,7 +79,6 @@ public class BuiltinTypeMap {
         _builtinTypeMap.put("uuid", BuiltinType.AUUID);
         _builtinTypeMap.put("shortwithouttypeinfo", BuiltinType.SHORTWITHOUTTYPEINFO);
         _builtinTypeMap.put("geometry", BuiltinType.AGEOMETRY);
-        _builtinTypeMap.put("any", BuiltinType.ANY);
     }
 
     private BuiltinTypeMap() {

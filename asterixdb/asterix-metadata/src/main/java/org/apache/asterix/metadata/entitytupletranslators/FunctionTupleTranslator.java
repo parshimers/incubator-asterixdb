@@ -29,10 +29,10 @@ import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTI
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_VALUE_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.TYPE_DV_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.TYPE_NAME_FIELD_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.TYPE_UNKNOWNABLE_FIELD_NAME;
 
 import java.io.DataOutput;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +57,8 @@ import org.apache.asterix.om.base.IACursor;
 import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.ARecordType;
+import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.AUnionType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -156,9 +158,23 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         return adaptorConfiguration;
     }
 
+    private Pair<DataverseName, IAType> resolveTypePair(String dvCanonicalForm, String typeName, boolean unknownable)
+            throws AlgebricksException {
+        DataverseName dvName = DataverseName.createFromCanonicalForm(dvCanonicalForm);
+        Pair<DataverseName, IAType> typePair = new Pair<>(null, null);
+        typePair.first = dvName;
+        if (BuiltinType.ANY.getTypeName().equalsIgnoreCase(typeName)) {
+            typePair.second = BuiltinType.ANY;
+        } else {
+            typePair.second = BuiltinTypeMap.getTypeFromTypeName(metadataNode, txnId, dvName, typeName, unknownable);
+        }
+        return typePair;
+    }
+
     private List<Pair<DataverseName, IAType>> getFunctionTypeArgs(ARecord functionRecord) throws AlgebricksException {
         String dv = "";
         String type = "";
+        boolean unknownable = false;
         List<Pair<DataverseName, IAType>> functionArgs = new ArrayList<>();
 
         final ARecordType functionType = functionRecord.getType();
@@ -176,12 +192,23 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
                 if (valueIdx >= 0) {
                     type = ((AString) field.getValueByPos(valueIdx)).getStringValue();
                 }
-                DataverseName dvName = DataverseName.createFromCanonicalForm(dv);
-                functionArgs.add(new Pair<>(dvName,
-                        BuiltinTypeMap.getTypeFromTypeName(metadataNode, txnId, dvName, type, false)));
+                final int unknownableIdx = fieldType.getFieldIndex(TYPE_UNKNOWNABLE_FIELD_NAME);
+                if (unknownableIdx >= 0) {
+                    unknownable = Boolean.valueOf(((AString) field.getValueByPos(valueIdx)).getStringValue());
+                }
+                functionArgs.add(resolveTypePair(dv, type, unknownable));
             }
         }
         return functionArgs;
+    }
+
+    private Pair<DataverseName, IAType> getFunctionReturnType(ARecord functionRecord) throws AlgebricksException {
+        String returnType = ((AString) functionRecord
+                .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX)).getStringValue();
+        DataverseName complete = DataverseName.createFromCanonicalForm(returnType);
+        DataverseName dvName = DataverseName.create(complete.getParts(), 0, complete.getParts().size() - 1);
+        String typeName = complete.getParts().get(complete.getParts().size() - 1);
+        return resolveTypePair(dvName.getCanonicalForm(), typeName, getUnknownable(functionRecord));
     }
 
     protected Function createMetadataEntityFromARecord(ARecord functionRecord) throws AlgebricksException {
@@ -201,14 +228,6 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         while (argCursor.next()) {
             argNames.add(((AString) argCursor.get()).getStringValue());
         }
-
-        String returnType = ((AString) functionRecord
-                .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_RETURN_TYPE_FIELD_INDEX)).getStringValue();
-        List<String> returnSplit = Arrays.asList(returnType.split("\\."));
-        DataverseName dvName = DataverseName.create(returnSplit, 0, returnSplit.size() - 1);
-        String typeName = returnSplit.get(returnSplit.size() - 1);
-        Pair<DataverseName, IAType> qualifiedType =
-                new Pair(dvName, BuiltinTypeMap.getTypeFromTypeName(metadataNode, txnId, dvName, typeName, true));
 
         String definition = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX)).getStringValue();
@@ -235,6 +254,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         }
 
         List<Pair<DataverseName, IAType>> args = getFunctionTypeArgs(functionRecord);
+        Pair<DataverseName, IAType> returnType = getFunctionReturnType(functionRecord);
         String functionLibrary = getFunctionLibrary(functionRecord);
         Map<String, String> params = getFunctionWithParams(functionRecord);
         boolean unknownable = getUnknownable(functionRecord);
@@ -242,7 +262,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         boolean deterministic = getDeterministic(functionRecord);
 
         FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
-        return new Function(signature, args, argNames, qualifiedType, definition, language, unknownable, nullCall,
+        return new Function(signature, args, argNames, returnType, definition, language, unknownable, nullCall,
                 deterministic, functionLibrary, functionKind, dependencies, params);
     }
 
@@ -414,12 +434,20 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
             String dv = p.getFirst().getCanonicalForm();
             String type = p.getSecond().getTypeName();
             itemValue.reset();
-            writePropertyTypeRecord(dv, type, itemValue.getDataOutput());
+            writeTypeRecord(dv, type, isNullableType(p.getSecond()), itemValue.getDataOutput());
             listBuilder.addItem(itemValue);
         }
         fieldValue.reset();
         listBuilder.write(fieldValue.getDataOutput(), true);
         recordBuilder.addField(fieldName, fieldValue);
+    }
+
+    protected boolean isNullableType(IAType definedType) {
+        if ((definedType.getTypeTag() != ATypeTag.UNION) || (definedType.getTypeTag() == ATypeTag.ANY)) {
+            return false;
+        }
+
+        return ((AUnionType) definedType).isNullableType();
     }
 
     protected void writeLibrary(Function function) throws HyracksDataException {
@@ -490,6 +518,49 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         stringSerde.serialize(aString, fieldName.getDataOutput());
         fieldValue.reset();
         aString.setValue(value);
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+
+        propertyRecordBuilder.addField(fieldName, fieldValue);
+
+        propertyRecordBuilder.write(out, true);
+    }
+
+    public void writeTypeRecord(String dataverse, String type, boolean unknownable, DataOutput out)
+            throws HyracksDataException {
+        IARecordBuilder propertyRecordBuilder = new RecordBuilder();
+        ArrayBackedValueStorage fieldValue = new ArrayBackedValueStorage();
+        ArrayBackedValueStorage fieldName = new ArrayBackedValueStorage();
+        propertyRecordBuilder.reset(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE);
+        AMutableString aString = new AMutableString("");
+        ISerializerDeserializer<AString> stringSerde =
+                SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING);
+
+        // write field 0
+        fieldName.reset();
+        aString.setValue(TYPE_DV_FIELD_NAME);
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(dataverse);
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+
+        propertyRecordBuilder.addField(fieldName, fieldValue);
+
+        // write field 1
+        fieldName.reset();
+        aString.setValue(TYPE_NAME_FIELD_NAME);
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(type);
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+
+        propertyRecordBuilder.addField(fieldName, fieldValue);
+
+        // write field 2
+        fieldName.reset();
+        aString.setValue(TYPE_UNKNOWNABLE_FIELD_NAME);
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(Boolean.toString(unknownable));
         stringSerde.serialize(aString, fieldValue.getDataOutput());
 
         propertyRecordBuilder.addField(fieldName, fieldValue);
