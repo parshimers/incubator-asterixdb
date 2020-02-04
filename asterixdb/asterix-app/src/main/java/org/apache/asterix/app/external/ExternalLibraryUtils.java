@@ -20,29 +20,11 @@ package org.apache.asterix.app.external;
 
 import java.io.File;
 import java.io.FilenameFilter;
-import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.rmi.RemoteException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
-import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.asterix.metadata.MetadataManager;
-import org.apache.asterix.metadata.MetadataTransactionContext;
-import org.apache.asterix.metadata.entities.DatasourceAdapter;
-import org.apache.asterix.metadata.entities.Dataverse;
-import org.apache.asterix.metadata.entities.Function;
-import org.apache.asterix.metadata.entities.Library;
-import org.apache.asterix.metadata.utils.MetadataUtil;
-import org.apache.asterix.runtime.formats.NonTaggedDataFormat;
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -54,7 +36,8 @@ public class ExternalLibraryUtils {
     private ExternalLibraryUtils() {
     }
 
-    public static void setUpExternaLibrary(ILibraryManager externalLibraryManager, String libraryPath) throws Exception {
+    public static void setUpExternaLibrary(ILibraryManager externalLibraryManager, String libraryPath)
+            throws Exception {
         // get the installed library dirs
         String[] pathSplit = libraryPath.split("\\.");
         String[] dvSplit = pathSplit[pathSplit.length - 2].split("/");
@@ -63,8 +46,7 @@ public class ExternalLibraryUtils {
         registerClassLoader(externalLibraryManager, dataverse, name, libraryPath);
     }
 
-    public static void setUpInstalledLibraries(ILibraryManager externalLibraryManager,
-            File appDir) throws Exception {
+    public static void setUpInstalledLibraries(ILibraryManager externalLibraryManager, File appDir) throws Exception {
         File[] libs = appDir.listFiles(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {

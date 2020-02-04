@@ -28,20 +28,17 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
-import com.sun.xml.internal.ws.api.addressing.WSEndpointReference;
 import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.message.DeleteUdfMessage;
 import org.apache.asterix.app.message.LoadUdfMessage;
-import org.apache.asterix.common.api.IMetadataLockManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.asterix.common.metadata.IMetadataLock;
 import org.apache.asterix.common.metadata.IMetadataLockUtil;
+import org.apache.asterix.common.metadata.LockList;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.MetadataProvider;
@@ -49,8 +46,6 @@ import org.apache.asterix.metadata.entities.DatasourceAdapter;
 import org.apache.asterix.metadata.entities.Dataverse;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.metadata.entities.Library;
-import org.apache.asterix.metadata.utils.MetadataUtil;
-import org.apache.asterix.runtime.formats.NonTaggedDataFormat;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
@@ -107,13 +102,16 @@ public class UdfApiServlet extends AbstractServlet {
         IMetadataLockUtil mdLockUtil = appCtx.getMetadataLockUtil();
         MetadataTransactionContext mdTxnCtx = null;
         boolean succeeded = false;
+        LockList mdLockList = null;
         File udf = null;
         try {
             MetadataManager.INSTANCE.init();
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             // Retrieves file splits of the dataset.
             MetadataProvider metadataProvider = MetadataProvider.create(appCtx, null);
-            mdLockUtil.createLibraryBegin(appCtx.getMetadataLockManager(),metadataProvider.getLocks(),dataverse,resourceName);
+            mdLockList = metadataProvider.getLocks();
+            mdLockUtil.createLibraryBegin(appCtx.getMetadataLockManager(), metadataProvider.getLocks(), dataverse,
+                    resourceName);
             File workingDir = new File(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                     UDF_TMP_DIR_PREFIX);
             if (!workingDir.exists()) {
@@ -136,7 +134,7 @@ public class UdfApiServlet extends AbstractServlet {
                 deleteUdf(dataverse, resourceName);
             }
             hcc.deployBinary(udfName, Arrays.asList(udf.toString()), true);
-            ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(), false,
+            ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(),
                     FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                             "applications", udfName.toString()));
 
@@ -145,29 +143,34 @@ public class UdfApiServlet extends AbstractServlet {
             List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
             ncs.forEach(s -> requests.add(new LoadUdfMessage(dataverse, resourceName, reqId)));
             broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
-            installLibrary(mdTxnCtx,dataverse,resourceName);
+            installLibrary(mdTxnCtx, dataverse, resourceName);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             LOGGER.error(e);
-            return;
-        } finally {
-            if(mdTxnCtx != null){
+            if (mdTxnCtx != null) {
                 try {
                     MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
-                }
-                catch(RemoteException r){
-                    LOGGER.error("Unable to abort metadata transaction",r);
+                } catch (RemoteException r) {
+                    LOGGER.error("Unable to abort metadata transaction", r);
                 }
             }
             if (udf != null) {
                 udf.delete();
             }
+            return;
+        }
+        finally{
+            if(mdLockList != null) {
+                mdLockList.unlock();
+            }
         }
         response.setStatus(HttpResponseStatus.OK);
 
     }
-    private static void installLibrary(MetadataTransactionContext mdTxnCtx,DataverseName dataverse,String libraryName) throws RemoteException, AlgebricksException {
+
+    private static void installLibrary(MetadataTransactionContext mdTxnCtx, DataverseName dataverse, String libraryName)
+            throws RemoteException, AlgebricksException {
         Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
         // Get the dataverse
         Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
@@ -185,7 +188,8 @@ public class UdfApiServlet extends AbstractServlet {
         }
     }
 
-    private static void deleteLibrary(MetadataTransactionContext mdTxnCtx,DataverseName dataverse,String libraryName) throws RemoteException, AlgebricksException {
+    private static void deleteLibrary(MetadataTransactionContext mdTxnCtx, DataverseName dataverse, String libraryName)
+            throws RemoteException, AlgebricksException {
         Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
         if (dv == null) {
             throw new AsterixException(ErrorCode.UNKNOWN_DATAVERSE);
@@ -197,13 +201,13 @@ public class UdfApiServlet extends AbstractServlet {
         List<Function> functions = MetadataManager.INSTANCE.getDataverseFunctions(mdTxnCtx, dataverse);
         for (Function function : functions) {
             if (libraryName.equals(function.getLibrary())) {
-                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE,libraryName);
+                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE, libraryName);
             }
         }
         List<DatasourceAdapter> adapters = MetadataManager.INSTANCE.getDataverseAdapters(mdTxnCtx, dataverse);
         for (DatasourceAdapter adapter : adapters) {
             if (libraryName.equals(adapter.getLibrary())) {
-                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE,libraryName);
+                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE, libraryName);
             }
         }
         // drop the library
@@ -219,10 +223,10 @@ public class UdfApiServlet extends AbstractServlet {
 
     private void deleteUdf(DataverseName dataverse, String resourceName) throws Exception {
         MetadataTransactionContext mdTxnCtx = null;
-        try{
+        try {
             MetadataManager.INSTANCE.init();
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-            deleteLibrary(mdTxnCtx,dataverse,resourceName);
+            deleteLibrary(mdTxnCtx, dataverse, resourceName);
             long reqId = broker.newRequestId();
             List<INcAddressedMessage> requests = new ArrayList<>();
             List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
@@ -231,9 +235,8 @@ public class UdfApiServlet extends AbstractServlet {
             appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverse, resourceName);
             appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverse, resourceName)));
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-        }
-        catch( Exception e){
-            if(mdTxnCtx != null){
+        } catch (Exception e) {
+            if (mdTxnCtx != null) {
                 MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
             }
             throw new AsterixException(e);

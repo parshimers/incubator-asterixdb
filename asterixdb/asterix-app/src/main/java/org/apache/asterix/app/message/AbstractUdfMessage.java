@@ -61,7 +61,6 @@ public abstract class AbstractUdfMessage extends CcIdentifiedMessage implements 
 
     }
 
-    protected abstract void handleAction(ILibraryManager mgr, INcApplicationContext appCtx)
-            throws Exception;
+    protected abstract void handleAction(ILibraryManager mgr, INcApplicationContext appCtx) throws Exception;
 
 }
