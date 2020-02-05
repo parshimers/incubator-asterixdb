@@ -534,6 +534,10 @@ public class MetadataNode implements IMetadataNode {
                         true);
             }
 
+            for (Library lib : getDataverseLibraries(txnId, dataverseName)) {
+                dropLibrary(txnId, lib.getDataverseName(), lib.getName());
+            }
+
             List<Dataset> dataverseDatasets;
             Dataset ds;
             dataverseDatasets = getDataverseDatasets(txnId, dataverseName);

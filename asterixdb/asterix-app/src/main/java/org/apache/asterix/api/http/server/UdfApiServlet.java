@@ -131,7 +131,8 @@ public class UdfApiServlet extends AbstractServlet {
             DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
             ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
             if (cl != null) {
-                deleteUdf(dataverse, resourceName);
+                //prepare to replace the binary
+                appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverse, resourceName);
             }
             hcc.deployBinary(udfName, Arrays.asList(udf.toString()), true);
             ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(),
@@ -159,9 +160,8 @@ public class UdfApiServlet extends AbstractServlet {
                 udf.delete();
             }
             return;
-        }
-        finally{
-            if(mdLockList != null) {
+        } finally {
+            if (mdLockList != null) {
                 mdLockList.unlock();
             }
         }
@@ -201,13 +201,14 @@ public class UdfApiServlet extends AbstractServlet {
         List<Function> functions = MetadataManager.INSTANCE.getDataverseFunctions(mdTxnCtx, dataverse);
         for (Function function : functions) {
             if (libraryName.equals(function.getLibrary())) {
-                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE, libraryName);
+                MetadataManager.INSTANCE.dropFunction(mdTxnCtx, function.getSignature());
             }
         }
         List<DatasourceAdapter> adapters = MetadataManager.INSTANCE.getDataverseAdapters(mdTxnCtx, dataverse);
         for (DatasourceAdapter adapter : adapters) {
             if (libraryName.equals(adapter.getLibrary())) {
-                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE, libraryName);
+                MetadataManager.INSTANCE.dropAdapter(mdTxnCtx, adapter.getAdapterIdentifier().getDataverseName(),
+                        adapter.getAdapterIdentifier().getName());
             }
         }
         // drop the library
