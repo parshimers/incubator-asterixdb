@@ -18,8 +18,6 @@
  */
 package org.apache.asterix.app.translator;
 
-import static org.apache.asterix.api.http.server.UdfApiServlet.UDF_RESPONSE_TIMEOUT;
-import static org.apache.asterix.api.http.server.UdfApiServlet.makeDeploymentId;
 import static org.apache.asterix.common.functions.FunctionConstants.ASTERIX_DV;
 
 import java.io.File;
@@ -53,7 +51,7 @@ import org.apache.asterix.api.http.server.ApiServlet;
 import org.apache.asterix.app.active.ActiveEntityEventsListener;
 import org.apache.asterix.app.active.ActiveNotificationHandler;
 import org.apache.asterix.app.active.FeedEventsListener;
-import org.apache.asterix.app.message.DeleteUdfMessage;
+import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.result.ExecutionError;
 import org.apache.asterix.app.result.ResultHandle;
 import org.apache.asterix.app.result.ResultReader;
@@ -83,7 +81,6 @@ import org.apache.asterix.common.exceptions.WarningCollector;
 import org.apache.asterix.common.exceptions.WarningUtil;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
-import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.metadata.IMetadataLockUtil;
 import org.apache.asterix.common.utils.JobUtils;
@@ -216,7 +213,6 @@ import org.apache.hyracks.algebricks.runtime.writers.PrinterBasedWriterFactory;
 import org.apache.hyracks.api.client.IClusterInfoCollector;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
-import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.api.exceptions.Warning;
@@ -1315,6 +1311,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         List<JobSpecification> jobsToExecute = new ArrayList<>();
+        List<Library> librariesToDelete = new ArrayList<>();
         ICCMessageBroker broker = (ICCMessageBroker) appCtx.getServiceContext().getMessageBroker();
         try {
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverseName);
@@ -1335,6 +1332,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                             function.getDataverseName() + "." + function.getName() + "@" + function.getArity());
                 }
             }
+
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
             // # disconnect all feeds from any datasets in the dataverse.
@@ -1390,6 +1388,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             }
             jobsToExecute.add(DataverseUtil.dropDataverseJobSpec(dv, metadataProvider));
 
+            librariesToDelete = MetadataManager.INSTANCE.getDataverseLibraries(mdTxnCtx, dataverseName);
             // #. mark PendingDropOp on the dataverse record by
             // first, deleting the dataverse record from the DATAVERSE_DATASET
             // second, inserting the dataverse record with the PendingDropOp value into the
@@ -1406,6 +1405,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 runJob(hcc, jobSpec);
             }
 
+            for (Library lib : librariesToDelete) {
+                ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverseName, lib.getName());
+            }
+
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             bActiveTxn = true;
             metadataProvider.setMetadataTxnContext(mdTxnCtx);
@@ -1420,16 +1423,6 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 if (MetadataManager.INSTANCE.getNodegroup(mdTxnCtx, nodeGroup) != null) {
                     MetadataManager.INSTANCE.dropNodegroup(mdTxnCtx, nodeGroup, true);
                 }
-            }
-
-            for (Library lib : MetadataManager.INSTANCE.getDataverseLibraries(mdTxnCtx, dataverseName)) {
-                long reqId = broker.newRequestId();
-                List<INcAddressedMessage> requests = new ArrayList<>();
-                List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
-                ncs.forEach(s -> requests.add(new DeleteUdfMessage(dataverseName, lib.getName(), reqId)));
-                broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
-                appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverseName, lib.getName());
-                appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverseName, lib.getName())));
             }
 
             if (activeDataverse.getDataverseName().equals(dataverseName)) {
@@ -1452,6 +1445,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 try {
                     for (JobSpecification jobSpec : jobsToExecute) {
                         runJob(hcc, jobSpec);
+                    }
+
+                    for (Library lib : librariesToDelete) {
+                        ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverseName, lib.getName());
                     }
                 } catch (Exception e2) {
                     // do no throw exception since still the metadata needs to be compensated.

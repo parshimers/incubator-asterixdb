@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.app.external.ExternalLibraryUtils;
-import org.apache.asterix.app.message.DeleteUdfMessage;
 import org.apache.asterix.app.message.LoadUdfMessage;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -228,14 +227,7 @@ public class UdfApiServlet extends AbstractServlet {
             MetadataManager.INSTANCE.init();
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             deleteLibrary(mdTxnCtx, dataverse, resourceName);
-            long reqId = broker.newRequestId();
-            List<INcAddressedMessage> requests = new ArrayList<>();
-            List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
-            ncs.forEach(s -> requests.add(new DeleteUdfMessage(dataverse, resourceName, reqId)));
-            broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
-            appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverse, resourceName);
-            appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverse, resourceName)));
-            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
         } catch (Exception e) {
             if (mdTxnCtx != null) {
                 MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);

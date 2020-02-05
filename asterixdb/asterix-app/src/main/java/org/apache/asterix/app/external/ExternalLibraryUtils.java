@@ -18,13 +18,23 @@
  */
 package org.apache.asterix.app.external;
 
+import static org.apache.asterix.api.http.server.UdfApiServlet.UDF_RESPONSE_TIMEOUT;
+import static org.apache.asterix.api.http.server.UdfApiServlet.makeDeploymentId;
+
 import java.io.File;
 import java.io.FilenameFilter;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.apache.asterix.app.message.DeleteUdfMessage;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.messaging.api.ICCMessageBroker;
+import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -39,11 +49,11 @@ public class ExternalLibraryUtils {
     public static void setUpExternaLibrary(ILibraryManager externalLibraryManager, String libraryPath)
             throws Exception {
         // get the installed library dirs
-        String[] pathSplit = libraryPath.split("\\.");
-        String[] dvSplit = pathSplit[pathSplit.length - 2].split("/");
-        DataverseName dataverse = DataverseName.createSinglePartName(dvSplit[dvSplit.length - 1]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
-        String name = pathSplit[pathSplit.length - 1].trim();
-        registerClassLoader(externalLibraryManager, dataverse, name, libraryPath);
+        String[] parts = libraryPath.split(File.separator);
+        DataverseName catenatedDv = DataverseName.createFromCanonicalForm(parts[parts.length - 1]);
+        String libraryName = catenatedDv.getParts().get(catenatedDv.getParts().size() - 1);
+        DataverseName dvName = DataverseName.create(catenatedDv.getParts(), 0, catenatedDv.getParts().size() - 1);
+        registerClassLoader(externalLibraryManager, dvName, libraryName, libraryPath);
     }
 
     public static void setUpInstalledLibraries(ILibraryManager externalLibraryManager, File appDir) throws Exception {
@@ -58,6 +68,17 @@ public class ExternalLibraryUtils {
                 setUpExternaLibrary(externalLibraryManager, lib.getAbsolutePath());
             }
         }
+    }
+
+    public static void deleteDeployedUdf(ICCMessageBroker broker, ICcApplicationContext appCtx,
+            DataverseName dataverseName, String lib) throws Exception {
+        long reqId = broker.newRequestId();
+        List<INcAddressedMessage> requests = new ArrayList<>();
+        List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
+        ncs.forEach(s -> requests.add(new DeleteUdfMessage(dataverseName, lib, reqId)));
+        broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
+        appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverseName, lib);
+        appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverseName, lib)));
     }
 
     /**
