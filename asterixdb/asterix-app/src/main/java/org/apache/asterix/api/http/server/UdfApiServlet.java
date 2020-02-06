@@ -100,7 +100,6 @@ public class UdfApiServlet extends AbstractServlet {
         DataverseName dataverse = resourceNames.second;
         IMetadataLockUtil mdLockUtil = appCtx.getMetadataLockUtil();
         MetadataTransactionContext mdTxnCtx = null;
-        boolean succeeded = false;
         LockList mdLockList = null;
         File udf = null;
         try {
@@ -131,7 +130,7 @@ public class UdfApiServlet extends AbstractServlet {
             ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
             if (cl != null) {
                 //prepare to replace the binary
-                appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverse, resourceName);
+                ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
             }
             hcc.deployBinary(udfName, Arrays.asList(udf.toString()), true);
             ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(),
@@ -146,6 +145,11 @@ public class UdfApiServlet extends AbstractServlet {
             installLibrary(mdTxnCtx, dataverse, resourceName);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
+            try {
+                ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
+            } catch (Exception e2) {
+                e.addSuppressed(e2);
+            }
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             LOGGER.error(e);
             if (mdTxnCtx != null) {
