@@ -125,23 +125,7 @@ public class UdfApiServlet extends AbstractServlet {
                     fc.write(content);
                 }
             }
-            IHyracksClientConnection hcc = appCtx.getHcc();
-            DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
-            ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
-            if (cl != null) {
-                //prepare to replace the binary
-                ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
-            }
-            hcc.deployBinary(udfName, Arrays.asList(udf.toString()), true);
-            ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(),
-                    FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                            "applications", udfName.toString()));
-
-            long reqId = broker.newRequestId();
-            List<INcAddressedMessage> requests = new ArrayList<>();
-            List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
-            ncs.forEach(s -> requests.add(new LoadUdfMessage(dataverse, resourceName, reqId)));
-            broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
+            setupBinariesAndClassloaders(dataverse,resourceName,udf);
             installLibrary(mdTxnCtx, dataverse, resourceName);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
@@ -170,6 +154,27 @@ public class UdfApiServlet extends AbstractServlet {
         }
         response.setStatus(HttpResponseStatus.OK);
 
+    }
+
+    private void setupBinariesAndClassloaders(DataverseName dataverse, String resourceName, File udf) throws Exception{
+        IHyracksClientConnection hcc = appCtx.getHcc();
+        DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
+        ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
+        if (cl != null) {
+            //prepare to replace the binary
+            ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
+        }
+        hcc.deployBinary(udfName, Arrays.asList(udf.toString()), true);
+        //setup for CC
+        ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(),
+                FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
+                        "applications", udfName.toString()));
+        //setup NCs
+        long reqId = broker.newRequestId();
+        List<INcAddressedMessage> requests = new ArrayList<>();
+        List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
+        ncs.forEach(s -> requests.add(new LoadUdfMessage(dataverse, resourceName, reqId)));
+        broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
     }
 
     private static void installLibrary(MetadataTransactionContext mdTxnCtx, DataverseName dataverse, String libraryName)
