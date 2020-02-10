@@ -54,7 +54,7 @@ import org.apache.logging.log4j.Logger;
  */
 public class DeploymentUtils {
 
-    private static final String DEPLOYMENT = "applications";
+    public static final String DEPLOYMENT = "applications";
     private static final Logger LOGGER = LogManager.getLogger();
 
     /**
