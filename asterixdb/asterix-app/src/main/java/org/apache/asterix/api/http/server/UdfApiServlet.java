@@ -125,7 +125,7 @@ public class UdfApiServlet extends AbstractServlet {
                     fc.write(content);
                 }
             }
-            setupBinariesAndClassloaders(dataverse,resourceName,udf);
+            setupBinariesAndClassloaders(dataverse, resourceName, udf);
             installLibrary(mdTxnCtx, dataverse, resourceName);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
@@ -156,7 +156,7 @@ public class UdfApiServlet extends AbstractServlet {
 
     }
 
-    private void setupBinariesAndClassloaders(DataverseName dataverse, String resourceName, File udf) throws Exception{
+    private void setupBinariesAndClassloaders(DataverseName dataverse, String resourceName, File udf) throws Exception {
         IHyracksClientConnection hcc = appCtx.getHcc();
         DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
         ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
