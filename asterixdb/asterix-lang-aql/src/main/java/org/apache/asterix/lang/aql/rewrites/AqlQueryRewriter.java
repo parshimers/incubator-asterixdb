@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.asterix.common.exceptions.CompilationException;
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.aql.clause.DistinctClause;
 import org.apache.asterix.lang.aql.clause.ForClause;
@@ -67,7 +68,7 @@ class AqlQueryRewriter implements IQueryRewriter {
 
     AqlQueryRewriter(IParserFactory parserFactory) {
         this.parserFactory = parserFactory;
-        functionParser = new FunctionParser(Function.FunctionLanguage.AQL, this.parserFactory);
+        functionParser = new FunctionParser(FunctionLanguage.AQL, this.parserFactory);
     }
 
     private void setup(List<FunctionDecl> declaredFunctions, IReturningStatement topStatement,

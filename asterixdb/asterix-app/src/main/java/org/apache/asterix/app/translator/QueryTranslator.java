@@ -78,6 +78,7 @@ import org.apache.asterix.common.exceptions.MetadataException;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.exceptions.WarningCollector;
 import org.apache.asterix.common.exceptions.WarningUtil;
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.metadata.IMetadataLockUtil;
@@ -1840,10 +1841,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 }
             }
             if (cfs.isExternal()) {
-                Function.FunctionLanguage functionLang = Function.FunctionLanguage.findByName(cfs.getLang());
+                FunctionLanguage functionLang = FunctionLanguage.findByName(cfs.getLang());
                 if (functionLang == null || !functionLang.isExternal()) {
-                    String expectedExternalLanguages = Arrays.stream(Function.FunctionLanguage.values())
-                            .filter(Function.FunctionLanguage::isExternal).map(Function.FunctionLanguage::getName)
+                    String expectedExternalLanguages = Arrays.stream(FunctionLanguage.values())
+                            .filter(FunctionLanguage::isExternal).map(FunctionLanguage::getName)
                             .collect(Collectors.joining(" or "));
                     throw new CompilationException(ErrorCode.COMPILATION_INCOMPATIBLE_FUNCTION_LANGUAGE, sourceLoc,
                             expectedExternalLanguages, cfs.getLang());
@@ -1943,12 +1944,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         }
     }
 
-    private Function.FunctionLanguage getFunctionLanguage() {
+    private FunctionLanguage getFunctionLanguage() {
         switch (compilationProvider.getLanguage()) {
             case SQLPP:
-                return Function.FunctionLanguage.SQLPP;
+                return FunctionLanguage.SQLPP;
             case AQL:
-                return Function.FunctionLanguage.AQL;
+                return FunctionLanguage.AQL;
             default:
                 throw new IllegalStateException(String.valueOf(compilationProvider.getLanguage()));
         }

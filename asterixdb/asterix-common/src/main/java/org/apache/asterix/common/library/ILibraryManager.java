@@ -60,7 +60,7 @@ public interface ILibraryManager {
      * @param libraryName
      * @return the library class loader associated with the dataverse and library.
      */
-    ClassLoader getLibraryClassLoader(String dataverseName, String libraryName);
+    ClassLoader getLibraryClassLoader(DataverseName dataverseName, String libraryName);
 
-    URL[] getLibraryUrls(String dataverseName, String libraryName);
+    URL[] getLibraryUrls(DataverseName dataverseName, String libraryName);
 }

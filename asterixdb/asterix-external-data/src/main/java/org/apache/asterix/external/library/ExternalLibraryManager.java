@@ -36,7 +36,7 @@ public class ExternalLibraryManager implements ILibraryManager {
 
     private final Map<Pair<DataverseName, String>, URLClassLoader> libraryClassLoaders = new HashMap<>();
     private static final Logger LOGGER = LogManager.getLogger();
-    private final Map<String, URL[]> libraryPaths = new HashMap<>();
+    private final Map<DataverseName , URL[]> libraryPaths = new HashMap<>();
 
     @Override
     public void registerLibraryClassLoader(DataverseName dataverseName, String libraryName,
@@ -47,7 +47,7 @@ public class ExternalLibraryManager implements ILibraryManager {
                 return;
             }
             libraryClassLoaders.put(key, classLoader);
-            libraryPaths.put(key, classLoader.getURLs());
+            libraryPaths.put(key.first, classLoader.getURLs());
         }
     }
 
@@ -87,7 +87,7 @@ public class ExternalLibraryManager implements ILibraryManager {
     }
 
     @Override
-    public URL[] getLibraryUrls(String dataverseName, String libraryName) {
+    public URL[] getLibraryUrls(DataverseName dataverseName, String libraryName) {
         return libraryPaths.get(getKey(dataverseName, libraryName));
     }
 

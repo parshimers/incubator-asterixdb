@@ -23,6 +23,7 @@ import java.io.StringReader;
 
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.IParserFactory;
 import org.apache.asterix.lang.common.statement.FunctionDecl;
@@ -30,11 +31,11 @@ import org.apache.asterix.metadata.entities.Function;
 
 public class FunctionParser {
 
-    private final Function.FunctionLanguage language;
+    private final FunctionLanguage language;
 
     private final IParserFactory parserFactory;
 
-    public FunctionParser(Function.FunctionLanguage language, IParserFactory parserFactory) {
+    public FunctionParser(FunctionLanguage language, IParserFactory parserFactory) {
         this.language = language;
         this.parserFactory = parserFactory;
     }

@@ -21,6 +21,7 @@ package org.apache.asterix.om.functions;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
@@ -33,21 +34,21 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     private final transient IResultTypeComputer rtc;
     private final List<IAType> argumentTypes;
     private final String body;
-    private final String language;
+    private final FunctionLanguage language;
     private final FunctionKind kind;
     private final IAType returnType;
     private final String library;
     private final Map<String, String> params;
 
     public ExternalFunctionInfo(String namespace, String name, int arity, FunctionKind kind, List<IAType> argumentTypes,
-            IAType returnType, IResultTypeComputer rtc, String body, String language, String library,
+            IAType returnType, IResultTypeComputer rtc, String body, FunctionLanguage language, String library,
             Map<String, String> params) {
-        this(new FunctionIdentifier(namespace, name, arity), kind, argumentTypes, returnType, rtc, body, library,
-                language, params);
+        this(new FunctionIdentifier(namespace, name, arity), kind, argumentTypes, returnType, rtc, body, language, library,
+                 params);
     }
 
     public ExternalFunctionInfo(FunctionIdentifier fid, FunctionKind kind, List<IAType> argumentTypes,
-            IAType returnType, IResultTypeComputer rtc, String body, String language, String library,
+            IAType returnType, IResultTypeComputer rtc, String body, FunctionLanguage language, String library,
             Map<String, String> params) {
         // TODO: fix CheckNonFunctionalExpressionVisitor once we have non-functional external functions
         super(fid, true);
@@ -80,7 +81,7 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     }
 
     @Override
-    public String getLanguage() {
+    public FunctionLanguage getLanguage() {
         return language;
     }
 

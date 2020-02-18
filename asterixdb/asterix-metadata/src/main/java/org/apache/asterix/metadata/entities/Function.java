@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.metadata.MetadataCache;
@@ -138,30 +139,4 @@ public class Function implements IMetadataEntity<Function> {
         return cache.dropFunction(this);
     }
 
-    public enum FunctionLanguage {
-        // WARNING: do not change these language names because
-        // these values are stored in function metadata
-        AQL(false),
-        SQLPP(false),
-        JAVA(true),
-        PYTHON(true);
-
-        private final boolean isExternal;
-
-        FunctionLanguage(boolean isExternal) {
-            this.isExternal = isExternal;
-        }
-
-        public boolean isExternal() {
-            return isExternal;
-        }
-
-        public String getName() {
-            return name();
-        }
-
-        public static FunctionLanguage findByName(String name) {
-            return FunctionLanguage.valueOf(name.toUpperCase(Locale.ROOT));
-        }
-    }
 }

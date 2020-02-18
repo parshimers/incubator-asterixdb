@@ -41,6 +41,7 @@ import java.util.Map;
 import org.apache.asterix.builders.IARecordBuilder;
 import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.builders.RecordBuilder;
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.transactions.TxnId;
@@ -126,7 +127,7 @@ public class FunctionTupleTranslator extends AbstractDatatypeTupleTranslator<Fun
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX)).getStringValue();
         String languageValue = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_LANGUAGE_FIELD_INDEX)).getStringValue();
-        Function.FunctionLanguage language = Function.FunctionLanguage.findByName(languageValue);
+        FunctionLanguage language = FunctionLanguage.findByName(languageValue);
         if (language == null) {
             throw new IllegalStateException(languageValue);
         }

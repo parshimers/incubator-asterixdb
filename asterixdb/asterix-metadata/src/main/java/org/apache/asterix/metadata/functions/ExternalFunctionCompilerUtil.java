@@ -55,7 +55,7 @@ public class ExternalFunctionCompilerUtil {
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, function.getArgTypes());
 
         return new ExternalScalarFunctionInfo(function.getSignature().createFunctionIdentifier(), returnType,
-                function.getFunctionBody(), function.getLanguage().getName(), function.getLibrary(),
+                function.getFunctionBody(), function.getLanguage(), function.getLibrary(),
                 function.getArgTypes(), function.getParams(), typeComputer);
     }
 

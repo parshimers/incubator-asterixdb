@@ -21,6 +21,7 @@ package org.apache.asterix.om.functions;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
@@ -36,7 +37,7 @@ public interface IExternalFunctionInfo extends IFunctionInfo {
 
     public List<IAType> getArgumentList();
 
-    public String getLanguage();
+    public FunctionLanguage getLanguage();
 
     public FunctionKind getKind();
 

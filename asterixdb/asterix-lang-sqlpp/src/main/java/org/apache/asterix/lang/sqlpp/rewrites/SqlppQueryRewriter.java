@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.asterix.common.exceptions.CompilationException;
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.common.base.AbstractClause;
 import org.apache.asterix.lang.common.base.Expression;
@@ -101,7 +102,7 @@ public class SqlppQueryRewriter implements IQueryRewriter {
 
     public SqlppQueryRewriter(IParserFactory parserFactory) {
         this.parserFactory = parserFactory;
-        functionRepository = new FunctionParser(Function.FunctionLanguage.SQLPP, parserFactory);
+        functionRepository = new FunctionParser(FunctionLanguage.SQLPP, parserFactory);
     }
 
     protected void setup(List<FunctionDecl> declaredFunctions, IReturningStatement topExpr,

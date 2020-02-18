@@ -23,10 +23,10 @@ import java.io.IOException;
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
+import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.asterix.external.api.ExternalLanguage;
 import org.apache.asterix.external.api.IExternalFunction;
 import org.apache.asterix.external.api.IFunctionFactory;
 import org.apache.asterix.external.api.IFunctionHelper;
@@ -68,6 +68,7 @@ public abstract class ExternalFunction implements IExternalFunction {
 
         ILibraryManager libraryManager = appCtx.getLibraryManager();
         String functionLibary = finfo.getLibrary();
+        FunctionLanguage lang = finfo.getLanguage();
         DataverseName dataverse = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
 
         ClassLoader libraryClassLoader = libraryManager.getLibraryClassLoader(dataverse, functionLibary);
@@ -77,7 +78,7 @@ public abstract class ExternalFunction implements IExternalFunction {
         Class<?> clazz;
         String classname = "";
         try {
-            switch (function.getLanguage()) {
+            switch (finfo.getLanguage()) {
                 case JAVA:
                     classname = finfo.getFunctionBody().trim();
                     clazz = Class.forName(classname, true, libraryClassLoader);
