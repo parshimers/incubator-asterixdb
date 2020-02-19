@@ -1,8 +1,12 @@
+import math
 class SimpleHello(object):
 
     def sayHello(self, int_value=None, string_value=None):
         print(int_value, string_value)
         return "Said hello to {0}".format(string_value)
+
+    def sqrt(self, arg):
+        return math.sqrt(arg)
 
     class Java:
         implements = ["py4j.examples.IHello"]

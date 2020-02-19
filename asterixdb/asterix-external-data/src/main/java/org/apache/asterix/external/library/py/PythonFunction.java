@@ -27,11 +27,15 @@ import java.nio.channels.SocketChannel;
 
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
+import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.PythonFunctionHelper;
 
 import jep.Jep;
 import jep.JepConfig;
 import jep.JepException;
+import org.apache.asterix.external.library.java.base.JDouble;
+import org.apache.asterix.external.library.java.base.JInt;
+import org.apache.asterix.external.library.java.base.JLong;
 import org.apache.commons.io.IOUtils;
 import py4j.GatewayServer;
 
@@ -41,6 +45,7 @@ public class PythonFunction implements IExternalScalarFunction {
     private String packageName = "pytestlib";
     Process p;
     GatewayServer server;
+    JDouble res;
 
     @Override
     public void deinitialize() {
@@ -51,7 +56,10 @@ public class PythonFunction implements IExternalScalarFunction {
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         IHello hello = (IHello) server.getPythonServerEntryPoint(new Class[] { IHello.class });
-        functionHelper.setResultJSON("{ \"result\" : \""+hello.sayHello(2,"Hello World")+"\"}");
+        Double arg = (Double)((PythonFunctionHelper)functionHelper).getArgumentPrim(0);
+        res.reset();
+        res.setValue(hello.sqrt(arg));
+        functionHelper.setResult(res);
     }
 
 
@@ -60,6 +68,8 @@ public class PythonFunction implements IExternalScalarFunction {
     public String sayHello();
 
     public String sayHello(int i, String s);
+
+    public double sqrt (double s);
 }
 
     @Override
@@ -84,6 +94,7 @@ public class PythonFunction implements IExternalScalarFunction {
         }
         server = new GatewayServer(null,port,port+1,0,0,null);
         server.start();
+        res = new JDouble(0);
     }
 
 }

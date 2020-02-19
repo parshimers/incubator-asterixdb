@@ -166,6 +166,11 @@ public class PythonFunctionHelper implements IFunctionHelper {
         return null;
     }
 
+    public Object getArgumentPrim(int index){
+        return arguments[index];
+    }
+
+    @Override
     public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
         IVisitablePointable pointable;
         Object obj = null;
