@@ -18,7 +18,12 @@
  */
 package org.apache.asterix.external.library.py;
 
+import java.net.ConnectException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URL;
+import java.nio.channels.SocketChannel;
 
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
@@ -27,42 +32,58 @@ import org.apache.asterix.external.library.PythonFunctionHelper;
 import jep.Jep;
 import jep.JepConfig;
 import jep.JepException;
+import org.apache.commons.io.IOUtils;
+import py4j.GatewayServer;
 
 public class PythonFunction implements IExternalScalarFunction {
 
     private static Jep jep;
     private String packageName = "pytestlib";
+    Process p;
+    GatewayServer server;
 
     @Override
     public void deinitialize() {
-        try {
-            jep.eval("a.asterixDeinitialize();");
-            jep.close();
-        } catch (JepException je) {
-            //do nothing for now??
-        }
+        server.shutdown();
+        p.destroy();
     }
 
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
-        PythonFunctionHelper pyfh = (PythonFunctionHelper) functionHelper;
-        jep.set("asterixArgs", pyfh.getArguments());
-        jep.eval("asterixResult = a.nextFrame(asterixArgs)");
-        Object result = jep.getValue("asterixResult");
-        pyfh.setResult(result);
+        IHello hello = (IHello) server.getPythonServerEntryPoint(new Class[] { IHello.class });
+        functionHelper.setResultJSON("{ \"result\" : \""+hello.sayHello(2,"Hello World")+"\"}");
     }
+
+
+
+    public interface IHello {
+    public String sayHello();
+
+    public String sayHello(int i, String s);
+}
 
     @Override
     public void initialize(IFunctionHelper functionHelper) throws Exception {
-        packageName = functionHelper.getExternalIdentifier();
-        JepConfig jc = new JepConfig();
-        for (URL u : ((PythonFunctionHelper) functionHelper).getLibraryDeployedPath()) {
-            jc.setIncludePath(u.getPath());
+        int port;
+        try(ServerSocket socket = new ServerSocket(0)){
+            socket.setReuseAddress(true);
+            port = socket.getLocalPort();
         }
-        jc.setClassLoader(((PythonFunctionHelper) functionHelper).getClassLoader());
-        jep = jc.createSubInterpreter();
-        jep.eval("import " + packageName + " as a");
-        jep.eval("a.asterixInitialize()");
+        ProcessBuilder pb = new ProcessBuilder("env" ,"python3", "entrypoint.py", Integer.toString(port));
+        p = pb.start();
+
+        while(true){
+            Socket s = new Socket();
+            try {
+                s.connect(new InetSocketAddress("localhost",port+1),100);
+                s.close();
+                break;
+            }
+            catch(ConnectException e){
+            }
+        }
+        server = new GatewayServer(null,port,port+1,0,0,null);
+        server.start();
     }
 
 }
