@@ -1843,9 +1843,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             if (cfs.isExternal()) {
                 FunctionLanguage functionLang = FunctionLanguage.findByName(cfs.getLang());
                 if (functionLang == null || !functionLang.isExternal()) {
-                    String expectedExternalLanguages = Arrays.stream(FunctionLanguage.values())
-                            .filter(FunctionLanguage::isExternal).map(FunctionLanguage::getName)
-                            .collect(Collectors.joining(" or "));
+                    String expectedExternalLanguages =
+                            Arrays.stream(FunctionLanguage.values()).filter(FunctionLanguage::isExternal)
+                                    .map(FunctionLanguage::getName).collect(Collectors.joining(" or "));
                     throw new CompilationException(ErrorCode.COMPILATION_INCOMPATIBLE_FUNCTION_LANGUAGE, sourceLoc,
                             expectedExternalLanguages, cfs.getLang());
                 }

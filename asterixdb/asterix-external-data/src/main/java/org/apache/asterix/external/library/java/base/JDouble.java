@@ -30,6 +30,8 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public final class JDouble extends JObject {
 
+    public JDouble() { super(new AMutableDouble(-1));}
+
     public JDouble(double v) {
         super(new AMutableDouble(v));
     }
@@ -60,6 +62,6 @@ public final class JDouble extends JObject {
 
     @Override
     public void setValue(Object o) {
-
+        ((AMutableDouble) value).setValue((Double)o);
     }
 }

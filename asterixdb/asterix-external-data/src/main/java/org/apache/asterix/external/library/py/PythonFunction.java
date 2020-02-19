@@ -30,7 +30,7 @@ import jep.JepException;
 
 public class PythonFunction implements IExternalScalarFunction {
 
-    private static Jep jep;
+    private Jep jep;
     private String packageName = "pytestlib";
 
     @Override
