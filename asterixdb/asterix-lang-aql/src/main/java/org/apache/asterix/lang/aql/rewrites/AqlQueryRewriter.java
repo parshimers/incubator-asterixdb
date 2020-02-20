@@ -54,7 +54,6 @@ import org.apache.asterix.lang.common.util.CommonFunctionMapUtil;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.lang.common.visitor.GatherFunctionCallsVisitor;
 import org.apache.asterix.metadata.declared.MetadataProvider;
-import org.apache.asterix.metadata.entities.Function;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
 class AqlQueryRewriter implements IQueryRewriter {

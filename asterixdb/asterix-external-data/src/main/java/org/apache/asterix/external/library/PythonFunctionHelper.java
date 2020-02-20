@@ -166,7 +166,7 @@ public class PythonFunctionHelper implements IFunctionHelper {
         return null;
     }
 
-    public Object getArgumentPrim(int index){
+    public Object getArgumentPrim(int index) {
         return arguments[index];
     }
 

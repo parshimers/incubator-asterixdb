@@ -22,21 +22,13 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URL;
-import java.nio.channels.SocketChannel;
 
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
-import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.PythonFunctionHelper;
+import org.apache.asterix.external.library.java.base.JDouble;
 
 import jep.Jep;
-import jep.JepConfig;
-import jep.JepException;
-import org.apache.asterix.external.library.java.base.JDouble;
-import org.apache.asterix.external.library.java.base.JInt;
-import org.apache.asterix.external.library.java.base.JLong;
-import org.apache.commons.io.IOUtils;
 import py4j.GatewayServer;
 
 public class PythonFunction implements IExternalScalarFunction {
@@ -55,44 +47,38 @@ public class PythonFunction implements IExternalScalarFunction {
 
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
-        IHello hello = (IHello) server.getPythonServerEntryPoint(new Class[] { IHello.class });
-        Double arg = (Double)((PythonFunctionHelper)functionHelper).getArgumentPrim(0);
+        IPythonFunction hello = (IPythonFunction) server.getPythonServerEntryPoint(new Class[] { IPythonFunction.class });
+        Object[] args = ((PythonFunctionHelper)functionHelper).getArguments();
+        Object result = hello.nextTuple(args);
+
         res.reset();
-        res.setValue(hello.sqrt(arg));
-        functionHelper.setResult(res);
+        ((PythonFunctionHelper)functionHelper).setResult(result);
     }
 
-
-
-    public interface IHello {
-    public String sayHello();
-
-    public String sayHello(int i, String s);
-
-    public double sqrt (double s);
-}
+    public interface IPythonFunction {
+         Object nextTuple(Object[] args);
+    }
 
     @Override
     public void initialize(IFunctionHelper functionHelper) throws Exception {
         int port;
-        try(ServerSocket socket = new ServerSocket(0)){
+        try (ServerSocket socket = new ServerSocket(0)) {
             socket.setReuseAddress(true);
             port = socket.getLocalPort();
         }
-        ProcessBuilder pb = new ProcessBuilder("env" ,"python3", "entrypoint.py", Integer.toString(port));
+        ProcessBuilder pb = new ProcessBuilder("env", "python3", "entrypoint.py", Integer.toString(port));
         p = pb.start();
 
-        while(true){
+        while (true) {
             Socket s = new Socket();
             try {
-                s.connect(new InetSocketAddress("localhost",port+1),100);
+                s.connect(new InetSocketAddress("localhost", port + 1), 100);
                 s.close();
                 break;
-            }
-            catch(ConnectException e){
+            } catch (ConnectException e) {
             }
         }
-        server = new GatewayServer(null,port,port+1,0,0,null);
+        server = new GatewayServer(null, port, port + 1, 0, 0, null);
         server.start();
         res = new JDouble(0);
     }

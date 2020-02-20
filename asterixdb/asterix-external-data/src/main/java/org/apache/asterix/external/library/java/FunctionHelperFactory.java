@@ -5,7 +5,6 @@ import static org.apache.asterix.external.api.ExternalLanguage.*;
 import java.net.URL;
 
 import org.apache.asterix.common.functions.FunctionLanguage;
-import org.apache.asterix.external.api.ExternalLanguage;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.external.library.JavaFunctionHelper;
 import org.apache.asterix.external.library.PythonFunctionHelper;
@@ -21,7 +20,7 @@ public class FunctionHelperFactory {
     }
 
     public static IFunctionHelper getFunctionHelper(FunctionLanguage lang, IExternalFunctionInfo finfo,
-                                                    IAType[] argTypes, IDataOutputProvider outputProvider, URL[] libraryPaths, ClassLoader cl) {
+            IAType[] argTypes, IDataOutputProvider outputProvider, URL[] libraryPaths, ClassLoader cl) {
         switch (lang) {
             case JAVA:
                 return new JavaFunctionHelper(finfo, argTypes, outputProvider);
