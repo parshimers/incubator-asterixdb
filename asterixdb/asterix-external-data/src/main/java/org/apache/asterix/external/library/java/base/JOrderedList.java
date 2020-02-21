@@ -94,7 +94,7 @@ public final class JOrderedList extends JList {
             } catch (InvocationTargetException e) {
                 e.printStackTrace();
             }
-            obj.setValue(obj);
+            obj.setValue(first);
             IAType listType = obj.getIAType();
             this.listType = new AOrderedListType(listType, "");
         }
@@ -125,7 +125,7 @@ public final class JOrderedList extends JList {
         ArrayBackedValueStorage fieldValue = new ArrayBackedValueStorage();
         for (IJObject jObject : jObjects) {
             fieldValue.reset();
-            jObject.serialize(fieldValue.getDataOutput(), true);
+            jObject.serialize(fieldValue.getDataOutput(), false);
             listBuilder.addItem(fieldValue);
         }
         listBuilder.write(dataOutput, writeTypeTag);

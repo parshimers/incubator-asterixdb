@@ -47,16 +47,17 @@ public class PythonFunction implements IExternalScalarFunction {
 
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
-        IPythonFunction hello = (IPythonFunction) server.getPythonServerEntryPoint(new Class[] { IPythonFunction.class });
-        Object[] args = ((PythonFunctionHelper)functionHelper).getArguments();
+        IPythonFunction hello =
+                (IPythonFunction) server.getPythonServerEntryPoint(new Class[] { IPythonFunction.class });
+        Object[] args = ((PythonFunctionHelper) functionHelper).getArguments();
         Object result = hello.nextTuple(args);
 
         res.reset();
-        ((PythonFunctionHelper)functionHelper).setResult(result);
+        ((PythonFunctionHelper) functionHelper).setResult(result);
     }
 
     public interface IPythonFunction {
-         Object nextTuple(Object[] args);
+        Object nextTuple(Object[] args);
     }
 
     @Override
