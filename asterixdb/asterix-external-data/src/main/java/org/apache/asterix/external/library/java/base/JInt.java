@@ -30,7 +30,9 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class JInt extends JObject<Integer> {
 
-    public JInt(){this(-1);}
+    public JInt() {
+        this(-1);
+    }
 
     public JInt(int value) {
         super(new AMutableInt32(value));
