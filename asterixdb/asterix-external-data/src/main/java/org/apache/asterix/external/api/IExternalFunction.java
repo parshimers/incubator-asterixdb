@@ -18,9 +18,17 @@
  */
 package org.apache.asterix.external.api;
 
-public interface IExternalFunction {
+import org.apache.hyracks.algebricks.runtime.evaluators.IGarbage;
+import org.apache.hyracks.api.comm.IFrameTupleAccessor;
+import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
+
+import java.nio.ByteBuffer;
+
+public interface IExternalFunction extends IGarbage {
 
     public void initialize(IFunctionHelper functionHelper) throws Exception;
+
+    public void nextFrame(ByteBuffer buf, FrameTupleReference tupleRef, IFrameTupleAccessor accessor);
 
     public void deinitialize();
 

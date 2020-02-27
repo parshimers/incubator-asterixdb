@@ -22,22 +22,27 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 
+import com.google.inject.internal.util.$AbstractMapEntry;
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.external.library.PythonFunctionHelper;
 import org.apache.asterix.external.library.java.base.JDouble;
 
-import jep.Jep;
+import org.apache.hyracks.api.comm.IFrameTupleAccessor;
+import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import py4j.GatewayServer;
 
 public class PythonFunction implements IExternalScalarFunction {
 
-    private static Jep jep;
-    private String packageName = "pytestlib";
     Process p;
+    ServerSocket dataSocket;
     GatewayServer server;
     JDouble res;
+    private int tidx = 0;
+    PythonFunctionHelper fh;
 
     @Override
     public void deinitialize() {
@@ -54,6 +59,21 @@ public class PythonFunction implements IExternalScalarFunction {
 
         res.reset();
         ((PythonFunctionHelper) functionHelper).setResult(result);
+
+
+    }
+
+    @Override
+    public void nextFrame(ByteBuffer buf, FrameTupleReference tupleRef, IFrameTupleAccessor accessor){
+        int nTuple = accessor.getTupleCount();
+        Object[] argList = new Object[nTuple];
+        tidx = accessor.getTupleCount();
+        if(tidx > 1){
+            for(;tidx < nTuple-1;tidx++){
+                tupleRef.reset(accessor,tidx);
+                for(int i =0;i<fh.argumentEvaluators.)
+            }
+        }
     }
 
     public interface IPythonFunction {
@@ -62,10 +82,14 @@ public class PythonFunction implements IExternalScalarFunction {
 
     @Override
     public void initialize(IFunctionHelper functionHelper) throws Exception {
+        this.fh = (PythonFunctionHelper)functionHelper;
         int port;
         try (ServerSocket socket = new ServerSocket(0)) {
             socket.setReuseAddress(true);
             port = socket.getLocalPort();
+        }
+        try(ServerSocket sock = new ServerSocket(port+2)){
+           dataSocket = sock;
         }
         ProcessBuilder pb = new ProcessBuilder("env", "python3", "entrypoint.py", Integer.toString(port));
         p = pb.start();
@@ -79,6 +103,7 @@ public class PythonFunction implements IExternalScalarFunction {
             } catch (ConnectException e) {
             }
         }
+
         server = new GatewayServer(null, port, port + 1, 0, 0, null);
         server.start();
         res = new JDouble(0);

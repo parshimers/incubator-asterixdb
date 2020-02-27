@@ -53,7 +53,6 @@ public class ExternalFunctionProvider {
 
 class ExternalScalarFunction extends ExternalFunction implements IExternalScalarFunction, IScalarEvaluator {
 
-    APrintVisitor pv = new APrintVisitor();
 
     public ExternalScalarFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args, IAType[] argTypes,
             IEvaluatorContext context, IApplicationContext appCtx) throws HyracksDataException {
@@ -75,6 +74,11 @@ class ExternalScalarFunction extends ExternalFunction implements IExternalScalar
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
+    }
+
+    @Override
+    public void nextFrame() {
+
     }
 
     @Override

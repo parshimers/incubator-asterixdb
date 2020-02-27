@@ -25,6 +25,7 @@ import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.algebricks.runtime.evaluators.EvaluatorContext;
+import org.apache.hyracks.algebricks.runtime.evaluators.IGarbage;
 import org.apache.hyracks.algebricks.runtime.operators.base.AbstractOneInputOneOutputOneFramePushRuntime;
 import org.apache.hyracks.algebricks.runtime.operators.base.AbstractOneInputOneOutputRuntimeFactory;
 import org.apache.hyracks.api.comm.IFrameTupleAccessor;
@@ -128,14 +129,14 @@ public class AssignRuntimeFactory extends AbstractOneInputOneOutputRuntimeFactor
                     if (nTuple > 1) {
                         for (; tupleIndex < nTuple - 1; tupleIndex++) {
                             tRef.reset(tAccess, tupleIndex);
-                            produceTuple(tupleBuilder, tAccess, tupleIndex, tRef);
+                            produceTuple(tupleBuilder, tAccess, tupleIndex, tRef, buffer);
                             appendToFrameFromTupleBuilder(tupleBuilder);
                         }
                     }
 
                     if (tupleIndex < nTuple) {
                         tRef.reset(tAccess, tupleIndex);
-                        produceTuple(tupleBuilder, tAccess, tupleIndex, tRef);
+                        produceTuple(tupleBuilder, tAccess, tupleIndex, tRef,buffer);
                         if (flushFramesRapidly) {
                             // Whenever all the tuples in the incoming frame have been consumed, the assign operator
                             // will push its frame to the next operator; i.e., it won't wait until the frame gets full.
@@ -153,12 +154,22 @@ public class AssignRuntimeFactory extends AbstractOneInputOneOutputRuntimeFactor
             }
 
             private void produceTuple(ArrayTupleBuilder tb, IFrameTupleAccessor accessor, int tIndex,
-                    FrameTupleReference tupleRef) throws HyracksDataException {
+                    FrameTupleReference tupleRef, ByteBuffer buffer) throws HyracksDataException {
                 try {
                     tb.reset();
+                    //REMOVE THIS
+                    for(IScalarEvaluator e: eval){
+                        if(e instanceof IGarbage){
+                            ((IGarbage) e).nextFrame(buffer,tupleRef, accessor);
+                        }
+                    }
+                    //SRSLY
                     for (int f = 0; f < projectionList.length; f++) {
                         int k = projectionToOutColumns[f];
                         if (k >= 0) {
+                            if(eval[k] instanceof IGarbage){
+                            }
+
                             eval[k].evaluate(tupleRef, result);
                             tb.addField(result.getByteArray(), result.getStartOffset(), result.getLength());
                         } else {
