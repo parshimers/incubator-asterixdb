@@ -25,7 +25,6 @@ import org.apache.asterix.external.api.IExternalFunction;
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
-import org.apache.asterix.om.pointables.printer.json.lossless.APrintVisitor;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
@@ -52,8 +51,6 @@ public class ExternalFunctionProvider {
 }
 
 class ExternalScalarFunction extends ExternalFunction implements IExternalScalarFunction, IScalarEvaluator {
-
-    APrintVisitor pv = new APrintVisitor();
 
     public ExternalScalarFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args, IAType[] argTypes,
             IEvaluatorContext context, IApplicationContext appCtx) throws HyracksDataException {

@@ -19,45 +19,30 @@
 package org.apache.asterix.external.library.py;
 
 import java.net.ConnectException;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.Socket;
 
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.external.library.PythonFunctionHelper;
-import org.apache.asterix.external.library.java.base.JDouble;
 
-import jep.Jep;
-import py4j.GatewayServer;
+import net.razorvine.pyro.PyroProxy;
 
 public class PythonFunction implements IExternalScalarFunction {
 
-    private static Jep jep;
-    private String packageName = "pytestlib";
     Process p;
-    GatewayServer server;
-    JDouble res;
+    PyroProxy remoteObj;
 
     @Override
     public void deinitialize() {
-        server.shutdown();
         p.destroy();
+        remoteObj.close();
     }
 
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
-        IPythonFunction hello =
-                (IPythonFunction) server.getPythonServerEntryPoint(new Class[] { IPythonFunction.class });
-        Object[] args = ((PythonFunctionHelper) functionHelper).getArguments();
-        Object result = hello.nextTuple(args);
-
-        res.reset();
-        ((PythonFunctionHelper) functionHelper).setResult(result);
-    }
-
-    public interface IPythonFunction {
-        Object nextTuple(Object[] args);
+        PythonFunctionHelper pyfh = ((PythonFunctionHelper) functionHelper);
+        Object result = remoteObj.call("sentiment", pyfh.getArguments());
+        pyfh.setResult(result);
     }
 
     @Override
@@ -69,19 +54,15 @@ public class PythonFunction implements IExternalScalarFunction {
         }
         ProcessBuilder pb = new ProcessBuilder("env", "python3", "entrypoint.py", Integer.toString(port));
         p = pb.start();
-
-        while (true) {
-            Socket s = new Socket();
+        boolean poll = true;
+        remoteObj = new PyroProxy("127.0.0.1", port, "sentiment");
+        while (poll) {
             try {
-                s.connect(new InetSocketAddress("localhost", port + 1), 100);
-                s.close();
-                break;
+                remoteObj.call("ping");
+                poll = false;
             } catch (ConnectException e) {
+                Thread.sleep(100);
             }
         }
-        server = new GatewayServer(null, port, port + 1, 0, 0, null);
-        server.start();
-        res = new JDouble(0);
     }
-
 }
