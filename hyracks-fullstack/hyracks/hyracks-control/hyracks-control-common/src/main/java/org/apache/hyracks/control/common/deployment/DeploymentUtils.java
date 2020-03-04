@@ -56,6 +56,11 @@ public class DeploymentUtils {
 
     private static final String DEPLOYMENT = "applications";
     private static final Logger LOGGER = LogManager.getLogger();
+    private static final String SHIV_SUFFIX = ".pyz";
+    private static final String ZIP_SUFFIX = ".zip";
+    private static final String SHIV_ROOT = "SHIV_ROOT";
+    private static final String SHIV_ENTRY_POINT = "SHIV_ENTRY_POINT";
+    private static final String SHIV_INTERPRETER = "SHIV_INTERPRETER";
 
     /**
      * undeploy an existing deployment
@@ -219,7 +224,12 @@ public class DeploymentUtils {
                         }
                     }
                     if (extractFromArchive) {
-                        unzip(targetFile.getAbsolutePath(), deploymentDir);
+                        if(targetFile.getAbsolutePath().endsWith(SHIV_SUFFIX)){
+                            shiv(targetFile.getAbsolutePath(),deploymentDir);
+                        }
+                        else if(targetFile.getAbsolutePath().endsWith(ZIP_SUFFIX)) {
+                            unzip(targetFile.getAbsolutePath(), deploymentDir);
+                        }
                     }
                     downloadedFileURLs.add(targetFile.toURI().toURL());
                 }
@@ -257,5 +267,11 @@ public class DeploymentUtils {
                 }
             }
         }
+    }
+
+    public static void shiv(String sourceFile, String outputDir) throws IOException {
+        ProcessBuilder pb = new ProcessBuilder();
+        pb.environment().put(SHIV)
+
     }
 }
