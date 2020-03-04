@@ -93,7 +93,12 @@ public class UdfApiServlet extends AbstractServlet {
             if (!workingDir.exists()) {
                 FileUtil.forceMkdirs(workingDir);
             }
-            udf = File.createTempFile(resourceName, ".zip", workingDir);
+            if(resourceName.endsWith(".zip")){
+                udf = File.createTempFile(resourceName, ".zip", workingDir);
+            } else{
+                udf = File.createTempFile(resourceName, ".pyz", workingDir);
+
+            }
             try (RandomAccessFile raf = new RandomAccessFile(udf, "rw")) {
                 ByteBuf reqContent = req.content();
                 raf.setLength(reqContent.readableBytes());

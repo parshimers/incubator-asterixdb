@@ -18,8 +18,11 @@
  */
 package org.apache.asterix.external.library.py;
 
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.ServerSocket;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
@@ -34,8 +37,8 @@ public class PythonFunction implements IExternalScalarFunction {
 
     @Override
     public void deinitialize() {
-        p.destroy();
         remoteObj.close();
+        p.destroy();
     }
 
     @Override
@@ -45,24 +48,38 @@ public class PythonFunction implements IExternalScalarFunction {
         pyfh.setResult(result);
     }
 
-    @Override
-    public void initialize(IFunctionHelper functionHelper) throws Exception {
+    private int getFreeHighPort() throws IOException{
         int port;
         try (ServerSocket socket = new ServerSocket(0)) {
             socket.setReuseAddress(true);
             port = socket.getLocalPort();
         }
-        ProcessBuilder pb = new ProcessBuilder("env", "python3", "entrypoint.py", Integer.toString(port));
-        p = pb.start();
-        boolean poll = true;
-        remoteObj = new PyroProxy("127.0.0.1", port, "sentiment");
-        while (poll) {
+        return port;
+    }
+
+    private void waitForPython() throws IOException{
+        for(int i=10;i>0;i++){
             try {
                 remoteObj.call("ping");
-                poll = false;
             } catch (ConnectException e) {
-                Thread.sleep(100);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException f){
+                    //doesn't matter
+                }
             }
         }
+    }
+
+    @Override
+    public void initialize(IFunctionHelper functionHelper) throws Exception {
+        PythonFunctionHelper pyfh = ((PythonFunctionHelper) functionHelper);
+        pyfh.getLibraryDeployedPath();
+        int port = getFreeHighPort();
+        ProcessBuilder pb = new ProcessBuilder("env", "python3", "entrypoint.py", Integer.toString(port));
+        pb.environment().put("PYTHONPATH",Arrays.asList(pyfh.getLibraryDeployedPath()).stream().map(u -> u.toString()).collect(Collectors.joining()));
+        p = pb.start();
+        remoteObj = new PyroProxy("127.0.0.1", port , "sentiment");
+        waitForPython();
     }
 }

@@ -33,8 +33,12 @@ import java.util.zip.ZipFile;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.EntityBuilder;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.api.application.IServiceContext;
@@ -214,13 +218,12 @@ public class DeploymentUtils {
                         HttpClient hc = HttpClientBuilder.create().build();
                         HttpGet get = new HttpGet(url.toString());
                         HttpResponse response = hc.execute(get);
-                        InputStream is = response.getEntity().getContent();
+                        HttpEntity e = response.getEntity();
                         OutputStream os = new FileOutputStream(targetFile);
                         try {
-                            IOUtils.copyLarge(is, os);
+                            e.writeTo(os);
                         } finally {
                             os.close();
-                            is.close();
                         }
                     }
                     if (extractFromArchive) {
@@ -271,7 +274,9 @@ public class DeploymentUtils {
 
     public static void shiv(String sourceFile, String outputDir) throws IOException {
         ProcessBuilder pb = new ProcessBuilder();
-        pb.environment().put(SHIV)
-
+        pb.environment().put(SHIV_ENTRY_POINT,"os:getcwd");
+        pb.environment().put(SHIV_ROOT,outputDir);
+        pb.command("python3",sourceFile);
+        pb.start();
     }
 }
