@@ -63,4 +63,6 @@ public interface ILibraryManager {
     ClassLoader getLibraryClassLoader(DataverseName dataverseName, String libraryName);
 
     URL[] getLibraryUrls(DataverseName dataverseName, String libraryName);
+
+    void setLibraryPath(DataverseName dataverseName, String libraryName, URL[] urls);
 }

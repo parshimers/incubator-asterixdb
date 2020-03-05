@@ -26,7 +26,6 @@ import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.api.resources.IDeallocatable;
 
 public class ExternalScalarFunctionEvaluatorFactory implements IScalarEvaluatorFactory {
 
@@ -46,9 +45,9 @@ public class ExternalScalarFunctionEvaluatorFactory implements IScalarEvaluatorF
 
     @Override
     public IScalarEvaluator createScalarEvaluator(IEvaluatorContext ctx) throws HyracksDataException {
-        ExternalScalarFunction fn = (ExternalScalarFunction) ExternalFunctionProvider.getExternalFunctionEvaluator(finfo, args, argTypes,
-                ctx, appCtx == null ? (IApplicationContext) ctx.getTaskContext().getJobletContext().getServiceContext()
-                        .getApplicationContext() : appCtx);
+        ExternalScalarFunction fn = (ExternalScalarFunction) ExternalFunctionProvider
+                .getExternalFunctionEvaluator(finfo, args, argTypes, ctx, appCtx == null ? (IApplicationContext) ctx
+                        .getTaskContext().getJobletContext().getServiceContext().getApplicationContext() : appCtx);
         ctx.getTaskContext().registerDeallocatable(() -> fn.deinitialize());
         return fn;
     }

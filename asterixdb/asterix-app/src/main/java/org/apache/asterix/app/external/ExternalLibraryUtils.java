@@ -264,7 +264,11 @@ public class ExternalLibraryUtils {
         // get the class loader
         URLClassLoader classLoader = getLibraryClassLoader(dataverse, name, libraryPath);
         // register it with the external library manager
-        externalLibraryManager.registerLibraryClassLoader(dataverse, name, classLoader);
+        if (classLoader != null) {
+            externalLibraryManager.registerLibraryClassLoader(dataverse, name, classLoader);
+        } else {
+            externalLibraryManager.setLibraryPath(dataverse, name, new URL[] { new URL("file://" + libraryPath) });
+        }
     }
 
     /**
@@ -280,7 +284,7 @@ public class ExternalLibraryUtils {
         // Get a reference to the library directory
         File installDir = new File(libraryPath);
         if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("Installing lirbary " + name + " in dataverse " + dataverse + "." + " Install Directory: "
+            LOGGER.info("Installing library " + name + " in dataverse " + dataverse + "." + " Install Directory: "
                     + installDir.getAbsolutePath());
         }
 
@@ -297,10 +301,12 @@ public class ExternalLibraryUtils {
         // Get the jar file <Allow only a single jar file>
         String[] jarsInLibDir = libDir.list(jarFileFilter);
         if (jarsInLibDir.length > 1) {
-            throw new Exception("Incorrect library structure: found multiple library jars");
+            return null;
+            //            throw new Exception("Incorrect library structure: found multiple library jars");
         }
         if (jarsInLibDir.length <= 0) {
-            throw new Exception("Incorrect library structure: could not find library jar");
+            //            throw new Exception("Incorrect library structure: could not find library jar");
+            return null;
         }
 
         File libJar = new File(libDir, jarsInLibDir[0]);

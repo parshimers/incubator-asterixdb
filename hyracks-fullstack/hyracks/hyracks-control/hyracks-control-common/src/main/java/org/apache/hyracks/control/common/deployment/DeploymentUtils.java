@@ -34,11 +34,8 @@ import java.util.zip.ZipFile;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.EntityBuilder;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.api.application.IServiceContext;
@@ -227,10 +224,9 @@ public class DeploymentUtils {
                         }
                     }
                     if (extractFromArchive) {
-                        if(targetFile.getAbsolutePath().endsWith(SHIV_SUFFIX)){
-                            shiv(targetFile.getAbsolutePath(),deploymentDir);
-                        }
-                        else if(targetFile.getAbsolutePath().endsWith(ZIP_SUFFIX)) {
+                        if (targetFile.getAbsolutePath().endsWith(SHIV_SUFFIX)) {
+                            shiv(targetFile.getAbsolutePath(), deploymentDir);
+                        } else if (targetFile.getAbsolutePath().endsWith(ZIP_SUFFIX)) {
                             unzip(targetFile.getAbsolutePath(), deploymentDir);
                         }
                     }
@@ -274,9 +270,23 @@ public class DeploymentUtils {
 
     public static void shiv(String sourceFile, String outputDir) throws IOException {
         ProcessBuilder pb = new ProcessBuilder();
-        pb.environment().put(SHIV_ENTRY_POINT,"os:getcwd");
-        pb.environment().put(SHIV_ROOT,outputDir);
-        pb.command("python3",sourceFile);
+        pb.environment().put(SHIV_ENTRY_POINT, "os:getcwd");
+        pb.environment().put(SHIV_ROOT, outputDir + "/lib/");
+        String py_snip = "./" + outputDir + "/bin/python3";
+        String pip_snip = "./" + outputDir + "/bin/pip3";
+        ShimLoader sh = new ShimLoader();
+        //TODO: copy shim here
+        pb.command("/bin/bash", "-c", "\"env python3 -m venv " + outputDir + " ; ./" + outputDir + "/bin/activate ; "
+                + pip_snip + " install pyro4; " + py_snip + " " + sourceFile + "\"");
+        pb.inheritIO();
         pb.start();
+        sh.loadShim(outputDir);
+    }
+
+    public static class ShimLoader {
+        public void loadShim(String outputDir) throws IOException {
+            InputStream is = this.getClass().getClassLoader().getResourceAsStream("entrypoint.py");
+            IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + "/entrypoint.py")));
+        }
     }
 }

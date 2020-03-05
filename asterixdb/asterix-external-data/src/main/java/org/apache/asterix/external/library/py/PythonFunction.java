@@ -21,8 +21,6 @@ package org.apache.asterix.external.library.py;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.ServerSocket;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
@@ -44,11 +42,11 @@ public class PythonFunction implements IExternalScalarFunction {
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         PythonFunctionHelper pyfh = ((PythonFunctionHelper) functionHelper);
-        Object result = remoteObj.call("sentiment", pyfh.getArguments());
+        Object result = remoteObj.call("nextTuple", pyfh.getArguments());
         pyfh.setResult(result);
     }
 
-    private int getFreeHighPort() throws IOException{
+    private int getFreeHighPort() throws IOException {
         int port;
         try (ServerSocket socket = new ServerSocket(0)) {
             socket.setReuseAddress(true);
@@ -57,14 +55,14 @@ public class PythonFunction implements IExternalScalarFunction {
         return port;
     }
 
-    private void waitForPython() throws IOException{
-        for(int i=10;i>0;i++){
+    private void waitForPython() throws IOException {
+        for (int i = 10; i > 0; i++) {
             try {
                 remoteObj.call("ping");
             } catch (ConnectException e) {
                 try {
                     Thread.sleep(100);
-                } catch (InterruptedException f){
+                } catch (InterruptedException f) {
                     //doesn't matter
                 }
             }
@@ -74,12 +72,13 @@ public class PythonFunction implements IExternalScalarFunction {
     @Override
     public void initialize(IFunctionHelper functionHelper) throws Exception {
         PythonFunctionHelper pyfh = ((PythonFunctionHelper) functionHelper);
-        pyfh.getLibraryDeployedPath();
+        String wd = pyfh.getLibraryDeployedPath()[0].getFile();
         int port = getFreeHighPort();
-        ProcessBuilder pb = new ProcessBuilder("env", "python3", "entrypoint.py", Integer.toString(port));
-        pb.environment().put("PYTHONPATH",Arrays.asList(pyfh.getLibraryDeployedPath()).stream().map(u -> u.toString()).collect(Collectors.joining()));
+        ProcessBuilder pb = new ProcessBuilder("/bin/bash", "-c", "\"" + wd + "/bin/activate ;" + wd + "/bin/python3 "
+                + wd + "/entrypoint.py " + port + " TweetSent " + " sentiment" + "\"");
+        pb.inheritIO();
         p = pb.start();
-        remoteObj = new PyroProxy("127.0.0.1", port , "sentiment");
+        remoteObj = new PyroProxy("127.0.0.1", port, "sentiment");
         waitForPython();
     }
 }
