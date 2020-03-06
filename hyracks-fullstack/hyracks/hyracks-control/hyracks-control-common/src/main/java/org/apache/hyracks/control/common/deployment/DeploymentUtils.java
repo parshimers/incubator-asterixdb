@@ -271,22 +271,22 @@ public class DeploymentUtils {
     public static void shiv(String sourceFile, String outputDir) throws IOException {
         ProcessBuilder pb = new ProcessBuilder();
         pb.environment().put(SHIV_ENTRY_POINT, "os:getcwd");
-        pb.environment().put(SHIV_ROOT, outputDir + "/lib/");
-        String py_snip = "./" + outputDir + "/bin/python3";
-        String pip_snip = "./" + outputDir + "/bin/pip3";
+        pb.environment().put(SHIV_ROOT, "lib/");
+        String py_snip = outputDir + "/bin/python3";
+        String pip_snip = outputDir + "/bin/pip3";
         ShimLoader sh = new ShimLoader();
-        //TODO: copy shim here
-        pb.command("/bin/bash", "-c", "\"env python3 -m venv " + outputDir + " ; ./" + outputDir + "/bin/activate ; "
-                + pip_snip + " install pyro4; " + py_snip + " " + sourceFile + "\"");
+        sh.loadShim(outputDir, "bootstrap_venv.sh");
+        pb.command("/bin/bash", outputDir + "/bootstrap_venv.sh", outputDir, sourceFile);
         pb.inheritIO();
         pb.start();
-        sh.loadShim(outputDir);
+        sh.loadShim(outputDir, "entrypoint.py");
+        sh.loadShim(outputDir, "intialize_entrypoint.sh");
     }
 
     public static class ShimLoader {
-        public void loadShim(String outputDir) throws IOException {
-            InputStream is = this.getClass().getClassLoader().getResourceAsStream("entrypoint.py");
-            IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + "/entrypoint.py")));
+        public void loadShim(String outputDir, String name) throws IOException {
+            InputStream is = this.getClass().getClassLoader().getResourceAsStream(name);
+            IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + "/" + name)));
         }
     }
 }

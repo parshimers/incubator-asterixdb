@@ -59,6 +59,7 @@ public class PythonFunction implements IExternalScalarFunction {
         for (int i = 10; i > 0; i++) {
             try {
                 remoteObj.call("ping");
+                break;
             } catch (ConnectException e) {
                 try {
                     Thread.sleep(100);
@@ -74,11 +75,11 @@ public class PythonFunction implements IExternalScalarFunction {
         PythonFunctionHelper pyfh = ((PythonFunctionHelper) functionHelper);
         String wd = pyfh.getLibraryDeployedPath()[0].getFile();
         int port = getFreeHighPort();
-        ProcessBuilder pb = new ProcessBuilder("/bin/bash", "-c", "\"" + wd + "/bin/activate ;" + wd + "/bin/python3 "
-                + wd + "/entrypoint.py " + port + " TweetSent " + " sentiment" + "\"");
+        ProcessBuilder pb = new ProcessBuilder("/bin/bash", "-x", wd + "/intialize_entrypoint.sh", wd,
+                Integer.toString(port), "TweetSent.sentiment", "TweetSent", "sentiment");
         pb.inheritIO();
         p = pb.start();
-        remoteObj = new PyroProxy("127.0.0.1", port, "sentiment");
+        remoteObj = new PyroProxy("127.0.0.1", port, "nextTuple");
         waitForPython();
     }
 }
