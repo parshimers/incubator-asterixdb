@@ -23,7 +23,6 @@ import java.io.StringReader;
 
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.IParserFactory;
 import org.apache.asterix.lang.common.statement.FunctionDecl;
@@ -31,19 +30,20 @@ import org.apache.asterix.metadata.entities.Function;
 
 public class FunctionParser {
 
-    private final FunctionLanguage language;
-
     private final IParserFactory parserFactory;
 
-    public FunctionParser(FunctionLanguage language, IParserFactory parserFactory) {
-        this.language = language;
+    public FunctionParser(IParserFactory parserFactory) {
         this.parserFactory = parserFactory;
     }
 
+    public String getLanguage() {
+        return parserFactory.getLanguage();
+    }
+
     public FunctionDecl getFunctionDecl(Function function) throws CompilationException {
-        if (!function.getLanguage().equals(language)) {
-            throw new CompilationException(ErrorCode.COMPILATION_INCOMPATIBLE_FUNCTION_LANGUAGE, language.getName(),
-                    function.getLanguage().getName());
+        if (!function.getLanguage().equals(getLanguage())) {
+            throw new CompilationException(ErrorCode.COMPILATION_INCOMPATIBLE_FUNCTION_LANGUAGE, getLanguage(),
+                    function.getLanguage());
         }
         IParser parser = parserFactory.createParser(new StringReader(function.getFunctionBody()));
         return parser.parseFunctionBody(function.getSignature(), function.getArgNames());

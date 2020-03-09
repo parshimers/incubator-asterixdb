@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.aql.clause.DistinctClause;
 import org.apache.asterix.lang.aql.clause.ForClause;
@@ -67,7 +66,7 @@ class AqlQueryRewriter implements IQueryRewriter {
 
     AqlQueryRewriter(IParserFactory parserFactory) {
         this.parserFactory = parserFactory;
-        functionParser = new FunctionParser(FunctionLanguage.AQL, this.parserFactory);
+        functionParser = new FunctionParser(parserFactory);
     }
 
     private void setup(List<FunctionDecl> declaredFunctions, IReturningStatement topStatement,
@@ -129,7 +128,7 @@ class AqlQueryRewriter implements IQueryRewriter {
         List<FunctionDecl> storedFunctionDecls = new ArrayList<>();
         for (Expression topLevelExpr : topStatement.getDirectlyEnclosedExpressions()) {
             storedFunctionDecls.addAll(FunctionUtil.retrieveUsedStoredFunctions(metadataProvider, topLevelExpr, funIds,
-                    null, expr -> getFunctionCalls(expr), func -> functionParser.getFunctionDecl(func),
+                    null, expr -> getFunctionCalls(expr), functionParser,
                     (signature, sourceLoc) -> CommonFunctionMapUtil.normalizeBuiltinFunctionSignature(signature)));
             declaredFunctions.addAll(storedFunctionDecls);
         }

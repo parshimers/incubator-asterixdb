@@ -21,8 +21,8 @@ package org.apache.asterix.metadata.functions;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.asterix.common.functions.FunctionLanguage;
 import org.apache.asterix.om.functions.ExternalFunctionInfo;
+import org.apache.asterix.om.functions.ExternalFunctionLanguage;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
@@ -30,17 +30,19 @@ import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 
 public class ExternalScalarFunctionInfo extends ExternalFunctionInfo {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     public ExternalScalarFunctionInfo(String namespace, String library, String name, int arity, IAType returnType,
-            String body, FunctionLanguage language, List<IAType> argumentTypes, Map<String, String> params,
-            IResultTypeComputer rtc) {
-        super(namespace, name, arity, FunctionKind.SCALAR, argumentTypes, returnType, rtc, body, language, library,
-                params);
+            List<String> externalIdentifier, ExternalFunctionLanguage language, List<IAType> argumentTypes,
+            Map<String, String> params, boolean deterministic, IResultTypeComputer rtc) {
+        super(namespace, name, arity, FunctionKind.SCALAR, argumentTypes, returnType, rtc, language, library,
+                externalIdentifier, params, deterministic);
     }
 
-    public ExternalScalarFunctionInfo(FunctionIdentifier fid, IAType returnType, String body, FunctionLanguage language,
-            String library, List<IAType> argumentTypes, Map<String, String> params, IResultTypeComputer rtc) {
-        super(fid, FunctionKind.SCALAR, argumentTypes, returnType, rtc, body, language, library, params);
+    public ExternalScalarFunctionInfo(FunctionIdentifier fid, IAType returnType, List<String> externalIdentifier,
+            ExternalFunctionLanguage language, String library, List<IAType> argumentTypes, Map<String, String> params,
+            boolean deterministic, IResultTypeComputer rtc) {
+        super(fid, FunctionKind.SCALAR, argumentTypes, returnType, rtc, language, library, externalIdentifier, params,
+                deterministic);
     }
 }

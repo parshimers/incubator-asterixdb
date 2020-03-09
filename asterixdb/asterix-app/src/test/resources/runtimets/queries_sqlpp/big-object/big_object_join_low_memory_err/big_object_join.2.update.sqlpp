@@ -1,8 +1,3 @@
-package org.apache.asterix.external.api;
-
-import java.util.Arrays;
-import java.util.Map;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -21,26 +16,9 @@ import java.util.Map;
  * specific language governing permissions and limitations
  * under the License.
  */
-import com.google.common.collect.Maps;
-
-public enum ExternalLanguage {
-    JAVA("java"),
-    PYTHON("python");
-
-    private static final Map<String, ExternalLanguage> languageNames =
-            Maps.uniqueIndex(Arrays.asList(ExternalLanguage.values()), ExternalLanguage::getName);
-
-    private String name;
-
-    ExternalLanguage(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public static ExternalLanguage fromName(String name) {
-        return languageNames.get(name);
-    }
-}
+/*
+* Description  : Create an external dataset that contains long comments fields, 10% of the records have a 32K size comments.
+*                 This will trigger into the VSizeFrame path
+* Expected Res : Success
+* Date         : Jun 16 2015
+*/

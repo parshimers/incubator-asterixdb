@@ -72,7 +72,6 @@ import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.lang.common.visitor.base.AbstractQueryExpressionVisitor;
-import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.declared.DataSource;
 import org.apache.asterix.metadata.declared.DataSourceId;
 import org.apache.asterix.metadata.declared.DatasetDataSource;
@@ -166,7 +165,7 @@ import org.apache.hyracks.api.result.IResultMetadata;
  * source for the current subtree.
  */
 
-class LangExpressionToPlanTranslator
+abstract class LangExpressionToPlanTranslator
         extends AbstractQueryExpressionVisitor<Pair<ILogicalOperator, LogicalVariable>, Mutable<ILogicalOperator>>
         implements ILangExpressionToPlanTranslator {
 
@@ -888,25 +887,18 @@ class LangExpressionToPlanTranslator
     private AbstractFunctionCallExpression lookupUserDefinedFunction(FunctionSignature signature,
             List<Mutable<ILogicalExpression>> args, SourceLocation sourceLoc) throws CompilationException {
         try {
-            if (signature.getDataverseName() == null) {
-                return null;
-            }
             Function function =
-                    MetadataManager.INSTANCE.getFunction(metadataProvider.getMetadataTxnContext(), signature);
+                    FunctionUtil.lookupUserDefinedFunctionDecl(metadataProvider.getMetadataTxnContext(), signature);
             if (function == null) {
                 return null;
             }
-            AbstractFunctionCallExpression f;
-            if (function.getLanguage().isExternal()) {
-                IFunctionInfo finfo = ExternalFunctionCompilerUtil
-                        .getExternalFunctionInfo(metadataProvider.getMetadataTxnContext(), function);
-                f = new ScalarFunctionCallExpression(finfo, args);
-                f.setSourceLocation(sourceLoc);
-            } else {
-                IFunctionInfo finfo = FunctionUtil.getFunctionInfo(signature);
-                f = new ScalarFunctionCallExpression(finfo, args);
-                f.setSourceLocation(sourceLoc);
-            }
+            IFunctionInfo finfo =
+                    function.isExternal()
+                            ? ExternalFunctionCompilerUtil
+                                    .getExternalFunctionInfo(metadataProvider.getMetadataTxnContext(), function)
+                            : FunctionUtil.getFunctionInfo(signature);
+            AbstractFunctionCallExpression f = new ScalarFunctionCallExpression(finfo, args);
+            f.setSourceLocation(sourceLoc);
             return f;
         } catch (AlgebricksException e) {
             throw new CompilationException(ErrorCode.COMPILATION_ERROR, sourceLoc, e.getMessage(), e);

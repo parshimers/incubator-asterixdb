@@ -1,7 +1,5 @@
 package org.apache.asterix.external.library.java;
 
-import static org.apache.asterix.external.api.ExternalLanguage.*;
-
 import java.net.URL;
 
 import org.apache.asterix.common.functions.FunctionLanguage;

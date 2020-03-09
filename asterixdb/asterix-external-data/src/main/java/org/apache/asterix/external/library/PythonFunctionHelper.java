@@ -76,7 +76,7 @@ public class PythonFunctionHelper implements IFunctionHelper {
     private final ByteArrayOutputStream out = new ByteArrayOutputStream();
     private final ObjectNode args = new ObjectNode(JsonNodeFactory.instance);
     private final JSONDataParser jdp;
-    private final String packageName;
+    //    private final String packageName;
     private final URL[] libraryPaths;
     private final ClassLoader cl;
     private final Object[] arguments;
@@ -99,7 +99,7 @@ public class PythonFunctionHelper implements IFunctionHelper {
         pointableVisitor = new PyObjectPointableVisitor();
         this.argTypes = argTypes;
         this.jdp = new JSONDataParser(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE, new JsonFactory());
-        this.packageName = finfo.getFunctionBody().trim();
+        //        this.packageName = finfo.getFunctionBody().trim();
         this.libraryPaths = libraryPaths;
         this.cl = cl;
     }
@@ -255,7 +255,7 @@ public class PythonFunctionHelper implements IFunctionHelper {
 
     @Override
     public String getExternalIdentifier() {
-        return packageName;
+        return "";
     }
 
 }
