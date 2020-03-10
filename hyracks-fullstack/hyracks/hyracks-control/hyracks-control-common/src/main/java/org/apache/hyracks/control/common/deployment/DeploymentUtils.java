@@ -62,6 +62,7 @@ public class DeploymentUtils {
     private static final String SHIV_ROOT = "SHIV_ROOT";
     private static final String SHIV_ENTRY_POINT = "SHIV_ENTRY_POINT";
     private static final String SHIV_INTERPRETER = "SHIV_INTERPRETER";
+    private static final String BASH_PATH = File.separator + "bin" + File.separator + "bash";
 
     /**
      * undeploy an existing deployment
@@ -270,13 +271,12 @@ public class DeploymentUtils {
 
     public static void shiv(String sourceFile, String outputDir) throws IOException {
         ProcessBuilder pb = new ProcessBuilder();
+
         pb.environment().put(SHIV_ENTRY_POINT, "os:getcwd");
-        pb.environment().put(SHIV_ROOT, "lib/");
-        String py_snip = outputDir + "/bin/python3";
-        String pip_snip = outputDir + "/bin/pip3";
+        pb.environment().put(SHIV_ROOT, "lib"+File.separator);
         ShimLoader sh = new ShimLoader();
         sh.loadShim(outputDir, "bootstrap_venv.sh");
-        pb.command("/bin/bash", outputDir + "/bootstrap_venv.sh", outputDir, sourceFile);
+        pb.command(BASH_PATH, outputDir + File.separator+"bootstrap_venv.sh", outputDir, sourceFile);
         pb.inheritIO();
         pb.start();
         sh.loadShim(outputDir, "entrypoint.py");
@@ -286,7 +286,7 @@ public class DeploymentUtils {
     public static class ShimLoader {
         public void loadShim(String outputDir, String name) throws IOException {
             InputStream is = this.getClass().getClassLoader().getResourceAsStream(name);
-            IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + "/" + name)));
+            IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + File.separator + name)));
         }
     }
 }
