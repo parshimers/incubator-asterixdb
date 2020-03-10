@@ -148,9 +148,9 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             List<String> externalIdents = finfo.getExternalIdentifier();
             String wd = libMgr.getLibraryUrls(fnId.dataverseName,fnId.libraryName)[0].getFile();
             int port = getFreeHighPort();
-            String module = externalIdents.get(0);
-            String clazz = externalIdents.get(1);
-            String fn = externalIdents.get(2);
+            String module = externalIdents.get(0).split("\\.")[0];
+            String clazz = externalIdents.get(0).split("\\.")[1];
+            String fn = externalIdents.get(1);
             ProcessBuilder pb = new ProcessBuilder(SHELL_PATH, wd + File.separator +ENTRYPOINT_SCRIPT_FILENAME, wd,
                     Integer.toString(port), module,clazz,fn);
             pb.inheritIO();
