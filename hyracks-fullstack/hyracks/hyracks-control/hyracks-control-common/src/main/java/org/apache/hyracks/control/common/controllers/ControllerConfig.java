@@ -50,7 +50,8 @@ public class ControllerConfig implements Serializable {
                 (Function<IApplicationConfig, String>) appConfig -> FileUtil
                         .joinPath(appConfig.getString(ControllerConfig.Option.DEFAULT_DIR), "logs"),
                 "The directory where logs for this node are written"),
-        SSL_ENABLED(BOOLEAN, false, "A flag indicating if cluster communications should use secured connections");
+        SSL_ENABLED(BOOLEAN, false, "A flag indicating if cluster communications should use secured connections"),
+        PYTHON_HOME(OptionTypes.STRING, "/usr/bin/python3", "Absolute path to Python interpreter binary");
 
         private final IOptionType type;
         private final String description;

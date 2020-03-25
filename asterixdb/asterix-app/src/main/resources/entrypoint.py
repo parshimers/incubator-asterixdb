@@ -1,4 +1,5 @@
 import math,sys
+sys.path.insert(0,'./site-packages/')
 import Pyro4
 from importlib import import_module
 

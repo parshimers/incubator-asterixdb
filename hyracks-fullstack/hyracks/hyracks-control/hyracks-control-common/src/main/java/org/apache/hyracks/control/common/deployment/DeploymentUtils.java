@@ -270,13 +270,11 @@ public class DeploymentUtils {
     }
 
     public static void shiv(String sourceFile, String outputDir) throws IOException {
-        ProcessBuilder pb = new ProcessBuilder();
-
-        pb.environment().put(SHIV_ENTRY_POINT, "os:getcwd");
-        pb.environment().put(SHIV_ROOT, "lib"+File.separator);
         ShimLoader sh = new ShimLoader();
-        sh.loadShim(outputDir, "bootstrap_venv.sh");
-        pb.command(BASH_PATH, outputDir + File.separator+"bootstrap_venv.sh", outputDir, sourceFile);
+        sh.loadShim(outputDir, "pyro4.pyz");
+        sh.loadShim(outputDir, "bootstrap_env.sh");
+        ProcessBuilder pb = new ProcessBuilder();
+        pb.command(BASH_PATH, outputDir + File.separator + "bootstrap_env.sh", outputDir, sourceFile);
         pb.inheritIO();
         pb.start();
         sh.loadShim(outputDir, "entrypoint.py");

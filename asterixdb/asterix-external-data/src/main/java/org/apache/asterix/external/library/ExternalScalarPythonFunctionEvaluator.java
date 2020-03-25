@@ -29,9 +29,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
-import net.razorvine.pyro.PyroProxy;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -47,7 +44,6 @@ import org.apache.asterix.external.library.java.base.JRecord;
 import org.apache.asterix.external.library.java.base.JShort;
 import org.apache.asterix.external.library.java.base.JString;
 import org.apache.asterix.external.library.py.PyObjectPointableVisitor;
-import org.apache.asterix.om.functions.ExternalFunctionInfo;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.pointables.AFlatValuePointable;
 import org.apache.asterix.om.pointables.AListVisitablePointable;
@@ -58,7 +54,6 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
-import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -73,6 +68,11 @@ import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
+
+import net.razorvine.pyro.PyroProxy;
+
 class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvaluator {
 
     private final PythonLibraryEvaluator libraryEvaluator;
@@ -81,6 +81,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final PointableAllocator pointableAllocator;
     private final PyObjectPointableVisitor pointableVisitor;
     private final Object[] argHolder;
+    private final File pythonPath;
 
     private final IPointable[] argValues;
 
@@ -94,14 +95,17 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
 
+        //        pythonPath = new File(ctx.getServiceContext().getAppConfig().getString());
+        pythonPath = null;
         this.pointableAllocator = new PointableAllocator();
         this.pointableVisitor = new PyObjectPointableVisitor();
 
         DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
-            libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, ctx.getTaskContext());
-        } catch(IOException e){
-            throw new HyracksDataException("Failed to initialize Python",e);
+            libraryEvaluator =
+                    PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, ctx.getTaskContext());
+        } catch (IOException e) {
+            throw new HyracksDataException("Failed to initialize Python", e);
         }
         argValues = new IPointable[args.length];
         for (int i = 0; i < argValues.length; i++) {
@@ -116,15 +120,15 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             argEvals[i].evaluate(tuple, argValues[i]);
             try {
                 setArgument(i, argValues[i]);
-            } catch (IOException |AsterixException e) {
-                throw new HyracksDataException("Error evaluating Python UDF",e);
+            } catch (IOException | AsterixException e) {
+                throw new HyracksDataException("Error evaluating Python UDF", e);
             }
         }
         try {
             Object res = libraryEvaluator.callPython(argHolder);
-            wrap(res,resultBuffer.getDataOutput());
+            wrap(res, resultBuffer.getDataOutput());
         } catch (IOException | IllegalAccessException | InstantiationException e) {
-            throw new HyracksDataException("Error evaluating Python UDF",e);
+            throw new HyracksDataException("Error evaluating Python UDF", e);
         }
         result.set(resultBuffer.getByteArray(), resultBuffer.getStartOffset(), resultBuffer.getLength());
     }
@@ -137,7 +141,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         public static final String ENTRYPOINT_SCRIPT_FILENAME = "initialize_entrypoint.sh";
         public static final String SHELL_PATH = "/bin/bash";
 
-        private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo, ILibraryManager libMgr) {
+        private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
+                ILibraryManager libMgr) {
             super(jobId, evaluatorId);
             this.finfo = finfo;
             this.libMgr = libMgr;
@@ -146,13 +151,13 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         public void initialize() throws IOException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
-            String wd = libMgr.getLibraryUrls(fnId.dataverseName,fnId.libraryName)[0].getFile();
+            String wd = libMgr.getLibraryUrls(fnId.dataverseName, fnId.libraryName)[0].getFile();
             int port = getFreeHighPort();
             String module = externalIdents.get(0).split("\\.")[0];
             String clazz = externalIdents.get(0).split("\\.")[1];
             String fn = externalIdents.get(1);
-            ProcessBuilder pb = new ProcessBuilder(SHELL_PATH, wd + File.separator +ENTRYPOINT_SCRIPT_FILENAME, wd,
-                    Integer.toString(port), module,clazz,fn);
+            ProcessBuilder pb = new ProcessBuilder(SHELL_PATH, wd + File.separator + ENTRYPOINT_SCRIPT_FILENAME, wd,
+                    Integer.toString(port), module, clazz, fn);
             pb.inheritIO();
             p = pb.start();
             remoteObj = new PyroProxy("127.0.0.1", port, "nextTuple");
@@ -169,12 +174,12 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             p.destroy();
         }
 
-        private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo, ILibraryManager libMgr,
-                IHyracksTaskContext ctx) throws IOException {
+        private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo,
+                ILibraryManager libMgr, IHyracksTaskContext ctx) throws IOException {
             PythonLibraryEvaluatorId evaluatorId = new PythonLibraryEvaluatorId(dataverseName, finfo.getLibrary());
             PythonLibraryEvaluator evaluator = (PythonLibraryEvaluator) ctx.getStateObject(evaluatorId);
             if (evaluator == null) {
-                evaluator = new PythonLibraryEvaluator(ctx.getJobletContext().getJobId(), evaluatorId, finfo,libMgr);
+                evaluator = new PythonLibraryEvaluator(ctx.getJobletContext().getJobId(), evaluatorId, finfo, libMgr);
                 evaluator.initialize();
                 ctx.registerDeallocatable(evaluator);
                 ctx.setStateObject(evaluator);
@@ -283,11 +288,12 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         argHolder[index] = obj;
     }
 
-    private void wrap(Object o, DataOutput out) throws IllegalAccessException, InstantiationException, HyracksDataException {
+    private void wrap(Object o, DataOutput out)
+            throws IllegalAccessException, InstantiationException, HyracksDataException {
         Class concrete = o.getClass();
         Class asxConv = typeConv.get(concrete);
         IJObject res = (IJObject) asxConv.newInstance();
         res.setValue(o);
-        res.serialize(out,true);
+        res.serialize(out, true);
     }
 }
