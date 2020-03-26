@@ -54,6 +54,9 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
+import org.apache.asterix.om.util.container.IObjectPool;
+import org.apache.asterix.om.util.container.ListObjectPool;
+import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -83,6 +86,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final PyObjectPointableVisitor pointableVisitor;
     private final Object[] argHolder;
     protected final File pythonPath;
+    private final IObjectPool<IJObject,Class> reflectingPool = new ListObjectPool<>(ReflectingJObjectFactory.INSTANCE);
 
     private final IPointable[] argValues;
 
@@ -294,7 +298,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             throws IllegalAccessException, InstantiationException, HyracksDataException {
         Class concrete = o.getClass();
         Class asxConv = typeConv.get(concrete);
-        IJObject res = (IJObject) asxConv.newInstance();
+        IJObject res = reflectingPool.allocate(asxConv);
         res.setValue(o);
         res.serialize(out, true);
     }

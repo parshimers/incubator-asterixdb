@@ -24,12 +24,14 @@ import java.io.IOException;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public abstract class JObject<T> implements IJObject<T> {
 
     protected IAObject value;
     protected byte[] bytes;
+    protected IObjectPool<IJObject,Class> pool;
 
     public JObject() {
 
@@ -53,5 +55,10 @@ public abstract class JObject<T> implements IJObject<T> {
                 throw HyracksDataException.create(e);
             }
         }
+    }
+
+    @Override
+    public void setPool(IObjectPool<IJObject,Class> pool){
+        this.pool = pool;
     }
 }

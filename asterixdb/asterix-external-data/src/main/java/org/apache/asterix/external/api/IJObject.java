@@ -22,6 +22,7 @@ import java.io.DataOutput;
 
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public interface IJObject<T> {
@@ -37,4 +38,6 @@ public interface IJObject<T> {
     void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException;
 
     void reset() throws HyracksDataException;
+
+    void setPool(IObjectPool<IJObject, Class> pool);
 }

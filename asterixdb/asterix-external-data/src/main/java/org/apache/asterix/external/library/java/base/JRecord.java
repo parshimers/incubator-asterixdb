@@ -41,6 +41,7 @@ import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
@@ -50,6 +51,7 @@ public final class JRecord implements IJObject<Map<String, Object>> {
     private ARecordType recordType;
     private IJObject[] fields;
     private Map<String, IJObject> openFields;
+    private IObjectPool<IJObject,Class> pool;
     RecordBuilder recordBuilder = new RecordBuilder();
     ArrayBackedValueStorage fieldNameBuffer = new ArrayBackedValueStorage();
     ArrayBackedValueStorage fieldValueBuffer = new ArrayBackedValueStorage();
@@ -188,20 +190,9 @@ public final class JRecord implements IJObject<Map<String, Object>> {
     public void setValue(Map<String, Object> o) {
         for (Map.Entry<String, Object> e : o.entrySet()) {
             Class asxClass = PythonFunctionHelper.typeConv.get(e.getValue().getClass());
-            try {
-                Constructor cs = asxClass.getConstructor();
-                IJObject obj = (IJObject) cs.newInstance();
-                obj.setValue(e.getValue());
-                openFields.put(e.getKey(), obj);
-            } catch (NoSuchMethodException ex) {
-                ex.printStackTrace();
-            } catch (IllegalAccessException ex) {
-                ex.printStackTrace();
-            } catch (InstantiationException ex) {
-                ex.printStackTrace();
-            } catch (InvocationTargetException ex) {
-                ex.printStackTrace();
-            }
+            IJObject obj = pool.allocate(asxClass);
+            obj.setValue(e.getValue());
+            openFields.put(e.getKey(), obj);
         }
     }
 
@@ -232,9 +223,16 @@ public final class JRecord implements IJObject<Map<String, Object>> {
         }
     }
 
+    @Override
+    public void setPool(IObjectPool<IJObject, Class> pool) {
+        this.pool = pool;
+
+    }
+
     public void reset(IJObject[] fields, Map<String, IJObject> openFields) throws HyracksDataException {
         this.reset();
         this.fields = fields;
         this.openFields = openFields;
     }
+
 }

@@ -21,7 +21,7 @@ package org.apache.asterix.external.library.java.base;
 import java.io.DataOutput;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.asterix.builders.IAsterixListBuilder;
@@ -33,10 +33,11 @@ import org.apache.asterix.om.base.AMutableOrderedList;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
-public final class JOrderedList extends JList {
+public final class JOrderedList extends JList<List<Object>> {
 
     private AOrderedListType listType;
 
@@ -54,8 +55,8 @@ public final class JOrderedList extends JList {
         this.listType = new AOrderedListType(listItemType, null);
     }
 
-    public List<IJObject> getValue() {
-        return jObjects;
+    public List<Object> getValue() {
+        return Collections.singletonList(jObjects);
     }
 
     @Override
@@ -73,47 +74,20 @@ public final class JOrderedList extends JList {
     }
 
     @Override
-    public void setValue(Object o) {
-        List<Object> vals = (ArrayList) o;
+    public void setValue(List<Object> vals) {
         if (vals.size() > 0) {
             Object first = vals.get(0);
             Class asxClass = PythonFunctionHelper.typeConv.get(first.getClass());
-            Constructor cs = null;
-            try {
-                cs = asxClass.getConstructor();
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
-            }
-            IJObject obj = null;
-            try {
-                obj = (IJObject) cs.newInstance();
-            } catch (InstantiationException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            } catch (InvocationTargetException e) {
-                e.printStackTrace();
-            }
+            IJObject obj = pool.allocate(asxClass);
             obj.setValue(first);
             IAType listType = obj.getIAType();
             this.listType = new AOrderedListType(listType, "");
         }
         for (Object v : vals) {
             Class asxClass = PythonFunctionHelper.typeConv.get(v.getClass());
-            try {
-                Constructor cs = asxClass.getConstructor();
-                IJObject obj = (IJObject) cs.newInstance();
-                obj.setValue(v);
-                add(obj);
-            } catch (NoSuchMethodException ex) {
-                ex.printStackTrace();
-            } catch (IllegalAccessException ex) {
-                ex.printStackTrace();
-            } catch (InstantiationException ex) {
-                ex.printStackTrace();
-            } catch (InvocationTargetException ex) {
-                ex.printStackTrace();
-            }
+            IJObject obj = pool.allocate(asxClass);
+            obj.setValue(v);
+            add(obj);
         }
 
     }
@@ -135,5 +109,10 @@ public final class JOrderedList extends JList {
     @Override
     public void reset() {
         jObjects.clear();
+    }
+
+    @Override
+    public void setPool(IObjectPool<IJObject,Class> pool){
+        this.pool = pool;
     }
 }
