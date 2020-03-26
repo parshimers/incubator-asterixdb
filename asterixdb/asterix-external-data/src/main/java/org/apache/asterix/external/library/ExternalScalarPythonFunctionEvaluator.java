@@ -60,6 +60,7 @@ import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.resources.IDeallocatable;
+import org.apache.hyracks.control.common.controllers.ControllerConfig;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
@@ -81,7 +82,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final PointableAllocator pointableAllocator;
     private final PyObjectPointableVisitor pointableVisitor;
     private final Object[] argHolder;
-    private final File pythonPath;
+    protected final File pythonPath;
 
     private final IPointable[] argValues;
 
@@ -95,15 +96,14 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
 
-        //        pythonPath = new File(ctx.getServiceContext().getAppConfig().getString());
-        pythonPath = null;
+        pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(ControllerConfig.Option.PYTHON_HOME));
         this.pointableAllocator = new PointableAllocator();
         this.pointableVisitor = new PyObjectPointableVisitor();
 
         DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
-            libraryEvaluator =
-                    PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, ctx.getTaskContext());
+            libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, pythonPath,
+                    ctx.getTaskContext());
         } catch (IOException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
@@ -138,14 +138,15 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         PyroProxy remoteObj;
         IExternalFunctionInfo finfo;
         ILibraryManager libMgr;
-        public static final String ENTRYPOINT_SCRIPT_FILENAME = "initialize_entrypoint.sh";
-        public static final String SHELL_PATH = "/bin/bash";
+        File pythonHome;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
-                ILibraryManager libMgr) {
+                ILibraryManager libMgr, File pythonHome) {
             super(jobId, evaluatorId);
             this.finfo = finfo;
             this.libMgr = libMgr;
+            this.pythonHome = pythonHome;
+
         }
 
         public void initialize() throws IOException {
@@ -156,8 +157,9 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             String module = externalIdents.get(0).split("\\.")[0];
             String clazz = externalIdents.get(0).split("\\.")[1];
             String fn = externalIdents.get(1);
-            ProcessBuilder pb = new ProcessBuilder(SHELL_PATH, wd + File.separator + ENTRYPOINT_SCRIPT_FILENAME, wd,
+            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), "-s", "-S", "entrypoint.py",
                     Integer.toString(port), module, clazz, fn);
+            pb.directory(new File(wd));
             pb.inheritIO();
             p = pb.start();
             remoteObj = new PyroProxy("127.0.0.1", port, "nextTuple");
@@ -170,16 +172,16 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         @Override
         public void deallocate() {
-            remoteObj.close();
             p.destroy();
         }
 
         private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo,
-                ILibraryManager libMgr, IHyracksTaskContext ctx) throws IOException {
+                ILibraryManager libMgr, File pythonHome, IHyracksTaskContext ctx) throws IOException {
             PythonLibraryEvaluatorId evaluatorId = new PythonLibraryEvaluatorId(dataverseName, finfo.getLibrary());
             PythonLibraryEvaluator evaluator = (PythonLibraryEvaluator) ctx.getStateObject(evaluatorId);
             if (evaluator == null) {
-                evaluator = new PythonLibraryEvaluator(ctx.getJobletContext().getJobId(), evaluatorId, finfo, libMgr);
+                evaluator = new PythonLibraryEvaluator(ctx.getJobletContext().getJobId(), evaluatorId, finfo, libMgr,
+                        pythonHome);
                 evaluator.initialize();
                 ctx.registerDeallocatable(evaluator);
                 ctx.setStateObject(evaluator);
