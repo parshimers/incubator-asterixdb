@@ -28,7 +28,7 @@ import org.apache.asterix.om.util.container.IObjectPool;
 
 public abstract class JList<T> implements IJObject<T> {
 
-    protected IObjectPool<IJObject,Class> pool;
+    protected IObjectPool<IJObject, Class> pool;
 
     protected List<IJObject> jObjects;
 
@@ -65,7 +65,7 @@ public abstract class JList<T> implements IJObject<T> {
     }
 
     @Override
-    public void setPool(IObjectPool<IJObject,Class> pool){
+    public void setPool(IObjectPool<IJObject, Class> pool) {
         this.pool = pool;
     }
 

@@ -31,7 +31,7 @@ public abstract class JObject<T> implements IJObject<T> {
 
     protected IAObject value;
     protected byte[] bytes;
-    protected IObjectPool<IJObject,Class> pool;
+    protected IObjectPool<IJObject, Class> pool;
 
     public JObject() {
 
@@ -58,7 +58,7 @@ public abstract class JObject<T> implements IJObject<T> {
     }
 
     @Override
-    public void setPool(IObjectPool<IJObject,Class> pool){
+    public void setPool(IObjectPool<IJObject, Class> pool) {
         this.pool = pool;
     }
 }

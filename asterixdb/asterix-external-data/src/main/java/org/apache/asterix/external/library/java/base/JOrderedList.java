@@ -19,8 +19,6 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.List;
 
@@ -112,7 +110,7 @@ public final class JOrderedList extends JList<List<Object>> {
     }
 
     @Override
-    public void setPool(IObjectPool<IJObject,Class> pool){
+    public void setPool(IObjectPool<IJObject, Class> pool) {
         this.pool = pool;
     }
 }

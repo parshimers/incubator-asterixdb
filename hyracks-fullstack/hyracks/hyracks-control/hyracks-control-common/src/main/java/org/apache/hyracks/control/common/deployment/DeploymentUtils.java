@@ -278,7 +278,6 @@ public class DeploymentUtils {
         pb.inheritIO();
         pb.start();
         sh.loadShim(outputDir, "entrypoint.py");
-        sh.loadShim(outputDir, "initialize_entrypoint.sh");
     }
 
     public static class ShimLoader {

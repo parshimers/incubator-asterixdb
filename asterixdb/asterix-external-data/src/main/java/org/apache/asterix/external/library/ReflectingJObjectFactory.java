@@ -19,27 +19,6 @@
 package org.apache.asterix.external.library;
 
 import org.apache.asterix.external.api.IJObject;
-import org.apache.asterix.external.library.java.base.JBoolean;
-import org.apache.asterix.external.library.java.base.JDate;
-import org.apache.asterix.external.library.java.base.JDateTime;
-import org.apache.asterix.external.library.java.base.JDouble;
-import org.apache.asterix.external.library.java.base.JDuration;
-import org.apache.asterix.external.library.java.base.JFloat;
-import org.apache.asterix.external.library.java.base.JInt;
-import org.apache.asterix.external.library.java.base.JInterval;
-import org.apache.asterix.external.library.java.base.JLong;
-import org.apache.asterix.external.library.java.base.JMissing;
-import org.apache.asterix.external.library.java.base.JNull;
-import org.apache.asterix.external.library.java.base.JOrderedList;
-import org.apache.asterix.external.library.java.base.JRecord;
-import org.apache.asterix.external.library.java.base.JString;
-import org.apache.asterix.external.library.java.base.JTime;
-import org.apache.asterix.external.library.java.base.JUnorderedList;
-import org.apache.asterix.om.types.AOrderedListType;
-import org.apache.asterix.om.types.ARecordType;
-import org.apache.asterix.om.types.AUnionType;
-import org.apache.asterix.om.types.AUnorderedListType;
-import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.container.IObjectFactory;
 
 public class ReflectingJObjectFactory implements IObjectFactory<IJObject, Class> {
@@ -51,14 +30,15 @@ public class ReflectingJObjectFactory implements IObjectFactory<IJObject, Class>
 
     @Override
     public IJObject create(Class clazz) {
+        IJObject obj = null;
         try {
-            IJObject obj = (IJObject) clazz.newInstance();
+            obj = (IJObject) clazz.newInstance();
         } catch (InstantiationException e) {
             e.printStackTrace();
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
-        return null;
+        return obj;
     }
 
 }

@@ -22,8 +22,6 @@ import static org.apache.asterix.om.utils.RecordUtil.FULLY_OPEN_RECORD_TYPE;
 
 import java.io.DataOutput;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,7 +49,7 @@ public final class JRecord implements IJObject<Map<String, Object>> {
     private ARecordType recordType;
     private IJObject[] fields;
     private Map<String, IJObject> openFields;
-    private IObjectPool<IJObject,Class> pool;
+    private IObjectPool<IJObject, Class> pool;
     RecordBuilder recordBuilder = new RecordBuilder();
     ArrayBackedValueStorage fieldNameBuffer = new ArrayBackedValueStorage();
     ArrayBackedValueStorage fieldValueBuffer = new ArrayBackedValueStorage();

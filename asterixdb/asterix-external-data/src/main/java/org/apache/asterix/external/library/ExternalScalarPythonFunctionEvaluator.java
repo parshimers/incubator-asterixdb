@@ -56,7 +56,6 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.asterix.om.util.container.ListObjectPool;
-import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -86,7 +85,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final PyObjectPointableVisitor pointableVisitor;
     private final Object[] argHolder;
     protected final File pythonPath;
-    private final IObjectPool<IJObject,Class> reflectingPool = new ListObjectPool<>(ReflectingJObjectFactory.INSTANCE);
+    private final IObjectPool<IJObject, Class> reflectingPool = new ListObjectPool<>(ReflectingJObjectFactory.INSTANCE);
 
     private final IPointable[] argValues;
 
@@ -131,7 +130,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         try {
             Object res = libraryEvaluator.callPython(argHolder);
             wrap(res, resultBuffer.getDataOutput());
-        } catch (IOException | IllegalAccessException | InstantiationException e) {
+        } catch (IOException e) {
             throw new HyracksDataException("Error evaluating Python UDF", e);
         }
         result.set(resultBuffer.getByteArray(), resultBuffer.getStartOffset(), resultBuffer.getLength());
@@ -294,11 +293,11 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         argHolder[index] = obj;
     }
 
-    private void wrap(Object o, DataOutput out)
-            throws IllegalAccessException, InstantiationException, HyracksDataException {
+    private void wrap(Object o, DataOutput out) throws HyracksDataException {
         Class concrete = o.getClass();
         Class asxConv = typeConv.get(concrete);
         IJObject res = reflectingPool.allocate(asxConv);
+        res.setPool(reflectingPool);
         res.setValue(o);
         res.serialize(out, true);
     }

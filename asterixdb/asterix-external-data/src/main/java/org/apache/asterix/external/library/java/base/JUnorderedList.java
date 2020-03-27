@@ -20,7 +20,6 @@ package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.asterix.builders.IAsterixListBuilder;
@@ -31,7 +30,6 @@ import org.apache.asterix.om.base.AMutableUnorderedList;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.AUnorderedListType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
