@@ -19,7 +19,6 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.asterix.builders.IAsterixListBuilder;
@@ -35,7 +34,7 @@ import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
-public final class JOrderedList extends JList<List<Object>> {
+public final class JOrderedList extends JList<List<? extends Object>> {
 
     private AOrderedListType listType;
 
@@ -53,8 +52,8 @@ public final class JOrderedList extends JList<List<Object>> {
         this.listType = new AOrderedListType(listItemType, null);
     }
 
-    public List<Object> getValue() {
-        return Collections.singletonList(jObjects);
+    public List<? extends Object> getValue() {
+        return jObjects;
     }
 
     @Override
@@ -72,7 +71,7 @@ public final class JOrderedList extends JList<List<Object>> {
     }
 
     @Override
-    public void setValue(List<Object> vals) {
+    public void setValue(List<? extends Object> vals) {
         if (vals.size() > 0) {
             Object first = vals.get(0);
             Class asxClass = PythonFunctionHelper.typeConv.get(first.getClass());

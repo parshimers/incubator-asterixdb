@@ -28,6 +28,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -276,7 +277,12 @@ public class DeploymentUtils {
         ProcessBuilder pb = new ProcessBuilder();
         pb.command(BASH_PATH, outputDir + File.separator + "bootstrap_env.sh", outputDir, sourceFile);
         pb.inheritIO();
-        pb.start();
+        Process p = pb.start();
+        try {
+            p.waitFor(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            LOGGER.error("Interrupted while waiting for library deployment to finish");
+        }
         sh.loadShim(outputDir, "entrypoint.py");
     }
 

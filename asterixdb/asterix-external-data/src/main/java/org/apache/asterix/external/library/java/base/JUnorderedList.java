@@ -19,13 +19,13 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
-import java.util.Collections;
-import java.util.Set;
+import java.util.List;
 
 import org.apache.asterix.builders.IAsterixListBuilder;
 import org.apache.asterix.builders.UnorderedListBuilder;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.api.IJType;
+import org.apache.asterix.external.library.PythonFunctionHelper;
 import org.apache.asterix.om.base.AMutableUnorderedList;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.AUnorderedListType;
@@ -33,7 +33,7 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
-public final class JUnorderedList extends JList<Set<Object>> {
+public final class JUnorderedList extends JList<List<? extends Object>> {
 
     private AUnorderedListType listType;
 
@@ -47,8 +47,8 @@ public final class JUnorderedList extends JList<Set<Object>> {
         this.listType = new AUnorderedListType(elementType, null);
     }
 
-    public Set<Object> getValue() {
-        return Collections.singleton(jObjects);
+    public List<? extends Object> getValue() {
+        return jObjects;
     }
 
     @Override
@@ -71,8 +71,21 @@ public final class JUnorderedList extends JList<Set<Object>> {
     }
 
     @Override
-    public void setValue(Set<Object> o) {
-
+    public void setValue(List<? extends Object> vals) {
+        if (vals.size() > 0) {
+            Object first = vals.get(0);
+            Class asxClass = PythonFunctionHelper.typeConv.get(first.getClass());
+            IJObject obj = pool.allocate(asxClass);
+            obj.setValue(first);
+            IAType listType = obj.getIAType();
+            this.listType = new AUnorderedListType(listType, "");
+        }
+        for (Object v : vals) {
+            Class asxClass = PythonFunctionHelper.typeConv.get(v.getClass());
+            IJObject obj = pool.allocate(asxClass);
+            obj.setValue(v);
+            add(obj);
+        }
     }
 
     @Override

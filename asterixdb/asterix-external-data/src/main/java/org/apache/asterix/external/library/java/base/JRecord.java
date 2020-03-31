@@ -142,21 +142,21 @@ public final class JRecord implements IJObject<Map<String, Object>> {
             index++;
         }
 
-        try {
-            if (openFields != null && !openFields.isEmpty()) {
-                for (Map.Entry<String, IJObject> entry : openFields.entrySet()) {
-                    fieldNameBuffer.reset();
-                    fieldValueBuffer.reset();
-                    nameString.setValue(entry.getKey());
-                    fieldNameBuffer.getDataOutput().write(ATypeTag.STRING.serialize());
-                    aStringSerDer.serialize(nameString, fieldNameBuffer.getDataOutput());
-                    entry.getValue().serialize(fieldValueBuffer.getDataOutput(), true);
-                    recordBuilder.addField(fieldNameBuffer, fieldValueBuffer);
-                }
-            }
-        } catch (IOException ae) {
-            throw HyracksDataException.create(ae);
-        }
+//        try {
+//            if (openFields != null && !openFields.isEmpty()) {
+//                for (Map.Entry<String, IJObject> entry : openFields.entrySet()) {
+//                    fieldNameBuffer.reset();
+//                    fieldValueBuffer.reset();
+//                    nameString.setValue(entry.getKey());
+//                    fieldNameBuffer.getDataOutput().write(ATypeTag.STRING.serialize());
+//                    aStringSerDer.serialize(nameString, fieldNameBuffer.getDataOutput());
+//                    entry.getValue().serialize(fieldValueBuffer.getDataOutput(), true);
+//                    recordBuilder.addField(fieldNameBuffer, fieldValueBuffer);
+//                }
+//            }
+//        } catch (IOException ae) {
+//            throw HyracksDataException.create(ae);
+//        }
         recordBuilder.write(output, writeTypeTag);
     }
 
