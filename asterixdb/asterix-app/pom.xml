@@ -167,21 +167,57 @@
         <version>1.6.0</version>
         <executions>
           <execution>
+            <id>shiv-install</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>pip3</executable>
+              <workingDirectory>${project.build.directory}</workingDirectory>
+              <arguments>
+                <argument>install</argument>
+                <argument>--exists-action</argument>
+                <argument>i</argument>
+                <argument>shiv</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>shiv-pyro-shim</id>
             <phase>generate-sources</phase>
             <goals>
               <goal>exec</goal>
             </goals>
+            <configuration>
+              <executable>shiv</executable>
+              <workingDirectory>${project.build.directory}</workingDirectory>
+              <arguments>
+                <argument>-o </argument>
+                <argument>${project.build.directory}/classes/pyro4.pyz</argument>
+                <argument>pyro4</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>shiv-test-lib</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>shiv</executable>
+              <workingDirectory>${project.build.directory}</workingDirectory>
+              <arguments>
+                <argument>-o </argument>
+                <argument>${project.build.directory}/TweetSent.pyz</argument>
+                <argument>--site-packages</argument>
+                <argument>${project.build.directory}/../src/test/resources/TweetSent</argument>
+                <argument>scikit-learn</argument>
+              </arguments>
+            </configuration>
           </execution>
         </executions>
-        <configuration>
-          <executable>shiv</executable>
-          <workingDirectory>${project.build.directory}</workingDirectory>
-          <arguments>
-            <argument>-o </argument>
-            <argument>${project.build.directory}/classes/pyro4.pyz</argument>
-            <argument>pyro4</argument>
-          </arguments>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.rat</groupId>
