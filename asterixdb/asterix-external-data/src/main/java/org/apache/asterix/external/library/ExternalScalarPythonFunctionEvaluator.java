@@ -157,9 +157,16 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             List<String> externalIdents = finfo.getExternalIdentifier();
             String wd = libMgr.getLibraryUrls(fnId.dataverseName, fnId.libraryName)[0].getFile();
             int port = getFreeHighPort();
-            String module = externalIdents.get(0).split("\\.")[0];
-            String clazz = externalIdents.get(0).split("\\.")[1];
-            String fn = externalIdents.get(1);
+            String[] identSplits = externalIdents.get(0).split("\\.");
+            String module = identSplits[0];
+            String clazz = "None";
+            String fn = null;
+            if (identSplits.length > 1) {
+                clazz = externalIdents.get(0).split("\\.")[1];
+                fn = externalIdents.get(1);
+            } else {
+                fn = externalIdents.get(1);
+            }
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), "-s", "-S", "entrypoint.py",
                     Integer.toString(port), module, clazz, fn);
             pb.directory(new File(wd));

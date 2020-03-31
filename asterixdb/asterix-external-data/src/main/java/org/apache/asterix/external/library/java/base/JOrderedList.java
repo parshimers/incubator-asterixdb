@@ -96,7 +96,7 @@ public final class JOrderedList extends JList<List<? extends Object>> {
         ArrayBackedValueStorage fieldValue = new ArrayBackedValueStorage();
         for (IJObject jObject : jObjects) {
             fieldValue.reset();
-            jObject.serialize(fieldValue.getDataOutput(), false);
+            jObject.serialize(fieldValue.getDataOutput(), writeTypeTag);
             listBuilder.addItem(fieldValue);
         }
         listBuilder.write(dataOutput, writeTypeTag);

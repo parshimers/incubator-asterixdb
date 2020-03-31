@@ -95,7 +95,7 @@ public final class JUnorderedList extends JList<List<? extends Object>> {
         ArrayBackedValueStorage fieldValue = new ArrayBackedValueStorage();
         for (IJObject jObject : jObjects) {
             fieldValue.reset();
-            jObject.serialize(fieldValue.getDataOutput(), true);
+            jObject.serialize(fieldValue.getDataOutput(), writeTypeTag);
             listBuilder.addItem(fieldValue);
         }
         listBuilder.write(dataOutput, writeTypeTag);
