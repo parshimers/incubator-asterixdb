@@ -24,8 +24,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.ServerSocket;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,15 +32,6 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
-import org.apache.asterix.external.library.java.base.JByte;
-import org.apache.asterix.external.library.java.base.JDouble;
-import org.apache.asterix.external.library.java.base.JFloat;
-import org.apache.asterix.external.library.java.base.JInt;
-import org.apache.asterix.external.library.java.base.JLong;
-import org.apache.asterix.external.library.java.base.JOrderedList;
-import org.apache.asterix.external.library.java.base.JRecord;
-import org.apache.asterix.external.library.java.base.JShort;
-import org.apache.asterix.external.library.java.base.JString;
 import org.apache.asterix.external.library.py.PyObjectPointableVisitor;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.pointables.AFlatValuePointable;
@@ -71,9 +60,6 @@ import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
-
 import net.razorvine.pyro.PyroProxy;
 
 class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvaluator {
@@ -88,12 +74,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final IObjectPool<IJObject, Class> reflectingPool = new ListObjectPool<>(ReflectingJObjectFactory.INSTANCE);
 
     private final IPointable[] argValues;
-
-    public static final BiMap<Class, Class> typeConv =
-            new ImmutableBiMap.Builder<Class, Class>().put(HashMap.class, JRecord.class).put(Byte.class, JByte.class)
-                    .put(Short.class, JShort.class).put(Integer.class, JInt.class).put(Long.class, JLong.class)
-                    .put(Float.class, JFloat.class).put(Double.class, JDouble.class)
-                    .put(ArrayList.class, JOrderedList.class).put(String.class, JString.class).build();
 
     public ExternalScalarPythonFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
             IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
@@ -160,12 +140,9 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             String[] identSplits = externalIdents.get(0).split("\\.");
             String module = identSplits[0];
             String clazz = "None";
-            String fn = null;
+            String fn = externalIdents.get(1);
             if (identSplits.length > 1) {
                 clazz = externalIdents.get(0).split("\\.")[1];
-                fn = externalIdents.get(1);
-            } else {
-                fn = externalIdents.get(1);
             }
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), "-s", "-S", "entrypoint.py",
                     Integer.toString(port), module, clazz, fn);
@@ -302,7 +279,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private void wrap(Object o, DataOutput out) throws HyracksDataException {
         Class concrete = o.getClass();
-        Class asxConv = typeConv.get(concrete);
+        Class asxConv = IJObject.typeConv.get(concrete);
         IJObject res = reflectingPool.allocate(asxConv);
         res.setPool(reflectingPool);
         res.setValue(o);

@@ -32,7 +32,6 @@ import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.dataflow.data.nontagged.serde.ARecordSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.AStringSerializerDeserializer;
 import org.apache.asterix.external.api.IJObject;
-import org.apache.asterix.external.library.PythonFunctionHelper;
 import org.apache.asterix.om.base.AMutableString;
 import org.apache.asterix.om.base.ARecord;
 import org.apache.asterix.om.base.IAObject;
@@ -187,7 +186,7 @@ public final class JRecord implements IJObject<Map<String, Object>> {
     @Override
     public void setValue(Map<String, Object> o) {
         for (Map.Entry<String, Object> e : o.entrySet()) {
-            Class asxClass = PythonFunctionHelper.typeConv.get(e.getValue().getClass());
+            Class asxClass = typeConv.get(e.getValue().getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValue(e.getValue());
             openFields.put(e.getKey(), obj);

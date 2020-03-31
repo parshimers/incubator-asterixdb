@@ -25,7 +25,6 @@ import org.apache.asterix.builders.IAsterixListBuilder;
 import org.apache.asterix.builders.UnorderedListBuilder;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.api.IJType;
-import org.apache.asterix.external.library.PythonFunctionHelper;
 import org.apache.asterix.om.base.AMutableUnorderedList;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.AUnorderedListType;
@@ -74,14 +73,14 @@ public final class JUnorderedList extends JList<List<? extends Object>> {
     public void setValue(List<? extends Object> vals) {
         if (vals.size() > 0) {
             Object first = vals.get(0);
-            Class asxClass = PythonFunctionHelper.typeConv.get(first.getClass());
+            Class asxClass = typeConv.get(first.getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValue(first);
             IAType listType = obj.getIAType();
             this.listType = new AUnorderedListType(listType, "");
         }
         for (Object v : vals) {
-            Class asxClass = PythonFunctionHelper.typeConv.get(v.getClass());
+            Class asxClass = typeConv.get(v.getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValue(v);
             add(obj);

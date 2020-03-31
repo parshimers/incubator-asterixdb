@@ -19,13 +19,32 @@
 package org.apache.asterix.external.api;
 
 import java.io.DataOutput;
+import java.util.ArrayList;
+import java.util.HashMap;
 
+import org.apache.asterix.external.library.java.base.JByte;
+import org.apache.asterix.external.library.java.base.JDouble;
+import org.apache.asterix.external.library.java.base.JFloat;
+import org.apache.asterix.external.library.java.base.JInt;
+import org.apache.asterix.external.library.java.base.JLong;
+import org.apache.asterix.external.library.java.base.JOrderedList;
+import org.apache.asterix.external.library.java.base.JRecord;
+import org.apache.asterix.external.library.java.base.JShort;
+import org.apache.asterix.external.library.java.base.JString;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
+
 public interface IJObject<T> {
+
+    BiMap<Class, Class> typeConv = new ImmutableBiMap.Builder<Class, Class>().put(HashMap.class, JRecord.class)
+            .put(Byte.class, JByte.class).put(Short.class, JShort.class).put(Integer.class, JInt.class)
+            .put(Long.class, JLong.class).put(Float.class, JFloat.class).put(Double.class, JDouble.class)
+            .put(ArrayList.class, JOrderedList.class).put(String.class, JString.class).build();
 
     IAType getIAType();
 
