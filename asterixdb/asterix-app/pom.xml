@@ -168,7 +168,7 @@
         <executions>
           <execution>
             <id>venv</id>
-            <phase>generate-sources</phase>
+            <phase>${venv.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>
@@ -184,7 +184,7 @@
           </execution>
           <execution>
             <id>shiv-install</id>
-            <phase>process-sources</phase>
+            <phase>${shiv-inst.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>
@@ -206,7 +206,7 @@
           </execution>
           <execution>
             <id>shiv-pyro-shim</id>
-            <phase>generate-resources</phase>
+            <phase>${pyro-shim.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>
@@ -226,7 +226,7 @@
           </execution>
           <execution>
             <id>shiv-test-lib</id>
-            <phase>generate-test-resources</phase>
+            <phase>${pytestlib.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>

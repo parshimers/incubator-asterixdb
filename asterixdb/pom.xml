@@ -617,7 +617,7 @@
       </properties>
     </profile>
     <profile>
-      <id>python-udfs</id>
+      <id>no-python-udfs</id>
       <activation>
         <file>
           <missing>/usr/bin/python3</missing>
