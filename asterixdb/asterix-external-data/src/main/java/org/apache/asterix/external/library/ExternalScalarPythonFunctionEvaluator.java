@@ -72,6 +72,9 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final Object[] argHolder;
     protected final File pythonPath;
     private final IObjectPool<IJObject, Class> reflectingPool = new ListObjectPool<>(ReflectingJObjectFactory.INSTANCE);
+    private static final String ENTRYPOINT = "entrypoint.py";
+    private static final String PY_NO_SITE_PKGS_OPT = "-S";
+    private static final String PY_NO_USER_PKGS_OPT = "-s";
 
     private final IPointable[] argValues;
 
@@ -144,8 +147,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             if (identSplits.length > 1) {
                 clazz = externalIdents.get(0).split("\\.")[1];
             }
-            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), "-s", "-S", "entrypoint.py",
-                    Integer.toString(port), module, clazz, fn);
+            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port), module, clazz, fn);
             pb.directory(new File(wd));
             pb.inheritIO();
             p = pb.start();

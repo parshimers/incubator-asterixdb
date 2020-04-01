@@ -75,6 +75,10 @@
     <itest.excludes>${global.itest.excludes}</itest.excludes>
     <license.stage>compile</license.stage>
     <resource.stage>process-classes</resource.stage>
+    <venv.stage>generate-sources</venv.stage>
+    <shiv-inst.stage>process-sources</shiv-inst.stage>
+    <pyro-shim.stage>generate-resources</pyro-shim.stage>
+    <pytestlib.stage>generate-test-resources</pytestlib.stage>
 
     <!-- Versions under dependencymanagement or used in many projects via properties -->
     <algebricks.version>0.3.5-SNAPSHOT</algebricks.version>
@@ -610,6 +614,31 @@
       <properties>
         <license.stage>none</license.stage>
         <resource.stage>none</resource.stage>
+      </properties>
+    </profile>
+    <profile>
+      <id>python-udfs</id>
+      <activation>
+        <file>
+          <missing>/usr/bin/python3</missing>
+        </file>
+      </activation>
+      <properties>
+        <venv.stage>none</venv.stage>
+        <shiv-inst.stage>none</shiv-inst.stage>
+        <pyro-shim.stage>none</pyro-shim.stage>
+        <pytestlib.stage>none</pytestlib.stage>
+      </properties>
+    </profile>
+    <profile>
+      <id>fetch-pip</id>
+      <activation>
+        <file>
+          <exists>/usr/bin/pip3</exists>
+        </file>
+      </activation>
+      <properties>
+        <pip.path>/usr/bin/pip3</pip.path>
       </properties>
     </profile>
     <profile>
