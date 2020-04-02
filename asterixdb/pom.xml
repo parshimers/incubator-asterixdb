@@ -233,59 +233,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.0.0</version>
-        <executions>
-          <execution>
-            <id>verify-style</id>
-            <phase>process-sources</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <logViolationsToConsole>true</logViolationsToConsole>
-          <checkstyleRules>
-            <module name="Checker">
-              <!-- Checks for whitespace                               -->
-              <!-- See http://checkstyle.sf.net/config_whitespace.html -->
-              <module name="FileTabCharacter" />
-              <module name="TreeWalker">
-                <module name="AvoidStarImport">
-                  <property name="allowStaticMemberImports" value="true"/>
-                </module>
-              </module>
-            </module>
-          </checkstyleRules>
-          <includes>**/*.java,**/*.jj</includes>
-          <resourceIncludes>**/*.properties,**/*.xml,**/*.xsd,**/*.aql,**/*.sqlpp,**/*.sh</resourceIncludes>
-          <resourceExcludes>**/node_modules/**/*</resourceExcludes>
-          <sourceDirectories>${project.build.sourceDirectory},${project.build.testSourceDirectory}</sourceDirectories>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.0.0-M1</version>
-        <executions>
-          <execution>
-            <id>enforce-versions</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <configuration>
-              <rules>
-                <requireMavenVersion>
-                  <version>[3.3.9,)</version>
-                </requireMavenVersion>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
         <executions>
           <execution>
@@ -298,37 +245,6 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <groupId>net.revelc.code.formatter</groupId>
-        <artifactId>formatter-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <goals>
-              <goal>${source-format.goal}</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <configFile>${root.dir}/AsterixCodeFormatProfile.xml</configFile>
-          <skipFormatting>${source-format.skip}</skipFormatting>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>net.revelc.code</groupId>
-        <artifactId>impsort-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <goals>
-              <goal>${import-sort.goal}</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <groups>java,javax,org,com,*</groups>
-          <removeUnused>true</removeUnused>
-          <skip>${import-sort.skip}</skip>
-        </configuration>
       </plugin>
     </plugins>
     <pluginManagement>
@@ -884,6 +800,7 @@
     <module>asterix-license</module>
     <module>asterix-geo</module>
     <module>asterix-spidersilk</module>
+    <module>bayes-udf</module>
   </modules>
 
   <dependencyManagement>
