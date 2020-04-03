@@ -169,7 +169,7 @@
         <executions>
           <execution>
             <id>venv</id>
-            <phase>${venv.stage}</phase>
+            <phase>${pyro-shim.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>
@@ -185,7 +185,7 @@
           </execution>
           <execution>
             <id>shiv-install</id>
-            <phase>${shiv-inst.stage}</phase>
+            <phase>${pyro-shim.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>

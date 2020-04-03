@@ -75,9 +75,7 @@
     <itest.excludes>${global.itest.excludes}</itest.excludes>
     <license.stage>compile</license.stage>
     <resource.stage>process-classes</resource.stage>
-    <venv.stage>generate-sources</venv.stage>
-    <shiv-inst.stage>process-sources</shiv-inst.stage>
-    <pyro-shim.stage>generate-resources</pyro-shim.stage>
+    <pyro-shim.stage>process-classes</pyro-shim.stage>
     <pytestlib.stage>generate-test-resources</pytestlib.stage>
 
     <!-- Versions under dependencymanagement or used in many projects via properties -->
