@@ -19,6 +19,7 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
+import java.time.LocalTime;
 
 import org.apache.asterix.dataflow.data.nontagged.serde.ATimeSerializerDeserializer;
 import org.apache.asterix.om.base.AMutableTime;
@@ -27,7 +28,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JTime extends JObject {
+public final class JTime extends JObject<LocalTime> {
 
     public JTime(int timeInMillsec) {
         super(new AMutableTime(timeInMillsec));
@@ -37,8 +38,8 @@ public final class JTime extends JObject {
         ((AMutableTime) value).setValue(timeInMillsec);
     }
 
-    public Integer getValue() {
-        return ((AMutableTime) value).getChrononTime();
+    public LocalTime getValue() {
+        return LocalTime.ofSecondOfDay(((AMutableTime) value).getChrononTime());
     }
 
     @Override
@@ -58,7 +59,7 @@ public final class JTime extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
-
+    public void setValue(LocalTime t) {
+        setValue(t.toSecondOfDay());
     }
 }

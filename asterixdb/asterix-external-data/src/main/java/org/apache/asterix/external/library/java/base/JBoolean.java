@@ -28,7 +28,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JBoolean extends JObject {
+public final class JBoolean extends JObject<Boolean> {
 
     private boolean aBoolean;
 
@@ -55,8 +55,8 @@ public final class JBoolean extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
-
+    public void setValue(Boolean b) {
+        setValue(b);
     }
 
     @Override

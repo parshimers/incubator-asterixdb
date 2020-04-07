@@ -28,7 +28,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JShort extends JObject {
+public final class JShort extends JObject<Short> {
 
     public JShort(short value) {
         super(new AMutableInt16(value));
@@ -59,7 +59,7 @@ public final class JShort extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
-
+    public void setValue(Short s) {
+        setValue(s);
     }
 }

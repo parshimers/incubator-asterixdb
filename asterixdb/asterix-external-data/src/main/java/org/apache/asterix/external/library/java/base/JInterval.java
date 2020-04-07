@@ -19,6 +19,7 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
+import java.time.Duration;
 import java.util.List;
 
 import org.apache.asterix.dataflow.data.nontagged.serde.AIntervalSerializerDeserializer;
@@ -28,7 +29,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JInterval extends JObject<List<Double>> {
+public final class JInterval extends JObject<Duration> {
 
     public JInterval(long intervalStart, long intervalEnd) {
         super(new AMutableInterval(intervalStart, intervalEnd, (byte) 0));
@@ -36,18 +37,6 @@ public final class JInterval extends JObject<List<Double>> {
 
     public void setValue(long intervalStart, long intervalEnd, byte typetag) throws HyracksDataException {
         ((AMutableInterval) value).setValue(intervalStart, intervalEnd, typetag);
-    }
-
-    public long getIntervalStart() {
-        return ((AMutableInterval) value).getIntervalStart();
-    }
-
-    public long getIntervalEnd() {
-        return ((AMutableInterval) value).getIntervalEnd();
-    }
-
-    public short getIntervalType() {
-        return ((AMutableInterval) value).getIntervalType();
     }
 
     @Override
@@ -67,12 +56,12 @@ public final class JInterval extends JObject<List<Double>> {
     }
 
     @Override
-    public void setValue(List<Double> o) {
+    public void setValue(Duration d) {
 
     }
 
     @Override
-    public List<Double> getValue() {
+    public Duration getValue() {
         return null;
     }
 
