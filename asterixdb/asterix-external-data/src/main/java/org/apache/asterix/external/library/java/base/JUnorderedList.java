@@ -46,7 +46,7 @@ public final class JUnorderedList extends JList<List<? extends Object>> {
         this.listType = new AUnorderedListType(elementType, null);
     }
 
-    public List<? extends Object> getValue() {
+    public List<? extends Object> getValueGeneric() {
         return jObjects;
     }
 
@@ -70,19 +70,19 @@ public final class JUnorderedList extends JList<List<? extends Object>> {
     }
 
     @Override
-    public void setValue(List<? extends Object> vals) {
+    public void setValueGeneric(List<? extends Object> vals) {
         if (vals.size() > 0) {
             Object first = vals.get(0);
-            Class asxClass = typeConv.get(first.getClass());
+            Class asxClass = JObject.typeConv.get(first.getClass());
             IJObject obj = pool.allocate(asxClass);
-            obj.setValue(first);
+            obj.setValueGeneric(first);
             IAType listType = obj.getIAType();
             this.listType = new AUnorderedListType(listType, "");
         }
         for (Object v : vals) {
-            Class asxClass = typeConv.get(v.getClass());
+            Class asxClass = JObject.typeConv.get(v.getClass());
             IJObject obj = pool.allocate(asxClass);
-            obj.setValue(v);
+            obj.setValueGeneric(v);
             add(obj);
         }
     }

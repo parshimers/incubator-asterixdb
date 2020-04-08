@@ -39,7 +39,11 @@ public final class JDateTime extends JObject<LocalDateTime> {
         ((AMutableDateTime) value).setValue(chrononTime);
     }
 
-    public LocalDateTime getValue() {
+    public long getValue(){
+        return ((AMutableDateTime) value).getChrononTime();
+    }
+
+    public LocalDateTime getValueGeneric() {
         return LocalDateTime.ofEpochSecond(((AMutableDateTime) value).getChrononTime(),0,ZoneOffset.UTC);
     }
 
@@ -60,7 +64,7 @@ public final class JDateTime extends JObject<LocalDateTime> {
     }
 
     @Override
-    public void setValue(LocalDateTime dt) {
+    public void setValueGeneric(LocalDateTime dt) {
         setValue(dt.toEpochSecond(ZoneOffset.UTC));
     }
 }

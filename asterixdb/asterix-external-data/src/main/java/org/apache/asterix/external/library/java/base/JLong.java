@@ -38,13 +38,21 @@ public final class JLong extends JObject<Long> {
         super(new AMutableInt64(v));
     }
 
+    public void setValue(long l){
+        ((AMutableInt64) value).setValue(l);
+    }
+
+    public long getValue(){
+        return ((AMutableInt64) value).getLongValue();
+    }
+
     @Override
-    public void setValue(Long v) {
+    public void setValueGeneric(Long v) {
         ((AMutableInt64) value).setValue(v);
     }
 
     @Override
-    public Long getValue() {
+    public Long getValueGeneric() {
         return ((AMutableInt64) value).getLongValue();
     }
 

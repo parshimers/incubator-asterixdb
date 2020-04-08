@@ -32,6 +32,8 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
+import org.apache.asterix.external.library.java.JObjectPointableVisitor;
+import org.apache.asterix.external.library.java.base.JObject;
 import org.apache.asterix.external.library.py.PyObjectPointableVisitor;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.pointables.AFlatValuePointable;
@@ -68,7 +70,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     protected final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     private final PointableAllocator pointableAllocator;
-    private final PyObjectPointableVisitor pointableVisitor;
+    private final JObjectPointableVisitor pointableVisitor;
     private final Object[] argHolder;
     protected final File pythonPath;
     private final IObjectPool<IJObject, Class> reflectingPool = new ListObjectPool<>(ReflectingJObjectFactory.INSTANCE);
@@ -84,7 +86,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(ControllerConfig.Option.PYTHON_HOME));
         this.pointableAllocator = new PointableAllocator();
-        this.pointableVisitor = new PyObjectPointableVisitor();
+        this.pointableVisitor = new JObjectPointableVisitor();
 
         DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
@@ -233,7 +235,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
         IVisitablePointable pointable;
-        Object obj = null;
+        Object obj;
         IAType type = argTypes[index];
         switch (type.getTypeTag()) {
             case OBJECT:
@@ -282,10 +284,10 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private void wrap(Object o, DataOutput out) throws HyracksDataException {
         Class concrete = o.getClass();
-        Class asxConv = IJObject.typeConv.get(concrete);
+        Class asxConv = JObject.typeConv.get(concrete);
         IJObject res = reflectingPool.allocate(asxConv);
         res.setPool(reflectingPool);
-        res.setValue(o);
+        res.setValueGeneric(o);
         res.serialize(out, true);
     }
 }

@@ -184,25 +184,25 @@ public final class JRecord implements IJObject<Map<String, Object>> {
     }
 
     @Override
-    public void setValue(Map<String, Object> o) {
+    public void setValueGeneric(Map<String, Object> o) {
         for (Map.Entry<String, Object> e : o.entrySet()) {
-            Class asxClass = typeConv.get(e.getValue().getClass());
+            Class asxClass = JObject.typeConv.get(e.getValue().getClass());
             IJObject obj = pool.allocate(asxClass);
-            obj.setValue(e.getValue());
+            obj.setValueGeneric(e.getValue());
             openFields.put(e.getKey(), obj);
         }
     }
 
     @Override
-    public Map<String, Object> getValue() {
+    public Map<String, Object> getValueGeneric() {
         HashMap<String, Object> rec = new HashMap<>();
         String[] closedFieldNames = recordType.getFieldNames();
         int idx = 0;
         for (IJObject j : fields) {
-            rec.put(closedFieldNames[idx], j.getValue());
+            rec.put(closedFieldNames[idx], j.getValueGeneric());
             idx++;
         }
-        openFields.entrySet().forEach(e -> rec.put(e.getKey(), e.getValue().getValue()));
+        openFields.entrySet().forEach(e -> rec.put(e.getKey(), e.getValue().getValueGeneric()));
         return rec;
     }
 

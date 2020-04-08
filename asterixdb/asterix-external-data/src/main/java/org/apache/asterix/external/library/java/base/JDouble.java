@@ -38,7 +38,7 @@ public final class JDouble extends JObject {
         ((AMutableDouble) value).setValue(v);
     }
 
-    public Double getValue() {
+    public Double getValueGeneric() {
         return ((AMutableDouble) value).getDoubleValue();
     }
 
@@ -59,7 +59,7 @@ public final class JDouble extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
+    public void setValueGeneric(Object o) {
 
     }
 }

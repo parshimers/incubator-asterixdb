@@ -38,7 +38,7 @@ public final class JFloat extends JObject {
         ((AMutableFloat) value).setValue(v);
     }
 
-    public Float getValue() {
+    public Float getValueGeneric() {
         return ((AMutableFloat) value).getFloatValue();
     }
 
@@ -59,7 +59,7 @@ public final class JFloat extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
+    public void setValueGeneric(Object o) {
 
     }
 }

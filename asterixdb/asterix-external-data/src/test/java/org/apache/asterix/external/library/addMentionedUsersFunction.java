@@ -47,7 +47,7 @@ public class addMentionedUsersFunction implements IExternalScalarFunction {
         JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
         JString text = (JString) inputRecord.getValueByName(textFieldName);
 
-        String[] tokens = text.getValue().split(" ");
+        String[] tokens = text.getValueGeneric().split(" ");
         for (String tk : tokens) {
             if (tk.startsWith("@")) {
                 JString newField = (JString) functionHelper.getObject(JTypeTag.STRING);

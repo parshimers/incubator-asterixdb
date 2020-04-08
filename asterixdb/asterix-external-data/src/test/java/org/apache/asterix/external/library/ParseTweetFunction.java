@@ -46,7 +46,7 @@ public class ParseTweetFunction implements IExternalScalarFunction {
         JString id = (JString) inputRecord.getValueByName("id");
         JString text = (JString) inputRecord.getValueByName("text");
 
-        String[] tokens = text.getValue().split(" ");
+        String[] tokens = text.getValueGeneric().split(" ");
         for (String tk : tokens) {
             if (tk.startsWith("#")) {
                 JString newField = (JString) functionHelper.getObject(JTypeTag.STRING);

@@ -38,7 +38,7 @@ public final class JDuration extends JObject {
         ((AMutableDuration) value).setValue(months, milliseconds);
     }
 
-    public Pair<Integer, Long> getValue() {
+    public Pair<Integer, Long> getValueGeneric() {
         return Pair.of(((AMutableDuration) value).getMonths(), ((AMutableDuration) value).getMilliseconds());
     }
 
@@ -59,7 +59,7 @@ public final class JDuration extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
+    public void setValueGeneric(Object o) {
 
     }
 }

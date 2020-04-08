@@ -74,7 +74,7 @@ public class AllTypesFunction implements IExternalScalarFunction {
         result.setField("interests", interest);
         result.setField("children", children);
         JInt zipCode = (JInt) functionHelper.getObject(JTypeTag.INT);
-        zipCode.setValue(92841);
+        zipCode.setValueGeneric(92841);
         address.addField("Zipcode", zipCode);
         result.setField("address", address);
         result.setField("dob", dob);

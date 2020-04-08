@@ -20,7 +20,11 @@ package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ATypeTag;
@@ -29,6 +33,10 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public abstract class JObject<T> implements IJObject<T> {
 
+    public static final BiMap<Class, Class> typeConv = new ImmutableBiMap.Builder<Class, Class>().put(HashMap.class, JRecord.class)
+            .put(Byte.class, JByte.class).put(Short.class, JShort.class).put(Integer.class, JInt.class)
+            .put(Long.class, JLong.class).put(Float.class, JFloat.class).put(Double.class, JDouble.class)
+            .put(ArrayList.class, JOrderedList.class).put(String.class, JString.class).build();
     protected IAObject value;
     protected byte[] bytes;
     protected IObjectPool<IJObject, Class> pool;

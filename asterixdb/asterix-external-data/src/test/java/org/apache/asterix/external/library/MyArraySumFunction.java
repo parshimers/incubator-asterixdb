@@ -37,12 +37,12 @@ public class MyArraySumFunction implements IExternalScalarFunction {
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         JOrderedList arg0 = (JOrderedList) (functionHelper.getArgument(0));
-        List<JInt> arg = (List) arg0.getValue();
+        List<JInt> arg = (List) arg0.getValueGeneric();
         int sum = 0;
         for (int iter1 = 0; iter1 < arg.size(); iter1++) {
             sum += arg.get(iter1).getValue();
         }
-        result.setValue(sum);
+        result.setValueGeneric(sum);
         functionHelper.setResult(result);
     }
 

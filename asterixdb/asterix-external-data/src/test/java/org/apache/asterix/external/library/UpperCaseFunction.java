@@ -48,12 +48,12 @@ public class UpperCaseFunction implements IExternalScalarFunction {
         JOrderedList textList = (JOrderedList) inputRecord.getValueByName("text_list");
         JOrderedList capList = new JOrderedList(BuiltinType.ASTRING);
         JInt id = (JInt) inputRecord.getValueByName("id");
-        id.setValue(id.getValue() * -1);
+        id.setValueGeneric(id.getValue() * -1);
 
-        for (int iter1 = 0; iter1 < textList.getValue().size(); iter1++) {
-            JRecord originalElement = (JRecord) textList.getValue().get(iter1);
+        for (int iter1 = 0; iter1 < textList.getValueGeneric().size(); iter1++) {
+            JRecord originalElement = (JRecord) textList.getValueGeneric().get(iter1);
             JString originalText = (JString) originalElement.getValueByName("text");
-            JString capText = new JString(originalText.getValue().toUpperCase());
+            JString capText = new JString(originalText.getValueGeneric().toUpperCase());
             capList.add(capText);
         }
         JInt element_n = new JInt(textList.size());

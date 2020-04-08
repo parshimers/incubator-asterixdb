@@ -38,7 +38,11 @@ public final class JShort extends JObject<Short> {
         ((AMutableInt16) value).setValue(v);
     }
 
-    public Short getValue() {
+    public short getValue(){
+        return ((AMutableInt16) value).getShortValue();
+    }
+
+    public Short getValueGeneric() {
         return ((AMutableInt16) value).getShortValue();
     }
 
@@ -59,7 +63,7 @@ public final class JShort extends JObject<Short> {
     }
 
     @Override
-    public void setValue(Short s) {
-        setValue(s);
+    public void setValueGeneric(Short s) {
+        setValueGeneric(s);
     }
 }

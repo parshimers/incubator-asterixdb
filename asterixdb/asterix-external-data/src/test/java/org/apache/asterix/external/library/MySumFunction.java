@@ -35,7 +35,7 @@ public class MySumFunction implements IExternalScalarFunction {
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         int arg0 = ((JInt) functionHelper.getArgument(0)).getValue();
         int arg1 = ((JInt) functionHelper.getArgument(1)).getValue();
-        result.setValue(arg0 + arg1);
+        result.setValueGeneric(arg0 + arg1);
         functionHelper.setResult(result);
     }
 

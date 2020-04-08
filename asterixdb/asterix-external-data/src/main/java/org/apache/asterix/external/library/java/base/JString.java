@@ -28,7 +28,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JString extends JObject {
+public final class JString extends JObject<String> {
 
     public JString() {
         super(new AMutableString(""));
@@ -42,7 +42,7 @@ public final class JString extends JObject {
         ((AMutableString) value).setValue(v);
     }
 
-    public String getValue() {
+    public String getValueGeneric() {
         return ((AMutableString) value).getStringValue();
     }
 
@@ -63,9 +63,7 @@ public final class JString extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
-        if (o instanceof String) {
-            setValue((String) o);
-        }
+    public void setValueGeneric(String o) {
+            setValue(o);
     }
 }

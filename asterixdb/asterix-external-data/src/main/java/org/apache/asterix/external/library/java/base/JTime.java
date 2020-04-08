@@ -38,7 +38,11 @@ public final class JTime extends JObject<LocalTime> {
         ((AMutableTime) value).setValue(timeInMillsec);
     }
 
-    public LocalTime getValue() {
+    public int getValue() {
+        return ((AMutableTime) value).getChrononTime();
+    }
+
+    public LocalTime getValueGeneric() {
         return LocalTime.ofSecondOfDay(((AMutableTime) value).getChrononTime());
     }
 
@@ -59,7 +63,7 @@ public final class JTime extends JObject<LocalTime> {
     }
 
     @Override
-    public void setValue(LocalTime t) {
+    public void setValueGeneric(LocalTime t) {
         setValue(t.toSecondOfDay());
     }
 }

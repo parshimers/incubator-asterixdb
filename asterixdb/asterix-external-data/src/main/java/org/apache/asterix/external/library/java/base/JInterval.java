@@ -56,12 +56,12 @@ public final class JInterval extends JObject<Duration> {
     }
 
     @Override
-    public void setValue(Duration d) {
+    public void setValueGeneric(Duration d) {
 
     }
 
     @Override
-    public Duration getValue() {
+    public Duration getValueGeneric() {
         return null;
     }
 

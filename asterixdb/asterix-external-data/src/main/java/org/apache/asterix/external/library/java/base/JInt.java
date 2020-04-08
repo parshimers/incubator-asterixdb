@@ -38,15 +38,22 @@ public class JInt extends JObject<Integer> {
         super(new AMutableInt32(value));
     }
 
-    @Override
-    public void setValue(Integer v) {
+    public void setValue(int v) {
         ((AMutableInt32) value).setValue(v);
     }
 
+    public int getValue() { return ((AMutableInt32)value).getIntegerValue();}
+
     @Override
-    public Integer getValue() {
-        return ((AMutableInt32) value).getIntegerValue();
+    public void setValueGeneric(Integer v) {
+        setValue(v);
     }
+
+    @Override
+    public Integer getValueGeneric() {
+        return getValue();
+    }
+
 
     @Override
     public void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException {

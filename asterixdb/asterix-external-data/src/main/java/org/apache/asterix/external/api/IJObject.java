@@ -41,18 +41,13 @@ import com.google.common.collect.ImmutableBiMap;
 
 public interface IJObject<T> {
 
-    BiMap<Class, Class> typeConv = new ImmutableBiMap.Builder<Class, Class>().put(HashMap.class, JRecord.class)
-            .put(Byte.class, JByte.class).put(Short.class, JShort.class).put(Integer.class, JInt.class)
-            .put(Long.class, JLong.class).put(Float.class, JFloat.class).put(Double.class, JDouble.class)
-            .put(ArrayList.class, JOrderedList.class).put(String.class, JString.class).build();
-
     IAType getIAType();
 
     IAObject getIAObject();
 
-    void setValue(T o);
+    void setValueGeneric(T o);
 
-    T getValue();
+    T getValueGeneric();
 
     void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException;
 

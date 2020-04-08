@@ -42,11 +42,11 @@ public final class JMissing extends JObject<Object> {
     }
 
     @Override
-    public void setValue(Object o) {
+    public void setValueGeneric(Object o) {
     }
 
     @Override
-    public Object getValue() {
+    public Object getValueGeneric() {
         return null;
     }
 

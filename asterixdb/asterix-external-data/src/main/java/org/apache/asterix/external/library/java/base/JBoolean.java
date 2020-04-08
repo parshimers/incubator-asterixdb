@@ -40,7 +40,11 @@ public final class JBoolean extends JObject<Boolean> {
         this.aBoolean = value;
     }
 
-    public Boolean getValue() {
+    public boolean getValue(){
+        return aBoolean;
+    }
+
+    public Boolean getValueGeneric() {
         return aBoolean;
     }
 
@@ -55,8 +59,8 @@ public final class JBoolean extends JObject<Boolean> {
     }
 
     @Override
-    public void setValue(Boolean b) {
-        setValue(b);
+    public void setValueGeneric(Boolean b) {
+        setValueGeneric(b);
     }
 
     @Override
