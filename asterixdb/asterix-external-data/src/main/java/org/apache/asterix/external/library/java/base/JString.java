@@ -42,8 +42,12 @@ public final class JString extends JObject<String> {
         ((AMutableString) value).setValue(v);
     }
 
-    public String getValueGeneric() {
+    public String getValue() {
         return ((AMutableString) value).getStringValue();
+    }
+
+    public String getValueGeneric() {
+        return getValue();
     }
 
     @Override
@@ -64,6 +68,6 @@ public final class JString extends JObject<String> {
 
     @Override
     public void setValueGeneric(String o) {
-            setValue(o);
+        setValue(o);
     }
 }

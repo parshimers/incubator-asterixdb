@@ -179,7 +179,7 @@ public class JObjectAccessors {
             int s = pointable.getStartOffset();
             int i = AInt32SerializerDeserializer.getInt(b, s + 1);
             IJObject jObject = objectPool.allocate(BuiltinType.AINT32);
-            ((JInt) jObject).setValueGeneric(i);
+            ((JInt) jObject).setValue(i);
             return jObject;
         }
     }
@@ -211,7 +211,7 @@ public class JObjectAccessors {
             int s = pointable.getStartOffset();
             long v = AInt64SerializerDeserializer.getLong(b, s + 1);
             IJObject jObject = objectPool.allocate(BuiltinType.AINT64);
-            ((JLong) jObject).setValueGeneric(v);
+            ((JLong) jObject).setValue(v);
             return jObject;
         }
     }
@@ -275,7 +275,7 @@ public class JObjectAccessors {
             int s = pointable.getStartOffset();
             Boolean v = ABooleanSerializerDeserializer.getBoolean(b, s + 1);
             IJObject jObject = objectPool.allocate(BuiltinType.ABOOLEAN);
-            ((JBoolean) jObject).setValueGeneric(v);
+            ((JBoolean) jObject).setValue(v);
             return jObject;
         }
     }

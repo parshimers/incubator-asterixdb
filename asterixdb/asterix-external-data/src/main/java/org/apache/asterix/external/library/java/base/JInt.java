@@ -42,7 +42,9 @@ public class JInt extends JObject<Integer> {
         ((AMutableInt32) value).setValue(v);
     }
 
-    public int getValue() { return ((AMutableInt32)value).getIntegerValue();}
+    public int getValue() {
+        return ((AMutableInt32) value).getIntegerValue();
+    }
 
     @Override
     public void setValueGeneric(Integer v) {
@@ -53,7 +55,6 @@ public class JInt extends JObject<Integer> {
     public Integer getValueGeneric() {
         return getValue();
     }
-
 
     @Override
     public void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException {

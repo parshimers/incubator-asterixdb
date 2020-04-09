@@ -24,7 +24,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.ServerSocket;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -33,8 +35,8 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.java.JObjectPointableVisitor;
+import org.apache.asterix.external.library.java.base.JComplexObject;
 import org.apache.asterix.external.library.java.base.JObject;
-import org.apache.asterix.external.library.py.PyObjectPointableVisitor;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.pointables.AFlatValuePointable;
 import org.apache.asterix.om.pointables.AListVisitablePointable;
@@ -73,7 +75,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final JObjectPointableVisitor pointableVisitor;
     private final Object[] argHolder;
     protected final File pythonPath;
-    private final IObjectPool<IJObject, Class> reflectingPool = new ListObjectPool<>(ReflectingJObjectFactory.INSTANCE);
+    private final IObjectPool<IJObject, IAType> reflectingPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
+    private final Map<IAType, TypeInfo> infoPool = new HashMap<>();
     private static final String ENTRYPOINT = "entrypoint.py";
     private static final String PY_NO_SITE_PKGS_OPT = "-S";
     private static final String PY_NO_USER_PKGS_OPT = "-s";
@@ -235,58 +238,74 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
         IVisitablePointable pointable;
-        Object obj;
+        IJObject jobj;
         IAType type = argTypes[index];
+        TypeInfo info;
         switch (type.getTypeTag()) {
             case OBJECT:
                 pointable = pointableAllocator.allocateRecordValue(type);
                 pointable.set(valueReference);
-                obj = pointableVisitor.visit((ARecordVisitablePointable) pointable, type);
+                info = getTypeInfo(type);
+                jobj = pointableVisitor.visit((ARecordVisitablePointable) pointable, info);
                 break;
             case ARRAY:
             case MULTISET:
                 pointable = pointableAllocator.allocateListValue(type);
                 pointable.set(valueReference);
-                obj = pointableVisitor.visit((AListVisitablePointable) pointable, type);
+                info = getTypeInfo(type);
+                jobj = pointableVisitor.visit((AListVisitablePointable) pointable, info);
                 break;
             case ANY:
                 TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
                 pointy.set(valueReference);
                 ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
+                info = getTypeInfo(rtType);
                 switch (rtTypeTag) {
                     case OBJECT:
                         pointable = pointableAllocator.allocateRecordValue(rtType);
                         pointable.set(valueReference);
-                        obj = pointableVisitor.visit((ARecordVisitablePointable) pointable, rtType);
+                        jobj = pointableVisitor.visit((ARecordVisitablePointable) pointable, info);
                         break;
                     case ARRAY:
                     case MULTISET:
                         pointable = pointableAllocator.allocateListValue(rtType);
                         pointable.set(valueReference);
-                        obj = pointableVisitor.visit((AListVisitablePointable) pointable, rtType);
+                        jobj = pointableVisitor.visit((AListVisitablePointable) pointable, info);
                         break;
                     default:
                         pointable = pointableAllocator.allocateFieldValue(rtType);
                         pointable.set(valueReference);
-                        obj = pointableVisitor.visit((AFlatValuePointable) pointable, rtType);
+                        jobj = pointableVisitor.visit((AFlatValuePointable) pointable, info);
                         break;
                 }
                 break;
             default:
                 pointable = pointableAllocator.allocateFieldValue(type);
                 pointable.set(valueReference);
-                obj = pointableVisitor.visit((AFlatValuePointable) pointable, type);
+                info = getTypeInfo(type);
+                jobj = pointableVisitor.visit((AFlatValuePointable) pointable, info);
                 break;
         }
-        argHolder[index] = obj;
+        argHolder[index] = jobj.getValueGeneric();
+    }
+
+    private TypeInfo getTypeInfo(IAType type) {
+        TypeInfo typeInfo = infoPool.get(type);
+        if (typeInfo == null) {
+            typeInfo = new TypeInfo(reflectingPool, type, type.getTypeTag());
+            infoPool.put(type, typeInfo);
+        }
+        return typeInfo;
     }
 
     private void wrap(Object o, DataOutput out) throws HyracksDataException {
         Class concrete = o.getClass();
-        Class asxConv = JObject.typeConv.get(concrete);
+        IAType asxConv = JObject.convertType(concrete);
         IJObject res = reflectingPool.allocate(asxConv);
-        res.setPool(reflectingPool);
+        if (res instanceof JComplexObject) {
+            ((JComplexObject) res).setPool(reflectingPool);
+        }
         res.setValueGeneric(o);
         res.serialize(out, true);
     }

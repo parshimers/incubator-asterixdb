@@ -38,11 +38,11 @@ public final class JLong extends JObject<Long> {
         super(new AMutableInt64(v));
     }
 
-    public void setValue(long l){
+    public void setValue(long l) {
         ((AMutableInt64) value).setValue(l);
     }
 
-    public long getValue(){
+    public long getValue() {
         return ((AMutableInt64) value).getLongValue();
     }
 

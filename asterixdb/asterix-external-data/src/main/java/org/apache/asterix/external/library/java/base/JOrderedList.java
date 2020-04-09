@@ -29,7 +29,6 @@ import org.apache.asterix.om.base.AMutableOrderedList;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
@@ -55,6 +54,10 @@ public final class JOrderedList extends JList<List<? extends Object>> {
         return jObjects;
     }
 
+    public List<IJObject> getValue() {
+        return jObjects;
+    }
+
     @Override
     public IAType getIAType() {
         return listType;
@@ -73,14 +76,14 @@ public final class JOrderedList extends JList<List<? extends Object>> {
     public void setValueGeneric(List<? extends Object> vals) {
         if (vals.size() > 0) {
             Object first = vals.get(0);
-            Class asxClass = JObject.typeConv.get(first.getClass());
+            IAType asxClass = JObject.convertType(first.getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValueGeneric(first);
             IAType listType = obj.getIAType();
             this.listType = new AOrderedListType(listType, "");
         }
         for (Object v : vals) {
-            Class asxClass = JObject.typeConv.get(v.getClass());
+            IAType asxClass = JObject.convertType(v.getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValueGeneric(v);
             add(obj);
@@ -107,8 +110,4 @@ public final class JOrderedList extends JList<List<? extends Object>> {
         jObjects.clear();
     }
 
-    @Override
-    public void setPool(IObjectPool<IJObject, Class> pool) {
-        this.pool = pool;
-    }
 }

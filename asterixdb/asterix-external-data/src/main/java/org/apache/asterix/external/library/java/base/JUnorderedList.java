@@ -73,14 +73,14 @@ public final class JUnorderedList extends JList<List<? extends Object>> {
     public void setValueGeneric(List<? extends Object> vals) {
         if (vals.size() > 0) {
             Object first = vals.get(0);
-            Class asxClass = JObject.typeConv.get(first.getClass());
+            IAType asxClass = JObject.convertType(first.getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValueGeneric(first);
             IAType listType = obj.getIAType();
             this.listType = new AUnorderedListType(listType, "");
         }
         for (Object v : vals) {
-            Class asxClass = JObject.typeConv.get(v.getClass());
+            IAType asxClass = JObject.convertType(v.getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValueGeneric(v);
             add(obj);

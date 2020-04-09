@@ -41,9 +41,8 @@ public class CapitalFinderFunction implements IExternalScalarFunction {
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         JString country = ((JString) functionHelper.getArgument(0));
         JRecord record = (JRecord) functionHelper.getResultObject();
-        String capitalCity = capitalList.getProperty(country.getValueGeneric(), NOT_FOUND);
+        String capitalCity = capitalList.getProperty(country.getValue(), NOT_FOUND);
         capital.setValue(capitalCity);
-
         record.setField("country", country);
         record.setField("capital", capital);
         functionHelper.setResult(record);

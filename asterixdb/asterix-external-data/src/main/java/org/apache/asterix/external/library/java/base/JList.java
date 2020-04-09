@@ -24,11 +24,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.asterix.external.api.IJObject;
-import org.apache.asterix.om.util.container.IObjectPool;
 
-public abstract class JList<T> implements IJObject<T> {
-
-    protected IObjectPool<IJObject, Class> pool;
+public abstract class JList<T> extends JComplexObject<T> {
 
     protected List<IJObject> jObjects;
 
@@ -62,11 +59,6 @@ public abstract class JList<T> implements IJObject<T> {
 
     public Iterator<IJObject> iterator() {
         return jObjects.iterator();
-    }
-
-    @Override
-    public void setPool(IObjectPool<IJObject, Class> pool) {
-        this.pool = pool;
     }
 
 }

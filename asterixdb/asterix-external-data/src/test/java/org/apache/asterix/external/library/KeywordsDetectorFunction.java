@@ -41,7 +41,7 @@ public class KeywordsDetectorFunction implements IExternalScalarFunction {
         JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
         JRecord outputRecord = (JRecord) functionHelper.getResultObject();
         JBoolean chkVal = new JBoolean(false);
-        String fieldValue = ((JString) inputRecord.getValueByName(fieldName)).getValueGeneric();
+        String fieldValue = ((JString) inputRecord.getValueByName(fieldName)).getValue();
 
         chkVal.setValue(keywordsList.contains(fieldValue));
 

@@ -39,7 +39,7 @@ public class WordInListFunction implements IExternalScalarFunction {
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         JString input = (JString) functionHelper.getArgument(0);
         JBoolean output = (JBoolean) functionHelper.getResultObject();
-        String fieldValue = input.getValueGeneric();
+        String fieldValue = input.getValue();
         boolean contains = keywordsList.contains(fieldValue);
         output.setValue(contains);
         functionHelper.setResult(output);

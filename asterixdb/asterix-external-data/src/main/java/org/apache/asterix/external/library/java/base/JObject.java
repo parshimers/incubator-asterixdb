@@ -18,31 +18,53 @@
  */
 package org.apache.asterix.external.library.java.base;
 
+import static org.apache.asterix.om.types.AOrderedListType.FULL_OPEN_ORDEREDLIST_TYPE;
+import static org.apache.asterix.om.types.AUnorderedListType.FULLY_OPEN_UNORDEREDLIST_TYPE;
+import static org.apache.asterix.om.utils.RecordUtil.FULLY_OPEN_RECORD_TYPE;
+
 import java.io.DataOutput;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableMap;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.BuiltinType;
+import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
+
 public abstract class JObject<T> implements IJObject<T> {
 
-    public static final BiMap<Class, Class> typeConv = new ImmutableBiMap.Builder<Class, Class>().put(HashMap.class, JRecord.class)
-            .put(Byte.class, JByte.class).put(Short.class, JShort.class).put(Integer.class, JInt.class)
-            .put(Long.class, JLong.class).put(Float.class, JFloat.class).put(Double.class, JDouble.class)
-            .put(ArrayList.class, JOrderedList.class).put(String.class, JString.class).build();
+    private static final Map<Class, IAType> typeConv = new ImmutableMap.Builder<Class, IAType>()
+            .put(HashMap.class, FULLY_OPEN_RECORD_TYPE).put(Byte.class, BuiltinType.AINT8)
+            .put(Short.class, BuiltinType.AINT16).put(Integer.class, BuiltinType.AINT32)
+            .put(Long.class, BuiltinType.AINT64).put(Float.class, BuiltinType.AFLOAT)
+            .put(Double.class, BuiltinType.ADOUBLE).put(LocalTime.class, BuiltinType.ATIME)
+            .put(LocalDate.class, BuiltinType.ADATE).put(LocalDateTime.class, BuiltinType.ADATETIME)
+            .put(Duration.class, BuiltinType.ADURATION).put(ArrayList.class, FULL_OPEN_ORDEREDLIST_TYPE)
+            .put(HashSet.class, FULLY_OPEN_UNORDEREDLIST_TYPE).put(String.class, BuiltinType.ASTRING).build();
     protected IAObject value;
     protected byte[] bytes;
     protected IObjectPool<IJObject, Class> pool;
 
     public JObject() {
 
+    }
+
+    public static IAType convertType(Class clazz) {
+        return typeConv.get(clazz);
     }
 
     protected JObject(IAObject value) {
@@ -65,8 +87,4 @@ public abstract class JObject<T> implements IJObject<T> {
         }
     }
 
-    @Override
-    public void setPool(IObjectPool<IJObject, Class> pool) {
-        this.pool = pool;
-    }
 }

@@ -17,4 +17,4 @@
  * under the License.
  */
 use externallibtest;
-typeValidation(907, 9.07, "907", 9.07, true);
+typeValidation(907, 9.07, "907", 9.07, false);

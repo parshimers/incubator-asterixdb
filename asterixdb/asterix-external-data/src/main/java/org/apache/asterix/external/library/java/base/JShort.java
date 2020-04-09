@@ -38,7 +38,7 @@ public final class JShort extends JObject<Short> {
         ((AMutableInt16) value).setValue(v);
     }
 
-    public short getValue(){
+    public short getValue() {
         return ((AMutableInt16) value).getShortValue();
     }
 

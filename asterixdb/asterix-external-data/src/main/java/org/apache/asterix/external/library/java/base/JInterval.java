@@ -20,7 +20,6 @@ package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
 import java.time.Duration;
-import java.util.List;
 
 import org.apache.asterix.dataflow.data.nontagged.serde.AIntervalSerializerDeserializer;
 import org.apache.asterix.om.base.AMutableInterval;

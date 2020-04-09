@@ -38,17 +38,15 @@ import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
-public final class JRecord implements IJObject<Map<String, Object>> {
+public final class JRecord extends JComplexObject<Map<String, Object>> {
 
     private static final AStringSerializerDeserializer aStringSerDer = AStringSerializerDeserializer.INSTANCE;
     private ARecordType recordType;
     private IJObject[] fields;
     private Map<String, IJObject> openFields;
-    private IObjectPool<IJObject, Class> pool;
     RecordBuilder recordBuilder = new RecordBuilder();
     ArrayBackedValueStorage fieldNameBuffer = new ArrayBackedValueStorage();
     ArrayBackedValueStorage fieldValueBuffer = new ArrayBackedValueStorage();
@@ -186,7 +184,7 @@ public final class JRecord implements IJObject<Map<String, Object>> {
     @Override
     public void setValueGeneric(Map<String, Object> o) {
         for (Map.Entry<String, Object> e : o.entrySet()) {
-            Class asxClass = JObject.typeConv.get(e.getValue().getClass());
+            IAType asxClass = JObject.convertType(e.getValue().getClass());
             IJObject obj = pool.allocate(asxClass);
             obj.setValueGeneric(e.getValue());
             openFields.put(e.getKey(), obj);
@@ -218,12 +216,6 @@ public final class JRecord implements IJObject<Map<String, Object>> {
                 }
             }
         }
-    }
-
-    @Override
-    public void setPool(IObjectPool<IJObject, Class> pool) {
-        this.pool = pool;
-
     }
 
     public void reset(IJObject[] fields, Map<String, IJObject> openFields) throws HyracksDataException {
