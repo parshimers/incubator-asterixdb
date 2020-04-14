@@ -42,8 +42,6 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
 
 public abstract class JObject<T> implements IJObject<T> {
 
