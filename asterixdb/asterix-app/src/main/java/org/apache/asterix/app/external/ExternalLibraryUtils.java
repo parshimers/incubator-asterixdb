@@ -28,7 +28,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
@@ -46,10 +48,13 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+
 public class ExternalLibraryUtils {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static final FilenameFilter nonHiddenFileNameFilter = (dir, name) -> !name.startsWith(".");
+    private static final Set<String> pythonExtensions = new ImmutableSet.Builder<String>().add(".pyz").add(".py").build();
+    private static final Set<String> javaExtensions = new ImmutableSet.Builder<String>().add(".zip").add(".jar").build();
 
     private ExternalLibraryUtils() {
     }
@@ -267,7 +272,7 @@ public class ExternalLibraryUtils {
         if (classLoader != null) {
             externalLibraryManager.registerLibraryClassLoader(dataverse, name, classLoader);
         } else {
-            externalLibraryManager.setLibraryPath(dataverse, name, new URL[] { new URL("file://" + libraryPath) });
+            externalLibraryManager.setLibraryPath(dataverse, name, new URL[] { new File(libraryPath).toURL() });
         }
     }
 
@@ -301,12 +306,10 @@ public class ExternalLibraryUtils {
         // Get the jar file <Allow only a single jar file>
         String[] jarsInLibDir = libDir.list(jarFileFilter);
         if (jarsInLibDir.length > 1) {
-            return null;
-            //            throw new Exception("Incorrect library structure: found multiple library jars");
+            throw new Exception("Incorrect library structure: found multiple library jars");
         }
         if (jarsInLibDir.length <= 0) {
-            //            throw new Exception("Incorrect library structure: could not find library jar");
-            return null;
+            throw new Exception("Incorrect library structure: could not find library jar");
         }
 
         File libJar = new File(libDir, jarsInLibDir[0]);

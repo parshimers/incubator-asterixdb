@@ -27,7 +27,6 @@ import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-import javax.xml.crypto.Data;
 
 public interface ILibraryManager {
 
