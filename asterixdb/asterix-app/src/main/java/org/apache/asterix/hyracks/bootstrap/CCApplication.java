@@ -153,11 +153,9 @@ public class CCApplication extends BaseCCApplication {
         hcc = new HyracksConnection(strIP, port,
                 ccServiceCtx.getControllerService().getNetworkSecurityManager().getSocketChannelFactory());
         MetadataBuiltinFunctions.init();
-        ILibraryManager libraryManager = new ExternalLibraryManager();
         ReplicationProperties repProp =
                 new ReplicationProperties(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()));
         INcLifecycleCoordinator lifecycleCoordinator = createNcLifeCycleCoordinator(repProp.isReplicationEnabled());
-        ExternalLibraryUtils.setUpInstalledLibraries(libraryManager, false, ccServiceCtx.getServerCtx().getAppDir());
         componentProvider = new StorageComponentProvider();
 
         ccExtensionManager = new CCExtensionManager(new ArrayList<>(getExtensions()));

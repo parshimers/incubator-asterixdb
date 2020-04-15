@@ -25,7 +25,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -34,66 +36,33 @@ import org.apache.logging.log4j.Logger;
 
 public class ExternalLibraryManager implements ILibraryManager {
 
-    private final Map<Pair<DataverseName, String>, URLClassLoader> libraryClassLoaders = new HashMap<>();
     private static final Logger LOGGER = LogManager.getLogger();
-    private final Map<Pair<DataverseName, String>, URL[]> libraryPaths = new HashMap<>();
+    private final Map<Pair<DataverseName, String>, ILibrary> libraries= new ConcurrentHashMap<>();
 
     @Override
-    public void registerLibraryClassLoader(DataverseName dataverseName, String libraryName,
-            URLClassLoader classLoader) {
+    public void register(DataverseName dataverseName, String libraryName, ILibrary library) {
         Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
-        synchronized (libraryClassLoaders) {
-            if (libraryClassLoaders.get(key) != null) {
-                return;
-            }
-            libraryClassLoaders.put(key, classLoader);
-            libraryPaths.put(key, classLoader.getURLs());
+        libraries.put(key,library);
+    }
+
+    @Override
+    public void deregister(DataverseName dataverseName, String libraryName) {
+        Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
+        ILibrary cl = libraries.get(key);
+        if (cl != null) {
+            cl.close();
+            libraries.remove(key);
         }
     }
 
     @Override
-    public List<Pair<DataverseName, String>> getAllLibraries() {
-        ArrayList<Pair<DataverseName, String>> libs = new ArrayList<>();
-        synchronized (libraryClassLoaders) {
-            libraryClassLoaders.forEach((key, value) -> libs.add(key));
-        }
-        return libs;
-    }
-
-    @Override
-    public void deregisterLibraryClassLoader(DataverseName dataverseName, String libraryName) {
+    public <T> ILibrary<T> getLibrary(DataverseName dataverseName, String libraryName) {
         Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
-        synchronized (libraryClassLoaders) {
-            URLClassLoader cl = libraryClassLoaders.get(key);
-            if (cl != null) {
-                try {
-                    cl.close();
-                } catch (IOException e) {
-                    LOGGER.error("Unable to close UDF classloader!", e);
-                }
-                libraryClassLoaders.remove(key);
-            }
-        }
-    }
-
-    @Override
-    public ClassLoader getLibraryClassLoader(DataverseName dataverseName, String libraryName) {
-        Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
-        return libraryClassLoaders.get(key);
+        return libraries.get(key);
     }
 
     private static Pair<DataverseName, String> getKey(DataverseName dataverseName, String libraryName) {
         return new Pair(dataverseName, libraryName);
-    }
-
-    @Override
-    public URL[] getLibraryUrls(DataverseName dataverseName, String libraryName) {
-        return libraryPaths.get(getKey(dataverseName, libraryName));
-    }
-
-    @Override
-    public void setLibraryPath(DataverseName dataverseName, String libraryName, URL[] urls) {
-        libraryPaths.put(getKey(dataverseName, libraryName), urls);
     }
 
 }

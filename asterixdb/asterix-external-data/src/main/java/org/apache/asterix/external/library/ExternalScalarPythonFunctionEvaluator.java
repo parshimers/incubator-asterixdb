@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.ServerSocket;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import java.util.Objects;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
+import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
@@ -143,7 +145,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         public void initialize() throws IOException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
-            String wd = libMgr.getLibraryUrls(fnId.dataverseName, fnId.libraryName)[0].getFile();
+            ILibrary<List<URL>> library = libMgr.getLibrary(fnId.dataverseName,fnId.libraryName);
+            String wd = library.get().get(0).getFile();
             int port = getFreeHighPort();
             String[] identSplits = externalIdents.get(0).split("\\.");
             String module = identSplits[0];

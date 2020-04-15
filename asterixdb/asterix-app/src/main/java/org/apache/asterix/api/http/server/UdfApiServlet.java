@@ -76,7 +76,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         DataverseName dataverseName = DataverseName.createFromCanonicalForm(path[path.length - 2]); // TODO: use path separators instead for multiparts
         return new Pair<>(resourceName, dataverseName);
     }
-
+python
     @Override
     protected void post(IServletRequest request, IServletResponse response) {
         FullHttpRequest req = request.getHttpRequest();
@@ -114,7 +114,7 @@ public class UdfApiServlet extends BasicAuthServlet {
                             fc.write(content);
                         }
                     }
-                } else {
+                } else {LibraryClassLoade
                     FileUtils.copyFile(udf.getFile(), udfFile);
                 }
                 IHyracksClientConnection hcc = appCtx.getHcc();

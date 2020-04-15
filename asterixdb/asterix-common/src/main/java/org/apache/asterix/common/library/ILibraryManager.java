@@ -27,6 +27,8 @@ import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
+import javax.xml.crypto.Data;
+
 public interface ILibraryManager {
 
     /**
@@ -37,13 +39,8 @@ public interface ILibraryManager {
      * @param libraryName
      * @param classLoader
      */
-    void registerLibraryClassLoader(DataverseName dataverseName, String libraryName, URLClassLoader classLoader)
+    void register(DataverseName dataverseName, String libraryName, ILibrary lib)
             throws HyracksDataException;
-
-    /**
-     * @return all registered libraries.
-     */
-    List<Pair<DataverseName, String>> getAllLibraries();
 
     /**
      * De-registers a library class loader.
@@ -51,18 +48,8 @@ public interface ILibraryManager {
      * @param dataverseName
      * @param libraryName
      */
-    void deregisterLibraryClassLoader(DataverseName dataverseName, String libraryName);
+    void deregister(DataverseName dataverseName, String libraryName);
 
-    /**
-     * Finds a class loader for a given pair of dataverse name and library name.
-     *
-     * @param dataverseName
-     * @param libraryName
-     * @return the library class loader associated with the dataverse and library.
-     */
-    ClassLoader getLibraryClassLoader(DataverseName dataverseName, String libraryName);
+    <T> ILibrary<T> getLibrary(DataverseName dvName, String libraryName);
 
-    URL[] getLibraryUrls(DataverseName dataverseName, String libraryName);
-
-    void setLibraryPath(DataverseName dataverseName, String libraryName, URL[] urls);
 }

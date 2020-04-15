@@ -232,7 +232,7 @@ public class ExternalLibraryUtils {
      * failure in installing an element does not effect installation of other
      * libraries.
      */
-    protected static void configureLibrary(ILibraryManager libraryManager, DataverseName dataverse, String libraryName,
+    protected static void configureLibrary(DataverseName dataverse, String libraryName,
             final File libraryDir, Map<DataverseName, List<String>> uninstalledLibs, boolean isMetadataNode)
             throws Exception {
 
@@ -353,8 +353,7 @@ public class ExternalLibraryUtils {
                 + File.separator + "udfs" + File.separator + "uninstall");
     }
 
-    public static String getExternalFunctionFullName(String libraryName, String functionName) {
-        return libraryName + "#" + functionName;
-    }
+
+
 
 }
