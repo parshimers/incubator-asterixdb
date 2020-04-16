@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ATypeTag;
@@ -42,6 +41,7 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
+import com.google.common.collect.ImmutableMap;
 
 public abstract class JObject<T> implements IJObject<T> {
 

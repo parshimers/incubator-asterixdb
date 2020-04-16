@@ -34,8 +34,8 @@ public class DeleteUdfMessage extends AbstractUdfMessage {
     @Override
     protected void handleAction(ILibraryManager mgr, boolean isMdNode, INcApplicationContext appCtx) throws Exception {
         if (isMdNode) {
-            ExternalLibraryUtils.uninstallLibrary(dataverseName, libraryName);
+            ExternalLibraryUtils.uninstallLibraryFromMetadata(dataverseName, libraryName);
         }
-        mgr.deregisterLibraryClassLoader(dataverseName, libraryName);
+        mgr.deregister(dataverseName, libraryName);
     }
 }

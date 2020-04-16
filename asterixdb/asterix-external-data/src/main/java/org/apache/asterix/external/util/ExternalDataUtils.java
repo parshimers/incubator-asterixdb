@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
+import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IDataParserFactory;
@@ -118,10 +119,6 @@ public class ExternalDataUtils {
                 && (aString.trim().length() > 1));
     }
 
-    public static ClassLoader getClassLoader(ILibraryManager libraryManager, DataverseName dataverse, String library) {
-        return libraryManager.getLibraryClassLoader(dataverse, library);
-    }
-
     public static String getLibraryName(String aString) {
         return aString.trim().split(FeedConstants.NamingConstants.LIBRARY_NAME_SEPARATOR)[0];
     }
@@ -135,7 +132,8 @@ public class ExternalDataUtils {
         try {
             String libraryName = getLibraryName(stream);
             String className = getExternalClassName(stream);
-            ClassLoader classLoader = getClassLoader(libraryManager, dataverse, libraryName);
+            ILibrary<ClassLoader> lib = libraryManager.getLibrary(dataverse, libraryName);
+            ClassLoader classLoader = lib.get();
             return ((IInputStreamFactory) (classLoader.loadClass(className).newInstance()));
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
             throw new RuntimeDataException(ErrorCode.UTIL_EXTERNAL_DATA_UTILS_FAIL_CREATE_STREAM_FACTORY, e);
@@ -233,7 +231,8 @@ public class ExternalDataUtils {
         }
         DataverseName dataverseName = DataverseName.createSinglePartName(dataverseAndLibrary[0]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
         String libraryName = dataverseAndLibrary[1];
-        ClassLoader classLoader = libraryManager.getLibraryClassLoader(dataverseName, libraryName);
+        ILibrary<ClassLoader> lib = libraryManager.getLibrary(dataverseName, libraryName);
+        ClassLoader classLoader = lib.get();
         try {
             return (IRecordReaderFactory<?>) classLoader.loadClass(libraryAndFactory[1]).newInstance();
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
@@ -246,7 +245,8 @@ public class ExternalDataUtils {
         try {
             String library = parserFactoryName.substring(0,
                     parserFactoryName.indexOf(ExternalDataConstants.EXTERNAL_LIBRARY_SEPARATOR));
-            ClassLoader classLoader = libraryManager.getLibraryClassLoader(dataverse, library);
+            ILibrary<ClassLoader> lib = libraryManager.getLibrary(dataverse, library);
+            ClassLoader classLoader = lib.get();
             return (IDataParserFactory) classLoader
                     .loadClass(parserFactoryName
                             .substring(parserFactoryName.indexOf(ExternalDataConstants.EXTERNAL_LIBRARY_SEPARATOR) + 1))

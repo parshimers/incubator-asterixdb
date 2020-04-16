@@ -57,7 +57,7 @@ import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.resources.IDeallocatable;
-import org.apache.hyracks.control.common.controllers.ControllerConfig;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
@@ -89,7 +89,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
 
-        pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(ControllerConfig.Option.PYTHON_HOME));
+        pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
         this.pointableAllocator = new PointableAllocator();
         this.pointableVisitor = new JObjectPointableVisitor();
 
@@ -97,7 +97,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         try {
             libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, pythonPath,
                     ctx.getTaskContext());
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
         argValues = new IPointable[args.length];
@@ -119,6 +119,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
         try {
             Object res = libraryEvaluator.callPython(argHolder);
+            resultBuffer.reset();
             wrap(res, resultBuffer.getDataOutput());
         } catch (IOException e) {
             throw new HyracksDataException("Error evaluating Python UDF", e);
@@ -142,22 +143,25 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         }
 
-        public void initialize() throws IOException {
+        public void initialize() throws IOException, InterruptedException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
-            ILibrary<List<URL>> library = libMgr.getLibrary(fnId.dataverseName,fnId.libraryName);
-            String wd = library.get().get(0).getFile();
+            ILibrary<URL> library = libMgr.getLibrary(fnId.dataverseName, fnId.libraryName);
+            String wd = library.get().getFile();
             int port = getFreeHighPort();
-            String[] identSplits = externalIdents.get(0).split("\\.");
-            String module = identSplits[0];
+            String packageModule = externalIdents.get(0);
             String clazz = "None";
-            String fn = externalIdents.get(1);
-            if (identSplits.length > 1) {
-                clazz = externalIdents.get(0).split("\\.")[1];
+            String fn;
+            if (externalIdents.size() > 2) {
+                clazz = externalIdents.get(1);
+                fn = externalIdents.get(2);
+            } else {
+                fn = externalIdents.get(1);
             }
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port), module, clazz, fn);
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port), packageModule, clazz, fn);
             pb.directory(new File(wd));
+            pb.environment().clear();
             pb.inheritIO();
             p = pb.start();
             remoteObj = new PyroProxy("127.0.0.1", port, "nextTuple");
@@ -170,11 +174,12 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         @Override
         public void deallocate() {
-            p.destroy();
+            p.destroyForcibly();
         }
 
         private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo,
-                ILibraryManager libMgr, File pythonHome, IHyracksTaskContext ctx) throws IOException {
+                ILibraryManager libMgr, File pythonHome, IHyracksTaskContext ctx)
+                throws IOException, InterruptedException {
             PythonLibraryEvaluatorId evaluatorId = new PythonLibraryEvaluatorId(dataverseName, finfo.getLibrary());
             PythonLibraryEvaluator evaluator = (PythonLibraryEvaluator) ctx.getStateObject(evaluatorId);
             if (evaluator == null) {
@@ -196,17 +201,13 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             return port;
         }
 
-        private void waitForPython() throws IOException {
+        private void waitForPython() throws IOException, InterruptedException {
             for (int i = 10; i > 0; i++) {
                 try {
                     remoteObj.call("ping");
                     break;
                 } catch (ConnectException e) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException f) {
-                        //doesn't matter
-                    }
+                    Thread.sleep(100);
                 }
             }
         }

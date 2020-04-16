@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.app.message;
 
-import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
@@ -34,8 +33,8 @@ public class LoadUdfMessage extends AbstractUdfMessage {
 
     @Override
     protected void handleAction(ILibraryManager mgr, boolean isMdNode, INcApplicationContext appCtx) throws Exception {
-        ExternalLibraryUtils.setUpExternaLibrary(mgr, isMdNode,
+        appCtx.getLibraryManager().setUpDeployedLibrary(
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                        "applications", dataverseName.getCanonicalForm() + "." + libraryName)); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+                        "applications", dataverseName.getCanonicalForm() + "." + libraryName));
     }
 }

@@ -28,6 +28,7 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.MetadataException;
+import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IAdapterFactory;
 import org.apache.asterix.external.api.IDataSourceAdapter;
@@ -129,8 +130,9 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ClassLoader cl =
-                                appCtx.getLibraryManager().getLibraryClassLoader(feed.getDataverseName(), libraryName);
+                        ILibrary<ClassLoader> lib =
+                                appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
+                        ClassLoader cl = lib.get();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:
@@ -202,8 +204,9 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ClassLoader cl =
-                                appCtx.getLibraryManager().getLibraryClassLoader(feed.getDataverseName(), libraryName);
+                        ILibrary<ClassLoader> lib =
+                                appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
+                        ClassLoader cl = lib.get();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:

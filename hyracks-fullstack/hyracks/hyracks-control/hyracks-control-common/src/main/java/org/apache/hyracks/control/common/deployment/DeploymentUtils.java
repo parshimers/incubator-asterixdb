@@ -24,11 +24,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -63,7 +63,6 @@ public class DeploymentUtils {
     private static final String SHIV_ROOT = "SHIV_ROOT";
     private static final String SHIV_ENTRY_POINT = "SHIV_ENTRY_POINT";
     private static final String SHIV_INTERPRETER = "SHIV_INTERPRETER";
-    private static final String BASH_PATH = File.separator + "bin" + File.separator + "bash";
 
     /**
      * undeploy an existing deployment
@@ -228,8 +227,10 @@ public class DeploymentUtils {
                     if (extractFromArchive) {
                         if (targetFile.getAbsolutePath().endsWith(SHIV_SUFFIX)) {
                             shiv(targetFile.getAbsolutePath(), deploymentDir);
+                            touchLang(deploymentDir, "PYTHON");
                         } else if (targetFile.getAbsolutePath().endsWith(ZIP_SUFFIX)) {
                             unzip(targetFile.getAbsolutePath(), deploymentDir);
+                            touchLang(deploymentDir, "JAVA");
                         }
                     }
                     downloadedFileURLs.add(targetFile.toURI().toURL());
@@ -273,16 +274,8 @@ public class DeploymentUtils {
     public static void shiv(String sourceFile, String outputDir) throws IOException {
         ShimLoader sh = new ShimLoader();
         sh.loadShim(outputDir, "pyro4.pyz");
-        sh.loadShim(outputDir, "bootstrap_env.sh");
-        ProcessBuilder pb = new ProcessBuilder();
-        pb.command(BASH_PATH, outputDir + File.separator + "bootstrap_env.sh", outputDir, sourceFile);
-        pb.inheritIO();
-        Process p = pb.start();
-        try {
-            p.waitFor(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted while waiting for library deployment to finish");
-        }
+        unzip(sourceFile, outputDir);
+        unzip(outputDir + File.separator + "pyro4.pyz", outputDir);
         sh.loadShim(outputDir, "entrypoint.py");
     }
 
@@ -291,5 +284,11 @@ public class DeploymentUtils {
             InputStream is = this.getClass().getClassLoader().getResourceAsStream(name);
             IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + File.separator + name)));
         }
+    }
+
+    public static void touchLang(String outputDir, String content) throws IOException {
+        PrintWriter pw = new PrintWriter(new FileOutputStream(new File(outputDir + File.separator + "LANG")));
+        pw.print(content);
+        pw.close();
     }
 }

@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.app.nc.task;
 
-import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.common.api.INCLifecycleTask;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.hyracks.api.control.CcId;
@@ -38,8 +37,8 @@ public class ExternalLibrarySetupTask implements INCLifecycleTask {
     public void perform(CcId ccId, IControllerService cs) throws HyracksDataException {
         INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         try {
-            ExternalLibraryUtils.setUpInstalledLibraries(appContext.getLibraryManager(), metadataNode,
-                    cs.getContext().getServerCtx().getAppDir());
+            appContext.getLibraryManager()
+                    .setUpDeployedLibrary(cs.getContext().getServerCtx().getAppDir().getAbsolutePath());
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }

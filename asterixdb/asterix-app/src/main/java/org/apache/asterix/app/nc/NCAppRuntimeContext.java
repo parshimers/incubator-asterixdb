@@ -18,6 +18,7 @@
  */
 package org.apache.asterix.app.nc;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
@@ -154,7 +155,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private IConfigValidator configValidator;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, NCExtensionManager extensionManager,
-            IPropertiesFactory propertiesFactory) {
+            IPropertiesFactory propertiesFactory) throws FileNotFoundException {
         this.ncServiceContext = ncServiceContext;
         compilerProperties = propertiesFactory.newCompilerProperties();
         externalProperties = propertiesFactory.newExternalProperties();
@@ -166,7 +167,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         replicationProperties = propertiesFactory.newReplicationProperties();
         messagingProperties = propertiesFactory.newMessagingProperties();
         nodeProperties = propertiesFactory.newNodeProperties();
-        libraryManager = new ExternalLibraryManager();
+        libraryManager = new ExternalLibraryManager(ncServiceContext.getServerCtx().getAppDir());
         ncExtensionManager = extensionManager;
         componentProvider = new StorageComponentProvider();
         resourceIdFactory = new GlobalResourceIdFactoryProvider(ncServiceContext).createResourceIdFactory();

@@ -21,6 +21,7 @@ package org.apache.asterix.external.library;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -39,7 +40,6 @@ import org.apache.asterix.om.pointables.ARecordVisitablePointable;
 import org.apache.asterix.om.pointables.PointableAllocator;
 import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.pointables.base.IVisitablePointable;
-import org.apache.asterix.om.pointables.printer.json.clean.APrintVisitor;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.EnumDeserializer;
@@ -109,18 +109,6 @@ public class JavaFunctionHelper implements IFunctionHelper {
         }
     }
 
-    @Override
-    public void setResultJSON(String json) throws HyracksDataException {
-        try {
-            jdp.setInputStream(org.apache.commons.io.IOUtils.toInputStream(json));
-            jdp.parse(outputProvider.getDataOutput());
-            isValidResult = true;
-        } catch (IOException e) {
-            throw new HyracksDataException(e.toString());
-        }
-
-    }
-
     private boolean checkInvalidReturnValueType(IJObject result, IAType expectedType) {
         if (expectedType.equals(BuiltinType.ANY)) {
             return false;
@@ -142,11 +130,9 @@ public class JavaFunctionHelper implements IFunctionHelper {
         return this.isValidResult;
     }
 
-    @Override
     public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
-        APrintVisitor pv = new APrintVisitor();
-        IVisitablePointable pointable = null;
-        IJObject jObject = null;
+        IVisitablePointable pointable;
+        IJObject jObject;
         IAType type = argTypes[index];
         switch (type.getTypeTag()) {
             case OBJECT:
@@ -260,7 +246,8 @@ public class JavaFunctionHelper implements IFunctionHelper {
     }
 
     @Override
-    public String getExternalIdentifier() {
-        return null;
+    public List<String> getExternalIdentifier() {
+        return finfo.getExternalIdentifier();
     }
+
 }

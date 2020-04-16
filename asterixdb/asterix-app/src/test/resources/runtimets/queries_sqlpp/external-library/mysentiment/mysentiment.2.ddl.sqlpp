@@ -18,4 +18,4 @@
  */
  USE externallibtest;
 
-create function mysentiment(s) language python as "testlib","sentiment.TweetSent:sentiment";
+create function sentiment(s) language python as "testlib","sentiment:TweetSent";

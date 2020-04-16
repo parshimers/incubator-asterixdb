@@ -24,6 +24,7 @@ import java.io.IOException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.functions.FunctionSignature;
+import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionFactory;
@@ -53,7 +54,8 @@ class ExternalScalarJavaFunctionEvaluator extends ExternalScalarFunctionEvaluato
         String functionLibrary = finfo.getLibrary();
 
         functionHelper = new JavaFunctionHelper(finfo, argTypes, resultBuffer);
-        ClassLoader libraryClassLoader = libraryManager.getLibraryClassLoader(functionDataverse, functionLibrary);
+        ILibrary<ClassLoader> lib = libraryManager.getLibrary(functionDataverse, functionLibrary);
+        ClassLoader libraryClassLoader = lib.get();
         String classname = finfo.getExternalIdentifier().get(0).trim();
         try {
             Class<?> clazz = Class.forName(classname, true, libraryClassLoader);
@@ -92,5 +94,4 @@ class ExternalScalarJavaFunctionEvaluator extends ExternalScalarFunctionEvaluato
             functionHelper.setArgument(i, inputVal);
         }
     }
-
 }

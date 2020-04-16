@@ -31,6 +31,8 @@ import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.message.DeleteUdfMessage;
 import org.apache.asterix.app.message.LoadUdfMessage;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
+import org.apache.asterix.common.library.ILibrary;
+import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
@@ -76,7 +78,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         DataverseName dataverseName = DataverseName.createFromCanonicalForm(path[path.length - 2]); // TODO: use path separators instead for multiparts
         return new Pair<>(resourceName, dataverseName);
     }
-python
+
     @Override
     protected void post(IServletRequest request, IServletResponse response) {
         FullHttpRequest req = request.getHttpRequest();
@@ -114,25 +116,27 @@ python
                             fc.write(content);
                         }
                     }
-                } else {LibraryClassLoade
+                } else {
                     FileUtils.copyFile(udf.getFile(), udfFile);
                 }
                 IHyracksClientConnection hcc = appCtx.getHcc();
+                ILibraryManager libMgr = appCtx.getLibraryManager();
                 DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
-                ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
-                if (cl != null) {
+                ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
+                if (lib != null) {
                     deleteUdf(dataverse, resourceName);
                 }
                 hcc.deployBinary(udfName, Arrays.asList(new String[] { udfFile.getAbsolutePath() }), true);
-                ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(), false,
+                String deployedPath =
                         FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                                "applications", udfName.toString()));
-
+                                "applications", udfName.toString());
+                libMgr.setUpDeployedLibrary(deployedPath);
                 long reqId = broker.newRequestId();
                 List<INcAddressedMessage> requests = new ArrayList<>();
                 List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
                 ncs.forEach(s -> requests.add(new LoadUdfMessage(dataverse, resourceName, reqId)));
                 broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
+                ExternalLibraryUtils.addLibraryToMetadata(dataverse, resourceName);
             }
         } catch (Exception e) {
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
@@ -161,8 +165,9 @@ python
         List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
         ncs.forEach(s -> requests.add(new DeleteUdfMessage(dataverse, resourceName, reqId)));
         broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
-        appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverse, resourceName);
+        appCtx.getLibraryManager().deregister(dataverse, resourceName);
         appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverse, resourceName)));
+        ExternalLibraryUtils.uninstallLibraryFromMetadata(dataverse, resourceName);
     }
 
     @Override

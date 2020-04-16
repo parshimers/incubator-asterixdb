@@ -18,5 +18,5 @@
  */
 use externallibtest;
 
-mysentiment("bad");
+sentiment("bad");
 

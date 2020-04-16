@@ -16,6 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
+/*
+ *   Negative test case, should fail. Tries to call python builtins directly.
+ */
+
 use externallibtest;
 
 system("/bin/true");

@@ -19,35 +19,13 @@
 
 package org.apache.asterix.common.library;
 
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.List;
-
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.hyracks.algebricks.common.utils.Pair;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
-
 
 public interface ILibraryManager {
 
-    /**
-     * Registers the library class loader with the external library manager.
-     * <code>dataverseName</code> and <code>libraryName</code> uniquely identifies a class loader.
-     *
-     * @param dataverseName
-     * @param libraryName
-     * @param classLoader
-     */
-    void register(DataverseName dataverseName, String libraryName, ILibrary lib)
-            throws HyracksDataException;
+    void setUpDeployedLibrary(String path);
 
-    /**
-     * De-registers a library class loader.
-     *
-     * @param dataverseName
-     * @param libraryName
-     */
-    void deregister(DataverseName dataverseName, String libraryName);
+    void deregister(DataverseName dv, String name);
 
     <T> ILibrary<T> getLibrary(DataverseName dvName, String libraryName);
 

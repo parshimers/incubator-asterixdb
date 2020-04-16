@@ -56,7 +56,6 @@ import org.apache.asterix.api.http.server.VersionApiServlet;
 import org.apache.asterix.app.active.ActiveNotificationHandler;
 import org.apache.asterix.app.cc.CCExtensionManager;
 import org.apache.asterix.app.config.ConfigValidator;
-import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.replication.NcLifecycleCoordinator;
 import org.apache.asterix.app.result.JobResultCallback;
 import org.apache.asterix.common.api.AsterixThreadFactory;
@@ -160,6 +159,7 @@ public class CCApplication extends BaseCCApplication {
 
         ccExtensionManager = new CCExtensionManager(new ArrayList<>(getExtensions()));
         IGlobalRecoveryManager globalRecoveryManager = createGlobalRecoveryManager();
+        ILibraryManager libraryManager = new ExternalLibraryManager(ccServiceCtx.getServerCtx().getAppDir());
         appCtx = createApplicationContext(libraryManager, globalRecoveryManager, lifecycleCoordinator,
                 () -> new Receptionist("CC"), ConfigValidator::new, ccExtensionManager);
         final CCConfig ccConfig = controllerService.getCCConfig();

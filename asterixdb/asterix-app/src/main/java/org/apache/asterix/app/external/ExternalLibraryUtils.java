@@ -18,23 +18,14 @@
  */
 package org.apache.asterix.app.external;
 
-import java.io.File;
 import java.io.FilenameFilter;
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.rmi.RemoteException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
-import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
@@ -48,88 +39,18 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.google.common.collect.ImmutableSet;
 
 public class ExternalLibraryUtils {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static final FilenameFilter nonHiddenFileNameFilter = (dir, name) -> !name.startsWith(".");
-    private static final Set<String> pythonExtensions = new ImmutableSet.Builder<String>().add(".pyz").add(".py").build();
-    private static final Set<String> javaExtensions = new ImmutableSet.Builder<String>().add(".zip").add(".jar").build();
+    private static final Set<String> pythonExtensions =
+            new ImmutableSet.Builder<String>().add(".pyz").add(".py").build();
+    private static final Set<String> javaExtensions =
+            new ImmutableSet.Builder<String>().add(".zip").add(".jar").build();
 
     private ExternalLibraryUtils() {
-    }
-
-    public static void setUpExternaLibrary(ILibraryManager externalLibraryManager, boolean isMetadataNode,
-            String libraryPath) throws Exception {
-        // start by un-installing removed libraries (Metadata Node only)
-        Map<DataverseName, List<String>> uninstalledLibs = null;
-        if (isMetadataNode) {
-            uninstalledLibs = uninstallLibraries();
-        }
-
-        // get the directory of the to be installed libraries
-        String[] pathSplit = libraryPath.split("\\.");
-        String[] dvSplit = pathSplit[pathSplit.length - 2].split("/");
-        DataverseName dataverse = DataverseName.createSinglePartName(dvSplit[dvSplit.length - 1]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
-        String name = pathSplit[pathSplit.length - 1].trim();
-        File installLibDir = new File(libraryPath);
-
-        // directory exists?
-        if (installLibDir.exists()) {
-            registerClassLoader(externalLibraryManager, dataverse, name, libraryPath);
-            configureLibrary(externalLibraryManager, dataverse, name, installLibDir, uninstalledLibs, isMetadataNode);
-        }
-    }
-
-    public static void setUpInstalledLibraries(ILibraryManager externalLibraryManager, boolean isMetadataNode,
-            File appDir) throws Exception {
-        File[] libs = appDir.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return dir.isDirectory();
-            }
-        });
-        if (libs != null) {
-            for (File lib : libs) {
-                setUpExternaLibrary(externalLibraryManager, isMetadataNode, lib.getAbsolutePath());
-            }
-        }
-    }
-
-    /**
-     * un-install libraries.
-     *
-     * @return a map from dataverse -> list of uninstalled libraries.
-     * @throws Exception
-     */
-    private static Map<DataverseName, List<String>> uninstallLibraries() throws Exception {
-        Map<DataverseName, List<String>> uninstalledLibs = new HashMap<>();
-        // get the directory of the un-install libraries
-        File uninstallLibDir = getLibraryUninstallDir();
-        String[] uninstallLibNames;
-        // directory exists?
-        if (uninstallLibDir.exists()) {
-            // list files
-            uninstallLibNames = uninstallLibDir.list(nonHiddenFileNameFilter);
-            for (String uninstallLibName : uninstallLibNames) {
-                // Get the <dataverse name - library name> pair
-                String[] components = uninstallLibName.split("\\.");
-                DataverseName dataverse = DataverseName.createSinglePartName(components[0]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
-                String libName = components[1];
-                // un-install
-                uninstallLibrary(dataverse, libName);
-                // delete the library file
-                new File(uninstallLibDir, uninstallLibName).delete();
-                // add the library to the list of uninstalled libraries
-                List<String> uinstalledLibsInDv = uninstalledLibs.get(dataverse);
-                if (uinstalledLibsInDv == null) {
-                    uinstalledLibsInDv = new ArrayList<>();
-                    uninstalledLibs.put(dataverse, uinstalledLibsInDv);
-                }
-                uinstalledLibsInDv.add(libName);
-            }
-        }
-        return uninstalledLibs;
     }
 
     /**
@@ -145,7 +66,7 @@ public class ExternalLibraryUtils {
      * @throws RemoteException
      * @throws ACIDException
      */
-    public static boolean uninstallLibrary(DataverseName dataverse, String libraryName)
+    public static boolean uninstallLibraryFromMetadata(DataverseName dataverse, String libraryName)
             throws AsterixException, RemoteException, ACIDException {
         MetadataTransactionContext mdTxnCtx = null;
         try {
@@ -166,7 +87,7 @@ public class ExternalLibraryUtils {
             List<Function> functions = MetadataManager.INSTANCE.getDataverseFunctions(mdTxnCtx, dataverse);
             for (Function function : functions) {
                 // does function belong to library?
-                if (function.getName().startsWith(libraryName + "#")) {
+                if (function.isExternal() && libraryName.equals(function.getLibrary())) {
                     // drop the function
                     MetadataManager.INSTANCE.dropFunction(mdTxnCtx,
                             new FunctionSignature(dataverse, function.getName(), function.getArity()));
@@ -177,7 +98,7 @@ public class ExternalLibraryUtils {
             List<DatasourceAdapter> adapters = MetadataManager.INSTANCE.getDataverseAdapters(mdTxnCtx, dataverse);
             for (DatasourceAdapter adapter : adapters) {
                 // belong to the library?
-                if (adapter.getAdapterIdentifier().getName().startsWith(libraryName + "#")) {
+                if (adapter.getAdapterIdentifier().getName().equals(adapter.getLibrary())) {
                     // remove adapter <! we didn't check if there are feeds which use this adapter>
                     MetadataManager.INSTANCE.dropAdapter(mdTxnCtx, dataverse, adapter.getAdapterIdentifier().getName());
                 }
@@ -192,17 +113,13 @@ public class ExternalLibraryUtils {
         return true;
     }
 
-    private static void addLibraryToMetadata(Map<DataverseName, List<String>> uninstalledLibs, DataverseName dataverse,
-            String libraryName) throws ACIDException, RemoteException {
-        // Modify metadata accordingly
-        List<String> uninstalledLibsInDv = uninstalledLibs.get(dataverse);
-        // was this library just un-installed?
-        boolean wasUninstalled = uninstalledLibsInDv != null && uninstalledLibsInDv.contains(libraryName);
+    public static void addLibraryToMetadata(DataverseName dataverse, String libraryName)
+            throws ACIDException, RemoteException {
         MetadataTransactionContext mdTxnCtx = null;
         try {
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
-            if (libraryInMetadata != null && !wasUninstalled) {
+            if (libraryInMetadata != null) {
                 // exists in metadata and was not un-installed, we return.
                 // Another place which shows that our metadata transactions are broken
                 // (we didn't call commit before!!!)
@@ -231,132 +148,5 @@ public class ExternalLibraryUtils {
             MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
         }
     }
-
-    /**
-     * Each element of a library is installed as part of a transaction. Any
-     * failure in installing an element does not effect installation of other
-     * libraries.
-     */
-    protected static void configureLibrary(DataverseName dataverse, String libraryName,
-            final File libraryDir, Map<DataverseName, List<String>> uninstalledLibs, boolean isMetadataNode)
-            throws Exception {
-
-        String[] libraryDescriptors = libraryDir.list((dir, name) -> name.endsWith(".xml"));
-
-        if (libraryDescriptors == null) {
-            throw new IOException("Unable to list files in directory " + libraryDir);
-        }
-
-        if (libraryDescriptors.length > 1) {
-            throw new IllegalStateException("More than 1 library descriptors defined");
-        }
-
-        // Prepare possible parameters
-        if (isMetadataNode) {
-            addLibraryToMetadata(uninstalledLibs, dataverse, libraryName);
-        }
-    }
-
-    /**
-     * register the library class loader with the external library manager
-     *
-     * @param dataverse
-     * @param libraryPath
-     * @throws Exception
-     */
-    protected static void registerClassLoader(ILibraryManager externalLibraryManager, DataverseName dataverse,
-            String name, String libraryPath) throws Exception {
-        // get the class loader
-        URLClassLoader classLoader = getLibraryClassLoader(dataverse, name, libraryPath);
-        // register it with the external library manager
-        if (classLoader != null) {
-            externalLibraryManager.registerLibraryClassLoader(dataverse, name, classLoader);
-        } else {
-            externalLibraryManager.setLibraryPath(dataverse, name, new URL[] { new File(libraryPath).toURL() });
-        }
-    }
-
-    /**
-     * Get the class loader for the library
-     *
-     * @param dataverse
-     * @param libraryPath
-     * @return
-     * @throws Exception
-     */
-    private static URLClassLoader getLibraryClassLoader(DataverseName dataverse, String name, String libraryPath)
-            throws Exception {
-        // Get a reference to the library directory
-        File installDir = new File(libraryPath);
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("Installing library " + name + " in dataverse " + dataverse + "." + " Install Directory: "
-                    + installDir.getAbsolutePath());
-        }
-
-        // get a reference to the specific library dir
-        File libDir = installDir;
-
-        FilenameFilter jarFileFilter = new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return name.endsWith(".jar");
-            }
-        };
-
-        // Get the jar file <Allow only a single jar file>
-        String[] jarsInLibDir = libDir.list(jarFileFilter);
-        if (jarsInLibDir.length > 1) {
-            throw new Exception("Incorrect library structure: found multiple library jars");
-        }
-        if (jarsInLibDir.length <= 0) {
-            throw new Exception("Incorrect library structure: could not find library jar");
-        }
-
-        File libJar = new File(libDir, jarsInLibDir[0]);
-        // get the jar dependencies
-        File libDependencyDir = new File(libDir.getAbsolutePath() + File.separator + "lib");
-        int numDependencies = 1;
-        String[] libraryDependencies = null;
-        if (libDependencyDir.exists()) {
-            libraryDependencies = libDependencyDir.list(jarFileFilter);
-            numDependencies += libraryDependencies.length;
-        }
-
-        ClassLoader parentClassLoader = ExternalLibraryUtils.class.getClassLoader();
-        URL[] urls = new URL[numDependencies];
-        int count = 0;
-        // get url of library
-        urls[count++] = libJar.toURI().toURL();
-
-        // get urls for dependencies
-        if (libraryDependencies != null && libraryDependencies.length > 0) {
-            for (String dependency : libraryDependencies) {
-                File file = new File(libDependencyDir + File.separator + dependency);
-                urls[count++] = file.toURI().toURL();
-            }
-        }
-
-        if (LOGGER.isInfoEnabled()) {
-            StringBuilder logMesg = new StringBuilder("Classpath for library " + dataverse + ": ");
-            for (URL url : urls) {
-                logMesg.append(url.getFile() + File.pathSeparatorChar);
-            }
-            LOGGER.info(logMesg.toString());
-        }
-
-        // create and return the class loader
-        return new ExternalLibraryClassLoader(urls, parentClassLoader);
-    }
-
-    /**
-     * @return the directory "System.getProperty("app.home", System.getProperty("user.home")/lib/udfs/uninstall"
-     */
-    protected static File getLibraryUninstallDir() {
-        return new File(System.getProperty("app.home", System.getProperty("user.home")) + File.separator + "lib"
-                + File.separator + "udfs" + File.separator + "uninstall");
-    }
-
-
-
 
 }
