@@ -20,17 +20,16 @@ package org.apache.asterix.external.library;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.asterix.om.functions.ExternalFunctionLanguage;
 import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -41,7 +40,7 @@ public class ExternalLibraryManager implements ILibraryManager {
     private static final Logger LOGGER = LogManager.getLogger();
     private final Map<Pair<DataverseName, String>, ILibrary> libraries = new ConcurrentHashMap<>();
 
-    public ExternalLibraryManager(File appDir) throws FileNotFoundException {
+    public ExternalLibraryManager(File appDir) throws IOException, AsterixException {
 
         File[] libs = appDir.listFiles(new FilenameFilter() {
             @Override
@@ -72,7 +71,7 @@ public class ExternalLibraryManager implements ILibraryManager {
         }
     }
 
-    public void setUpDeployedLibrary(String libraryPath) {
+    public void setUpDeployedLibrary(String libraryPath) throws IOException, AsterixException {
         String[] pathSplit = libraryPath.split("\\.");
         String[] dvSplit = pathSplit[pathSplit.length - 2].split("/");
         DataverseName dataverse = DataverseName.createSinglePartName(dvSplit[dvSplit.length - 1]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
@@ -91,7 +90,8 @@ public class ExternalLibraryManager implements ILibraryManager {
                     break;
             }
         } catch (IOException | AsterixException e) {
-
+            LOGGER.error("Failed to initialized library", e);
+            throw e;
         }
     }
 

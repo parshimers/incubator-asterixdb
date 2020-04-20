@@ -60,5 +60,4 @@ public abstract class JList<T> extends JComplexObject<T> {
     public Iterator<IJObject> iterator() {
         return jObjects.iterator();
     }
-
 }

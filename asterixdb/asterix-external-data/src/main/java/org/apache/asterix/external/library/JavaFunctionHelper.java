@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.external.library;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -32,13 +31,11 @@ import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.java.JObjectPointableVisitor;
 import org.apache.asterix.external.library.java.JTypeTag;
 import org.apache.asterix.external.library.java.base.JNull;
-import org.apache.asterix.external.parser.JSONDataParser;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.pointables.AFlatValuePointable;
 import org.apache.asterix.om.pointables.AListVisitablePointable;
 import org.apache.asterix.om.pointables.ARecordVisitablePointable;
 import org.apache.asterix.om.pointables.PointableAllocator;
-import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.pointables.base.IVisitablePointable;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
@@ -50,10 +47,6 @@ import org.apache.asterix.om.util.container.ListObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IDataOutputProvider;
 import org.apache.hyracks.data.std.api.IValueReference;
-import org.codehaus.jackson.node.JsonNodeFactory;
-import org.codehaus.jackson.node.ObjectNode;
-
-import com.fasterxml.jackson.core.JsonFactory;
 
 public class JavaFunctionHelper implements IFunctionHelper {
 
@@ -67,10 +60,6 @@ public class JavaFunctionHelper implements IFunctionHelper {
     private final Map<Integer, TypeInfo> poolTypeInfo;
     private final Map<String, String> parameters;
     private final IAType[] argTypes;
-    private final String[] stringArgs;
-    private final ByteArrayOutputStream out = new ByteArrayOutputStream();
-    private final ObjectNode args = new ObjectNode(JsonNodeFactory.instance);
-    private final JSONDataParser jdp;
 
     private boolean isValidResult = false;
 
@@ -84,12 +73,10 @@ public class JavaFunctionHelper implements IFunctionHelper {
         for (IAType param : finfo.getArgumentList()) {
             this.arguments[index++] = objectPool.allocate(param);
         }
-        this.stringArgs = new String[finfo.getArgumentList().size()];
         this.resultHolder = objectPool.allocate(finfo.getReturnType());
         this.poolTypeInfo = new HashMap<>();
         this.parameters = finfo.getParams();
         this.argTypes = argTypes;
-        this.jdp = new JSONDataParser(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE, new JsonFactory());
 
     }
 

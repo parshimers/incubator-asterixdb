@@ -57,7 +57,7 @@ public abstract class JObject<T> implements IJObject<T> {
     protected byte[] bytes;
     protected IObjectPool<IJObject, Class> pool;
 
-    public JObject() {
+    protected JObject() {
 
     }
 
@@ -84,5 +84,4 @@ public abstract class JObject<T> implements IJObject<T> {
             }
         }
     }
-
 }

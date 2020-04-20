@@ -74,6 +74,7 @@ public final class JOrderedList extends JList<List<? extends Object>> {
 
     @Override
     public void setValueGeneric(List<? extends Object> vals) {
+        reset();
         if (vals.size() > 0) {
             Object first = vals.get(0);
             IAType asxClass = JObject.convertType(first.getClass());

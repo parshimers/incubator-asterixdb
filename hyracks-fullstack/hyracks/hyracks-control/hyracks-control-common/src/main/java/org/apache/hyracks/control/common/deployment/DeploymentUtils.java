@@ -281,8 +281,13 @@ public class DeploymentUtils {
 
     public static class ShimLoader {
         public void loadShim(String outputDir, String name) throws IOException {
-            InputStream is = this.getClass().getClassLoader().getResourceAsStream(name);
-            IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + File.separator + name)));
+            try (InputStream is = this.getClass().getClassLoader().getResourceAsStream(name)) {
+                if (is != null) {
+                    IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + File.separator + name)));
+                } else {
+                    throw new IOException("Classpath does not contain necessary Python resources!");
+                }
+            }
         }
     }
 

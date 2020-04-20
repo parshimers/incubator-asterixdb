@@ -19,16 +19,18 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
-import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.asterix.dataflow.data.nontagged.serde.AIntervalSerializerDeserializer;
 import org.apache.asterix.om.base.AMutableInterval;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JInterval extends JObject<Duration> {
+public final class JInterval extends JObject<List<Long>> {
 
     public JInterval(long intervalStart, long intervalEnd) {
         super(new AMutableInterval(intervalStart, intervalEnd, (byte) 0));
@@ -36,6 +38,18 @@ public final class JInterval extends JObject<Duration> {
 
     public void setValue(long intervalStart, long intervalEnd, byte typetag) throws HyracksDataException {
         ((AMutableInterval) value).setValue(intervalStart, intervalEnd, typetag);
+    }
+
+    public long getIntervalStart() {
+        return ((AMutableInterval) value).getIntervalStart();
+    }
+
+    public long getIntervalEnd() {
+        return ((AMutableInterval) value).getIntervalEnd();
+    }
+
+    public short getIntervalType() {
+        return ((AMutableInterval) value).getIntervalType();
     }
 
     @Override
@@ -55,13 +69,19 @@ public final class JInterval extends JObject<Duration> {
     }
 
     @Override
-    public void setValueGeneric(Duration d) {
-
+    public void setValueGeneric(List<Long> o) {
+        try {
+            setValue(o.get(0), o.get(1), o.get(2).byteValue());
+        } catch (HyracksDataException e) {
+            throw new ArithmeticException("Invalid interval");
+        }
     }
 
     @Override
-    public Duration getValueGeneric() {
-        return null;
+    public List<Long> getValueGeneric() {
+        long type = getIntervalType();
+        Long[] interval = ArrayUtils.toObject(new long[] { getIntervalStart(), getIntervalEnd(), type });
+        return (Arrays.asList(interval));
     }
 
 }

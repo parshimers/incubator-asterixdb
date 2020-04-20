@@ -19,11 +19,14 @@
 
 package org.apache.asterix.common.library;
 
+import java.io.IOException;
+
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.metadata.DataverseName;
 
 public interface ILibraryManager {
 
-    void setUpDeployedLibrary(String path);
+    void setUpDeployedLibrary(String path) throws IOException, AsterixException;
 
     void deregister(DataverseName dv, String name);
 

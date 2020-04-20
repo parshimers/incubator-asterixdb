@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
+import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
@@ -133,6 +134,9 @@ public class ExternalDataUtils {
             String libraryName = getLibraryName(stream);
             String className = getExternalClassName(stream);
             ILibrary<ClassLoader> lib = libraryManager.getLibrary(dataverse, libraryName);
+            if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
+                throw new HyracksDataException("NYI: Python feed adapters");
+            }
             ClassLoader classLoader = lib.get();
             return ((IInputStreamFactory) (classLoader.loadClass(className).newInstance()));
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {

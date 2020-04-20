@@ -24,6 +24,7 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 
 public class PythonLibrary implements ILibrary<URL> {
@@ -34,8 +35,9 @@ public class PythonLibrary implements ILibrary<URL> {
         this.path = new File(path).toURL();
     }
 
-    public void init() {
-
+    @Override
+    public ExternalFunctionLanguage getLanguage() {
+        return ExternalFunctionLanguage.PYTHON;
     }
 
     @Override
@@ -44,6 +46,7 @@ public class PythonLibrary implements ILibrary<URL> {
 
     }
 
+    @Override
     public void close() {
 
     }

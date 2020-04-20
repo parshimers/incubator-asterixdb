@@ -75,8 +75,9 @@
     <itest.excludes>${global.itest.excludes}</itest.excludes>
     <license.stage>compile</license.stage>
     <resource.stage>process-classes</resource.stage>
-    <pyro-shim.stage>process-classes</pyro-shim.stage>
-    <pytestlib.stage>generate-test-resources</pytestlib.stage>
+    <pyro-shim.stage>none</pyro-shim.stage>
+    <pytestlib.stage>none</pytestlib.stage>
+    <python.path>/usr/bin/python3</python.path>
 
     <!-- Versions under dependencymanagement or used in many projects via properties -->
     <algebricks.version>0.3.5-SNAPSHOT</algebricks.version>
@@ -280,6 +281,27 @@
               </rules>
             </configuration>
           </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <configuration>
+           <failOnWarning>true</failOnWarning>
+           <outputXML>true</outputXML>
+        </configuration>
+        <executions>
+            <execution>
+              <phase>process-test-classes</phase>
+              <goals>
+                  <goal>analyze-only</goal>
+              </goals>
+              <configuration>
+                <ignoredDependencies>
+                  <ignoredDependency>net.razorvine.serpent:*:*</ignoredDependency>
+                </ignoredDependencies>
+              </configuration>
+            </execution>
         </executions>
       </plugin>
       <plugin>
@@ -615,28 +637,15 @@
       </properties>
     </profile>
     <profile>
-      <id>no-python-udfs</id>
+      <id>python-udfs</id>
       <activation>
         <file>
-          <missing>/usr/bin/python3</missing>
+          <exists>${python.path}</exists>
         </file>
       </activation>
       <properties>
-        <venv.stage>none</venv.stage>
-        <shiv-inst.stage>none</shiv-inst.stage>
-        <pyro-shim.stage>none</pyro-shim.stage>
-        <pytestlib.stage>none</pytestlib.stage>
-      </properties>
-    </profile>
-    <profile>
-      <id>fetch-pip</id>
-      <activation>
-        <file>
-          <exists>/usr/bin/pip3</exists>
-        </file>
-      </activation>
-      <properties>
-        <pip.path>/usr/bin/pip3</pip.path>
+        <pyro-shim.stage>process-classes</pyro-shim.stage>
+        <pytestlib.stage>generate-test-resources</pytestlib.stage>
       </properties>
     </profile>
     <profile>
@@ -1305,6 +1314,11 @@
         <groupId>commons-codec</groupId>
         <artifactId>commons-codec</artifactId>
         <version>1.14</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-lang</groupId>
+        <artifactId>commons-lang</artifactId>
+        <version>2.4</version>
       </dependency>
       <dependency>
         <groupId>it.unimi.dsi</groupId>

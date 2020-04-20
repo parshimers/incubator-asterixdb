@@ -18,15 +18,10 @@
  *
  */
 
-package org.apache.asterix.common.library;
+package org.apache.asterix.common.functions;
 
-import org.apache.asterix.common.functions.ExternalFunctionLanguage;
-
-public interface ILibrary<T> {
-
-    ExternalFunctionLanguage getLanguage();
-
-    T get();
-
-    void close();
+// WARNING: These values are stored in function metadata. Do not rename.
+public enum ExternalFunctionLanguage {
+    JAVA,
+    PYTHON
 }

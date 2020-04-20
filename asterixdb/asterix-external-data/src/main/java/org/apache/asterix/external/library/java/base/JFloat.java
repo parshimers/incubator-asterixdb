@@ -28,7 +28,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JFloat extends JObject {
+public final class JFloat extends JObject<Float> {
 
     public JFloat(float v) {
         super(new AMutableFloat(v));
@@ -39,6 +39,10 @@ public final class JFloat extends JObject {
     }
 
     public Float getValueGeneric() {
+        return getValue();
+    }
+
+    public float getValue() {
         return ((AMutableFloat) value).getFloatValue();
     }
 
@@ -59,7 +63,8 @@ public final class JFloat extends JObject {
     }
 
     @Override
-    public void setValueGeneric(Object o) {
-
+    public void setValueGeneric(Float o) {
+        setValue(o);
     }
+
 }

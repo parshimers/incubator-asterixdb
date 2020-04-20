@@ -27,6 +27,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -82,6 +83,11 @@ public class JavaLibrary implements ILibrary<ClassLoader> {
         // create and return the class loader
         this.cl = new ExternalLibraryClassLoader(urls, parentClassLoader);
 
+    }
+
+    @Override
+    public ExternalFunctionLanguage getLanguage() {
+        return ExternalFunctionLanguage.JAVA;
     }
 
     public ClassLoader get() {

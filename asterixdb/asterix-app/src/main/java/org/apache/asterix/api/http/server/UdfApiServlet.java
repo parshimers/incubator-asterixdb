@@ -19,9 +19,6 @@
 package org.apache.asterix.api.http.server;
 
 import java.io.File;
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +33,6 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.deployment.DeploymentId;
@@ -46,7 +42,6 @@ import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
@@ -98,46 +93,33 @@ public class UdfApiServlet extends BasicAuthServlet {
                 response.setStatus(HttpResponseStatus.BAD_REQUEST);
                 return;
             }
-            for (InterfaceHttpData f : multipartDec.getBodyHttpDatas()) {
-                if (!f.getHttpDataType().equals(InterfaceHttpData.HttpDataType.FileUpload)) {
-                    response.setStatus(HttpResponseStatus.BAD_REQUEST);
-                    return;
-                }
-                FileUpload udf = (FileUpload) f;
-                String[] fileNameParts = udf.getFilename().split("\\.");
-                udfFile = File.createTempFile(resourceName, "." + fileNameParts[fileNameParts.length - 1]);
-                if (udf.isInMemory()) {
-                    try (RandomAccessFile raf = new RandomAccessFile(udfFile, "rw")) {
-                        ByteBuf reqContent = udf.content();
-                        raf.setLength(reqContent.readableBytes());
-                        FileChannel fc = raf.getChannel();
-                        ByteBuffer content = reqContent.nioBuffer();
-                        while (content.hasRemaining()) {
-                            fc.write(content);
-                        }
-                    }
-                } else {
-                    FileUtils.copyFile(udf.getFile(), udfFile);
-                }
-                IHyracksClientConnection hcc = appCtx.getHcc();
-                ILibraryManager libMgr = appCtx.getLibraryManager();
-                DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
-                ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
-                if (lib != null) {
-                    deleteUdf(dataverse, resourceName);
-                }
-                hcc.deployBinary(udfName, Arrays.asList(new String[] { udfFile.getAbsolutePath() }), true);
-                String deployedPath =
-                        FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                                "applications", udfName.toString());
-                libMgr.setUpDeployedLibrary(deployedPath);
-                long reqId = broker.newRequestId();
-                List<INcAddressedMessage> requests = new ArrayList<>();
-                List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
-                ncs.forEach(s -> requests.add(new LoadUdfMessage(dataverse, resourceName, reqId)));
-                broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
-                ExternalLibraryUtils.addLibraryToMetadata(dataverse, resourceName);
+            InterfaceHttpData f = multipartDec.getBodyHttpDatas().get(0);
+            if (!f.getHttpDataType().equals(InterfaceHttpData.HttpDataType.FileUpload)) {
+                response.setStatus(HttpResponseStatus.BAD_REQUEST);
+                return;
             }
+            FileUpload udf = (FileUpload) f;
+            String[] fileNameParts = udf.getFilename().split("\\.");
+            udfFile = File.createTempFile(resourceName, "." + fileNameParts[fileNameParts.length - 1]);
+            udf.renameTo(udfFile);
+            IHyracksClientConnection hcc = appCtx.getHcc();
+            ILibraryManager libMgr = appCtx.getLibraryManager();
+            DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
+            ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
+            if (lib != null) {
+                deleteUdf(dataverse, resourceName);
+            }
+            hcc.deployBinary(udfName, Arrays.asList(new String[] { udfFile.getAbsolutePath() }), true);
+            String deployedPath =
+                    FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
+                            "applications", udfName.toString());
+            libMgr.setUpDeployedLibrary(deployedPath);
+            long reqId = broker.newRequestId();
+            List<INcAddressedMessage> requests = new ArrayList<>();
+            List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
+            ncs.forEach(s -> requests.add(new LoadUdfMessage(dataverse, resourceName, reqId)));
+            broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
+            ExternalLibraryUtils.addLibraryToMetadata(dataverse, resourceName);
         } catch (Exception e) {
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             LOGGER.error(e);

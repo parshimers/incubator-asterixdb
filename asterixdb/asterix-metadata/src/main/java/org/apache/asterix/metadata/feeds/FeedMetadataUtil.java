@@ -28,6 +28,7 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.MetadataException;
+import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IAdapterFactory;
@@ -54,6 +55,7 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 /**
  * A utility class for providing helper functions for feeds TODO: Refactor this
@@ -132,6 +134,9 @@ public class FeedMetadataUtil {
                         String libraryName = anameComponents[0];
                         ILibrary<ClassLoader> lib =
                                 appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
+                        if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
+                            throw new HyracksDataException("NYI: Python adapters");
+                        }
                         ClassLoader cl = lib.get();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
@@ -206,6 +211,9 @@ public class FeedMetadataUtil {
                         String libraryName = anameComponents[0];
                         ILibrary<ClassLoader> lib =
                                 appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
+                        if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
+                            throw new HyracksDataException("NYI: Python adapters");
+                        }
                         ClassLoader cl = lib.get();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
