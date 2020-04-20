@@ -289,6 +289,9 @@
         <configuration>
            <failOnWarning>true</failOnWarning>
            <outputXML>true</outputXML>
+          <ignoredUnusedDeclaredDependencies>
+            <ignoredUnusedDeclaredDependency>net.razorvine.serpent:jar:1.23</ignoredUnusedDeclaredDependency>
+          </ignoredUnusedDeclaredDependencies>
         </configuration>
         <executions>
             <execution>
@@ -296,11 +299,6 @@
               <goals>
                   <goal>analyze-only</goal>
               </goals>
-              <configuration>
-                <ignoredDependencies>
-                  <ignoredDependency>net.razorvine.serpent:*:*</ignoredDependency>
-                </ignoredDependencies>
-              </configuration>
             </execution>
         </executions>
       </plugin>

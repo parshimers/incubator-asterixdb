@@ -208,6 +208,9 @@
               <usedDependency>com.sun.xml.bind:jaxb-impl</usedDependency>
               <usedDependency>com.sun.activation:javax.activation</usedDependency>
             </usedDependencies>
+            <ignoredUnusedDeclaredDependencies>
+              <ignoredUnusedDeclaredDependency>net.razorvine.serpent</ignoredUnusedDeclaredDependency>
+            </ignoredUnusedDeclaredDependencies>
           </configuration>
         </plugin>
       </plugins>
