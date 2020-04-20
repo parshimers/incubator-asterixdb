@@ -40,6 +40,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -189,6 +190,8 @@ class AQLParser extends ScopeChecker implements IParser {
 
     private static final String INT_TYPE_NAME = "int";
 
+    private static final char VAR_PREFIX = '$';
+
     private DataverseName defaultDataverse;
 
     private static class IndexParams {
@@ -311,21 +314,24 @@ class AQLParser extends ScopeChecker implements IParser {
     }
 
     @Override
-    public Expression parseFunctionBody(FunctionSignature signature, List<VarIdentifier> paramList)
+    public FunctionDecl parseFunctionBody(FunctionSignature signature, List<String> paramNames)
       throws CompilationException {
-        return parseImpl(new ParseFunction<Expression>() {
+        return parseImpl(new ParseFunction<FunctionDecl>() {
             @Override
-            public Expression parse() throws ParseException {
+            public FunctionDecl parse() throws ParseException {
                 DataverseName dataverse = defaultDataverse;
                 defaultDataverse = signature.getDataverseName();
                 createNewScope();
-                for (VarIdentifier var : paramList) {
-                  getCurrentScope().addNewVarSymbolToScope(var);
+                List<VarIdentifier> paramVars = new ArrayList<VarIdentifier>(paramNames.size());
+                for (String paramName : paramNames) {
+                    VarIdentifier var = new VarIdentifier(VAR_PREFIX + paramName);
+                    paramVars.add(var);
+                    getCurrentScope().addNewVarSymbolToScope(var);
                 }
                 Expression functionBodyExpr = AQLParser.this.FunctionBody();
                 removeCurrentScope();
                 defaultDataverse = dataverse;
-                return functionBodyExpr;
+                return new FunctionDecl(signature, paramVars, functionBodyExpr);
             }
         });
     }
@@ -2584,7 +2590,7 @@ Clause GroupClause()throws ParseException :
       newScope.addNewVarSymbolToScope(withVar.getVar());
     })*
     {
-      gbc.setGbyPairList(vePairList);
+      gbc.setGbyPairList(Collections.singletonList(vePairList));
       gbc.setDecorPairList(decorPairList);
       gbc.setWithVarMap(withVarMap);
       replaceCurrentScope(newScope);

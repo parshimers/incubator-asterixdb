@@ -247,9 +247,6 @@ public class CCConfig extends ControllerConfig {
         return configManager.toIni(false);
     }
 
-    // QQQ Note that clusterListenAddress is *not directly used* yet. Both
-    // the cluster listener and the web server listen on "all interfaces".
-    // This IP address is only used to instruct the NC on which IP to call in.
     public String getClusterListenAddress() {
         return getAppConfig().getString(Option.CLUSTER_LISTEN_ADDRESS);
     }
@@ -470,4 +467,5 @@ public class CCConfig extends ControllerConfig {
     public void setTrustStorePath(String trustStorePath) {
         configManager.set(Option.TRUST_STORE_PATH, trustStorePath);
     }
+
 }

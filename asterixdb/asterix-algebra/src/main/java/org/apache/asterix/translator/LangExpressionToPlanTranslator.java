@@ -72,7 +72,6 @@ import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.lang.common.visitor.base.AbstractQueryExpressionVisitor;
-import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.declared.DataSource;
 import org.apache.asterix.metadata.declared.DataSourceId;
 import org.apache.asterix.metadata.declared.DatasetDataSource;
@@ -166,7 +165,7 @@ import org.apache.hyracks.api.result.IResultMetadata;
  * source for the current subtree.
  */
 
-class LangExpressionToPlanTranslator
+abstract class LangExpressionToPlanTranslator
         extends AbstractQueryExpressionVisitor<Pair<ILogicalOperator, LogicalVariable>, Mutable<ILogicalOperator>>
         implements ILangExpressionToPlanTranslator {
 
@@ -888,29 +887,18 @@ class LangExpressionToPlanTranslator
     private AbstractFunctionCallExpression lookupUserDefinedFunction(FunctionSignature signature,
             List<Mutable<ILogicalExpression>> args, SourceLocation sourceLoc) throws CompilationException {
         try {
-            if (signature.getDataverseName() == null) {
-                return null;
-            }
             Function function =
-                    MetadataManager.INSTANCE.getFunction(metadataProvider.getMetadataTxnContext(), signature);
+                    FunctionUtil.lookupUserDefinedFunctionDecl(metadataProvider.getMetadataTxnContext(), signature);
             if (function == null) {
                 return null;
             }
-            AbstractFunctionCallExpression f;
-            if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_JAVA)) {
-                IFunctionInfo finfo = ExternalFunctionCompilerUtil
-                        .getExternalFunctionInfo(metadataProvider.getMetadataTxnContext(), function);
-                f = new ScalarFunctionCallExpression(finfo, args);
-                f.setSourceLocation(sourceLoc);
-            } else if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_AQL)
-                    || function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_SQLPP)) {
-                IFunctionInfo finfo = FunctionUtil.getFunctionInfo(signature);
-                f = new ScalarFunctionCallExpression(finfo, args);
-                f.setSourceLocation(sourceLoc);
-            } else {
-                throw new CompilationException(ErrorCode.COMPILATION_ERROR, sourceLoc,
-                        " User defined functions written in " + function.getLanguage() + " are not supported");
-            }
+            IFunctionInfo finfo =
+                    function.isExternal()
+                            ? ExternalFunctionCompilerUtil
+                                    .getExternalFunctionInfo(metadataProvider.getMetadataTxnContext(), function)
+                            : FunctionUtil.getFunctionInfo(signature);
+            AbstractFunctionCallExpression f = new ScalarFunctionCallExpression(finfo, args);
+            f.setSourceLocation(sourceLoc);
             return f;
         } catch (AlgebricksException e) {
             throw new CompilationException(ErrorCode.COMPILATION_ERROR, sourceLoc, e.getMessage(), e);
@@ -979,14 +967,26 @@ class LangExpressionToPlanTranslator
             topOp = new MutableObject<>(groupRecordVarAssignOp);
         }
 
+        boolean propagateHashHint = true;
+
         GroupByOperator gOp = new GroupByOperator();
-        for (GbyVariableExpressionPair ve : gc.getGbyPairList()) {
-            VariableExpr vexpr = ve.getVar();
-            LogicalVariable v = vexpr == null ? context.newVar() : context.newVarFromExpression(vexpr);
-            Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo = langExprToAlgExpression(ve.getExpr(), topOp);
-            gOp.addGbyExpression(v, eo.first);
-            topOp = eo.second;
+        if (!gc.isGroupAll()) {
+            List<GbyVariableExpressionPair> groupingSet = getSingleGroupingSet(gc);
+            if (groupingSet.isEmpty()) {
+                gOp.addGbyExpression(context.newVar(), ConstantExpression.TRUE);
+                propagateHashHint = false;
+            } else {
+                for (GbyVariableExpressionPair ve : groupingSet) {
+                    VariableExpr vexpr = ve.getVar();
+                    LogicalVariable v = vexpr == null ? context.newVar() : context.newVarFromExpression(vexpr);
+                    Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo =
+                            langExprToAlgExpression(ve.getExpr(), topOp);
+                    gOp.addGbyExpression(v, eo.first);
+                    topOp = eo.second;
+                }
+            }
         }
+
         if (gc.hasDecorList()) {
             for (GbyVariableExpressionPair ve : gc.getDecorPairList()) {
                 VariableExpr vexpr = ve.getVar();
@@ -1029,9 +1029,21 @@ class LangExpressionToPlanTranslator
         }
 
         gOp.setGroupAll(gc.isGroupAll());
-        gOp.getAnnotations().put(OperatorAnnotations.USE_HASH_GROUP_BY, gc.hasHashGroupByHint());
+        if (propagateHashHint) {
+            gOp.getAnnotations().put(OperatorAnnotations.USE_HASH_GROUP_BY, gc.hasHashGroupByHint());
+        }
         gOp.setSourceLocation(sourceLoc);
         return new Pair<>(gOp, null);
+    }
+
+    protected List<GbyVariableExpressionPair> getSingleGroupingSet(GroupbyClause gby) throws CompilationException {
+        List<List<GbyVariableExpressionPair>> groupingSetList = gby.getGbyPairList();
+        if (groupingSetList.size() != 1) {
+            // should've been rewritten by SqlppGroupingSetsVisitor
+            throw new CompilationException(ErrorCode.COMPILATION_ILLEGAL_STATE, gby.getSourceLocation(),
+                    String.valueOf(groupingSetList.size()));
+        }
+        return groupingSetList.get(0);
     }
 
     protected AbstractFunctionCallExpression createRecordConstructor(List<Pair<Expression, Identifier>> fieldList,

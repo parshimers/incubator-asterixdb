@@ -28,34 +28,33 @@ import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 
 public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunctionInfo {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private final transient IResultTypeComputer rtc;
     private final List<IAType> argumentTypes;
-    private final String body;
-    private final String language;
+    private final ExternalFunctionLanguage language;
     private final FunctionKind kind;
     private final IAType returnType;
     private final String library;
+    private final List<String> externalIdentifier;
     private final Map<String, String> params;
 
     public ExternalFunctionInfo(String namespace, String name, int arity, FunctionKind kind, List<IAType> argumentTypes,
-            IAType returnType, IResultTypeComputer rtc, String body, String language, String library,
-            Map<String, String> params) {
-        this(new FunctionIdentifier(namespace, name, arity), kind, argumentTypes, returnType, rtc, body, library,
-                language, params);
+            IAType returnType, IResultTypeComputer rtc, ExternalFunctionLanguage language, String library,
+            List<String> externalIdentifier, Map<String, String> params, boolean deterministic) {
+        this(new FunctionIdentifier(namespace, name, arity), kind, argumentTypes, returnType, rtc, language, library,
+                externalIdentifier, params, deterministic);
     }
 
     public ExternalFunctionInfo(FunctionIdentifier fid, FunctionKind kind, List<IAType> argumentTypes,
-            IAType returnType, IResultTypeComputer rtc, String body, String language, String library,
-            Map<String, String> params) {
-        // TODO: fix CheckNonFunctionalExpressionVisitor once we have non-functional external functions
-        super(fid, true);
+            IAType returnType, IResultTypeComputer rtc, ExternalFunctionLanguage language, String library,
+            List<String> externalIdentifier, Map<String, String> params, boolean deterministic) {
+        super(fid, deterministic);
         this.rtc = rtc;
         this.argumentTypes = argumentTypes;
-        this.body = body;
         this.library = library;
         this.language = language;
+        this.externalIdentifier = externalIdentifier;
         this.kind = kind;
         this.returnType = returnType;
         this.params = params;
@@ -70,17 +69,12 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     }
 
     @Override
-    public String getFunctionBody() {
-        return body;
-    }
-
-    @Override
     public List<IAType> getArgumentList() {
         return argumentTypes;
     }
 
     @Override
-    public String getLanguage() {
+    public ExternalFunctionLanguage getLanguage() {
         return language;
     }
 
@@ -100,8 +94,12 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     }
 
     @Override
+    public List<String> getExternalIdentifier() {
+        return externalIdentifier;
+    }
+
+    @Override
     public Map<String, String> getParams() {
         return params;
     }
-
 }

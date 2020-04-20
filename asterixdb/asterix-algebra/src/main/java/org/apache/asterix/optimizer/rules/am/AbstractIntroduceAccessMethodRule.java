@@ -87,9 +87,6 @@ import com.google.common.collect.ImmutableSet;
  * methods.
  */
 public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRewriteRule {
-    // When this option is set to true before executing a query, we don't apply the index-only plan.
-    public final static String NO_INDEX_ONLY_PLAN_OPTION = "noindexonly";
-    public final static boolean NO_INDEX_ONLY_PLAN_OPTION_DEFAULT_VALUE = false;
 
     protected MetadataProvider metadataProvider;
 
@@ -413,12 +410,12 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             }
             // If the access method requires all exprs to be matched but they
             // are not, remove this candidate.
-            if (!allUsed && accessMethod.matchAllIndexExprs()) {
+            if (!allUsed && accessMethod.matchAllIndexExprs(index)) {
                 indexExprAndVarIt.remove();
                 continue;
             }
             // A prefix of the index exprs may have been matched.
-            if (accessMethod.matchPrefixIndexExprs()) {
+            if (accessMethod.matchPrefixIndexExprs(index)) {
                 if (lastFieldMatched < 0) {
                     indexExprAndVarIt.remove();
                     continue;
