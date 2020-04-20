@@ -53,7 +53,6 @@ import org.apache.asterix.lang.common.util.CommonFunctionMapUtil;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.lang.common.visitor.GatherFunctionCallsVisitor;
 import org.apache.asterix.metadata.declared.MetadataProvider;
-import org.apache.asterix.metadata.entities.Function;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
 class AqlQueryRewriter implements IQueryRewriter {
@@ -67,7 +66,7 @@ class AqlQueryRewriter implements IQueryRewriter {
 
     AqlQueryRewriter(IParserFactory parserFactory) {
         this.parserFactory = parserFactory;
-        functionParser = new FunctionParser(Function.FunctionLanguage.AQL, this.parserFactory);
+        functionParser = new FunctionParser(parserFactory);
     }
 
     private void setup(List<FunctionDecl> declaredFunctions, IReturningStatement topStatement,
@@ -129,7 +128,7 @@ class AqlQueryRewriter implements IQueryRewriter {
         List<FunctionDecl> storedFunctionDecls = new ArrayList<>();
         for (Expression topLevelExpr : topStatement.getDirectlyEnclosedExpressions()) {
             storedFunctionDecls.addAll(FunctionUtil.retrieveUsedStoredFunctions(metadataProvider, topLevelExpr, funIds,
-                    null, expr -> getFunctionCalls(expr), func -> functionParser.getFunctionDecl(func),
+                    null, expr -> getFunctionCalls(expr), functionParser,
                     (signature, sourceLoc) -> CommonFunctionMapUtil.normalizeBuiltinFunctionSignature(signature)));
             declaredFunctions.addAll(storedFunctionDecls);
         }
@@ -188,8 +187,10 @@ class AqlQueryRewriter implements IQueryRewriter {
 
         @Override
         public Void visit(GroupbyClause gc, Void arg) throws CompilationException {
-            for (GbyVariableExpressionPair p : gc.getGbyPairList()) {
-                p.getExpr().accept(this, arg);
+            for (List<GbyVariableExpressionPair> gbyPairList : gc.getGbyPairList()) {
+                for (GbyVariableExpressionPair p : gbyPairList) {
+                    p.getExpr().accept(this, arg);
+                }
             }
             if (gc.hasDecorList()) {
                 for (GbyVariableExpressionPair p : gc.getDecorPairList()) {

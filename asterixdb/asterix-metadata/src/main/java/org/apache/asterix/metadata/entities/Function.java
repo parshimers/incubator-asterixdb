@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import org.apache.asterix.common.functions.FunctionSignature;
@@ -40,7 +39,7 @@ public class Function implements IMetadataEntity<Function> {
     private final List<IAType> argTypes;
     private final IAType returnType;
     private final String body;
-    private final FunctionLanguage language;
+    private final String language;
     private final String kind;
     private final String library;
     private final Boolean deterministic; // null for SQL++ and AQL functions
@@ -49,7 +48,7 @@ public class Function implements IMetadataEntity<Function> {
     private final List<List<Triple<DataverseName, String, String>>> dependencies;
 
     public Function(FunctionSignature signature, List<String> argNames, List<IAType> argTypes, IAType returnType,
-            String functionBody, String functionKind, FunctionLanguage language, String library, Boolean nullCall,
+            String functionBody, String functionKind, String language, String library, Boolean nullCall,
             Boolean deterministic, Map<String, String> params,
             List<List<Triple<DataverseName, String, String>>> dependencies) {
         this.signature = signature;
@@ -100,12 +99,16 @@ public class Function implements IMetadataEntity<Function> {
         return returnType;
     }
 
-    public FunctionLanguage getLanguage() {
+    public String getLanguage() {
         return language;
     }
 
     public String getKind() {
         return kind;
+    }
+
+    public boolean isExternal() {
+        return library != null;
     }
 
     public String getLibrary() {
@@ -136,32 +139,5 @@ public class Function implements IMetadataEntity<Function> {
     @Override
     public Function dropFromCache(MetadataCache cache) {
         return cache.dropFunction(this);
-    }
-
-    public enum FunctionLanguage {
-        // WARNING: do not change these language names because
-        // these values are stored in function metadata
-        AQL(false),
-        SQLPP(false),
-        JAVA(true),
-        PYTHON(true);
-
-        private final boolean isExternal;
-
-        FunctionLanguage(boolean isExternal) {
-            this.isExternal = isExternal;
-        }
-
-        public boolean isExternal() {
-            return isExternal;
-        }
-
-        public String getName() {
-            return name();
-        }
-
-        public static FunctionLanguage findByName(String name) {
-            return FunctionLanguage.valueOf(name.toUpperCase(Locale.ROOT));
-        }
     }
 }

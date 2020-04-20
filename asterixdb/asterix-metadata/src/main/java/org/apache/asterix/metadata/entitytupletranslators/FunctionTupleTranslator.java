@@ -124,12 +124,8 @@ public class FunctionTupleTranslator extends AbstractDatatypeTupleTranslator<Fun
 
         String definition = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX)).getStringValue();
-        String languageValue = ((AString) functionRecord
+        String language = ((AString) functionRecord
                 .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_LANGUAGE_FIELD_INDEX)).getStringValue();
-        Function.FunctionLanguage language = Function.FunctionLanguage.findByName(languageValue);
-        if (language == null) {
-            throw new IllegalStateException(languageValue);
-        }
         String functionKind =
                 ((AString) functionRecord.getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_KIND_FIELD_INDEX))
                         .getStringValue();
@@ -311,7 +307,7 @@ public class FunctionTupleTranslator extends AbstractDatatypeTupleTranslator<Fun
 
         // write field 6
         fieldValue.reset();
-        aString.setValue(function.getLanguage().getName());
+        aString.setValue(function.getLanguage());
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_LANGUAGE_FIELD_INDEX, fieldValue);
 

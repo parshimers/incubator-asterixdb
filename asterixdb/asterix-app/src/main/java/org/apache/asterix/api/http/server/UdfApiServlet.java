@@ -52,7 +52,6 @@ import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.control.common.deployment.DeploymentUtils;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
-import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -62,7 +61,7 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
 
-public class UdfApiServlet extends AbstractServlet {
+public class UdfApiServlet extends BasicAuthServlet {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private final ICcApplicationContext appCtx;
