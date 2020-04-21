@@ -22,11 +22,9 @@ package org.apache.asterix.common.library;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 
-public interface ILibrary<T> {
+public interface ILibrary {
 
     ExternalFunctionLanguage getLanguage();
-
-    T get();
 
     void close();
 }

@@ -146,8 +146,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         public void initialize() throws IOException, InterruptedException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
-            ILibrary<URL> library = libMgr.getLibrary(fnId.dataverseName, fnId.libraryName);
-            String wd = library.get().getFile();
+            PythonLibrary library = (PythonLibrary) libMgr.getLibrary(fnId.dataverseName, fnId.libraryName);
+            String wd = library.getURL().getFile();
             int port = getFreeHighPort();
             String packageModule = externalIdents.get(0);
             String clazz = "None";

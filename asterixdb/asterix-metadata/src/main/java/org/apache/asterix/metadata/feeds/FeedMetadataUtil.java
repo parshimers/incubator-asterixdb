@@ -36,6 +36,7 @@ import org.apache.asterix.external.api.IDataSourceAdapter;
 import org.apache.asterix.external.api.IDataSourceAdapter.AdapterType;
 import org.apache.asterix.external.feed.api.IFeed;
 import org.apache.asterix.external.feed.policy.FeedPolicyAccessor;
+import org.apache.asterix.external.library.JavaLibrary;
 import org.apache.asterix.external.provider.AdapterFactoryProvider;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.ExternalDataUtils;
@@ -132,12 +133,12 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ILibrary<ClassLoader> lib =
+                        ILibrary lib =
                                 appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
                         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-                            throw new HyracksDataException("NYI: Python adapters");
+                            throw new HyracksDataException("NYI: Python feed adapters");
                         }
-                        ClassLoader cl = lib.get();
+                        ClassLoader cl = ((JavaLibrary)lib).getClassLoader();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:
@@ -209,12 +210,12 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ILibrary<ClassLoader> lib =
+                        ILibrary lib =
                                 appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
                         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-                            throw new HyracksDataException("NYI: Python adapters");
+                            throw new HyracksDataException("NYI: Python feed adapters");
                         }
-                        ClassLoader cl = lib.get();
+                        ClassLoader cl = ((JavaLibrary)lib).getClassLoader();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:

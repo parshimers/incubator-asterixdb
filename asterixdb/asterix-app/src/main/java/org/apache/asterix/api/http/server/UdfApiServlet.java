@@ -19,13 +19,7 @@
 package org.apache.asterix.api.http.server;
 
 import java.io.File;
-<<<<<<< HEAD
-=======
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.rmi.RemoteException;
->>>>>>> 102060981dbb1cb05e5eee3184d02cf53be654ad
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -34,13 +28,10 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.message.LoadUdfMessage;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-<<<<<<< HEAD
 import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
-=======
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
->>>>>>> 102060981dbb1cb05e5eee3184d02cf53be654ad
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
@@ -77,7 +68,6 @@ public class UdfApiServlet extends BasicAuthServlet {
     private final ICCMessageBroker broker;
     public static final String UDF_TMP_DIR_PREFIX = "udf_temp";
     public static final int UDF_RESPONSE_TIMEOUT = 5000;
-    public static final int URL_PREFIX_LENGTH = 3;
 
     public UdfApiServlet(ICcApplicationContext appCtx, ConcurrentMap<String, Object> ctx, String... paths) {
         super(ctx, paths);
@@ -107,19 +97,21 @@ public class UdfApiServlet extends BasicAuthServlet {
         }
         String resourceName = resourceNames.first;
         DataverseName dataverse = resourceNames.second;
-<<<<<<< HEAD
         HttpPostRequestDecoder multipartDec = new HttpPostRequestDecoder(req);
         File udfFile = null;
+        IMetadataLockUtil mdLockUtil = appCtx.getMetadataLockUtil();
+        MetadataTransactionContext mdTxnCtx = null;
+        LockList mdLockList = null;
         try {
             if (!multipartDec.hasNext() || multipartDec.getBodyHttpDatas().size() != 1) {
                 response.setStatus(HttpResponseStatus.BAD_REQUEST);
                 return;
-=======
-        IMetadataLockUtil mdLockUtil = appCtx.getMetadataLockUtil();
-        MetadataTransactionContext mdTxnCtx = null;
-        LockList mdLockList = null;
-        File udf = null;
-        try {
+            }
+            InterfaceHttpData f = multipartDec.getBodyHttpDatas().get(0);
+            if (!f.getHttpDataType().equals(InterfaceHttpData.HttpDataType.FileUpload)) {
+                response.setStatus(HttpResponseStatus.BAD_REQUEST);
+                return;
+            }
             MetadataManager.INSTANCE.init();
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             // Retrieves file splits of the dataset.
@@ -131,41 +123,14 @@ public class UdfApiServlet extends BasicAuthServlet {
                     UDF_TMP_DIR_PREFIX);
             if (!workingDir.exists()) {
                 FileUtil.forceMkdirs(workingDir);
->>>>>>> 102060981dbb1cb05e5eee3184d02cf53be654ad
             }
-            InterfaceHttpData f = multipartDec.getBodyHttpDatas().get(0);
-            if (!f.getHttpDataType().equals(InterfaceHttpData.HttpDataType.FileUpload)) {
-                response.setStatus(HttpResponseStatus.BAD_REQUEST);
-                return;
-            }
-<<<<<<< HEAD
             FileUpload udf = (FileUpload) f;
             String[] fileNameParts = udf.getFilename().split("\\.");
             udfFile = File.createTempFile(resourceName, "." + fileNameParts[fileNameParts.length - 1]);
             udf.renameTo(udfFile);
-            IHyracksClientConnection hcc = appCtx.getHcc();
-            ILibraryManager libMgr = appCtx.getLibraryManager();
-            DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
-            ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
-            if (lib != null) {
-                deleteUdf(dataverse, resourceName);
-            }
-            hcc.deployBinary(udfName, Arrays.asList(new String[] { udfFile.getAbsolutePath() }), true);
-            String deployedPath =
-                    FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                            "applications", udfName.toString());
-            libMgr.setUpDeployedLibrary(deployedPath);
-            long reqId = broker.newRequestId();
-            List<INcAddressedMessage> requests = new ArrayList<>();
-            List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
-            ncs.forEach(s -> requests.add(new LoadUdfMessage(dataverse, resourceName, reqId)));
-            broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
-            ExternalLibraryUtils.addLibraryToMetadata(dataverse, resourceName);
-=======
-            setupBinariesAndClassloaders(dataverse, resourceName, udf);
+            setupBinariesAndClassloaders(dataverse, resourceName, udfFile);
             installLibrary(mdTxnCtx, dataverse, resourceName);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
->>>>>>> 102060981dbb1cb05e5eee3184d02cf53be654ad
         } catch (Exception e) {
             try {
                 ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
@@ -174,13 +139,11 @@ public class UdfApiServlet extends BasicAuthServlet {
             }
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             LOGGER.error(e);
-<<<<<<< HEAD
-            return;
         } finally {
             multipartDec.destroy();
             if (udfFile != null) {
                 udfFile.delete();
-=======
+            }
             if (mdTxnCtx != null) {
                 try {
                     MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
@@ -188,34 +151,26 @@ public class UdfApiServlet extends BasicAuthServlet {
                     LOGGER.error("Unable to abort metadata transaction", r);
                 }
             }
-            if (udf != null) {
-                udf.delete();
->>>>>>> 102060981dbb1cb05e5eee3184d02cf53be654ad
-            }
-            return;
-        } finally {
             if (mdLockList != null) {
                 mdLockList.unlock();
             }
+            response.setStatus(HttpResponseStatus.OK);
         }
-        response.setStatus(HttpResponseStatus.OK);
-
     }
 
-    private void setupBinariesAndClassloaders(DataverseName dataverse, String resourceName, File udf) throws Exception {
+    private void setupBinariesAndClassloaders(DataverseName dataverse, String resourceName, File udfFile) throws Exception {
         IHyracksClientConnection hcc = appCtx.getHcc();
+        ILibraryManager libMgr = appCtx.getLibraryManager();
         DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
-        ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
-        if (cl != null) {
-            //prepare to replace the binary
-            ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
+        ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
+        if (lib != null) {
+            deleteUdf(dataverse, resourceName);
         }
-        hcc.deployBinary(udfName, Arrays.asList(udf.toString()), true);
-        //setup for CC
-        ExternalLibraryUtils.setUpExternaLibrary(appCtx.getLibraryManager(),
+        hcc.deployBinary(udfName, Arrays.asList(new String[] { udfFile.getAbsolutePath() }), true);
+        String deployedPath =
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                        "applications", udfName.toString()));
-        //setup NCs
+                        "applications", udfName.toString());
+        libMgr.setUpDeployedLibrary(deployedPath);
         long reqId = broker.newRequestId();
         List<INcAddressedMessage> requests = new ArrayList<>();
         List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
@@ -277,16 +232,6 @@ public class UdfApiServlet extends BasicAuthServlet {
     }
 
     private void deleteUdf(DataverseName dataverse, String resourceName) throws Exception {
-<<<<<<< HEAD
-        long reqId = broker.newRequestId();
-        List<INcAddressedMessage> requests = new ArrayList<>();
-        List<String> ncs = new ArrayList<>(appCtx.getClusterStateManager().getParticipantNodes());
-        ncs.forEach(s -> requests.add(new DeleteUdfMessage(dataverse, resourceName, reqId)));
-        broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
-        appCtx.getLibraryManager().deregister(dataverse, resourceName);
-        appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverse, resourceName)));
-        ExternalLibraryUtils.uninstallLibraryFromMetadata(dataverse, resourceName);
-=======
         MetadataTransactionContext mdTxnCtx = null;
         try {
             MetadataManager.INSTANCE.init();
@@ -299,7 +244,6 @@ public class UdfApiServlet extends BasicAuthServlet {
             }
             throw new AsterixException(e);
         }
->>>>>>> 102060981dbb1cb05e5eee3184d02cf53be654ad
     }
 
     @Override

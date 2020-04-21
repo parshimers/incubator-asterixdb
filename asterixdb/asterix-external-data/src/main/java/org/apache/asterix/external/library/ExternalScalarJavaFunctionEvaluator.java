@@ -54,8 +54,8 @@ class ExternalScalarJavaFunctionEvaluator extends ExternalScalarFunctionEvaluato
         String functionLibrary = finfo.getLibrary();
 
         functionHelper = new JavaFunctionHelper(finfo, argTypes, resultBuffer);
-        ILibrary<ClassLoader> lib = libraryManager.getLibrary(functionDataverse, functionLibrary);
-        ClassLoader libraryClassLoader = lib.get();
+        JavaLibrary lib = (JavaLibrary) libraryManager.getLibrary(functionDataverse, functionLibrary);
+        ClassLoader libraryClassLoader = lib.getClassLoader();
         String classname = finfo.getExternalIdentifier().get(0).trim();
         try {
             Class<?> clazz = Class.forName(classname, true, libraryClassLoader);

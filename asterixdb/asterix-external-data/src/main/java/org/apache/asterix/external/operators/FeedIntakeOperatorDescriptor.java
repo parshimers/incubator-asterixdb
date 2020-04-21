@@ -30,6 +30,7 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.external.api.IAdapterFactory;
 import org.apache.asterix.external.feed.api.IFeed;
 import org.apache.asterix.external.feed.policy.FeedPolicyAccessor;
+import org.apache.asterix.external.library.JavaLibrary;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
@@ -108,11 +109,11 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
                 (INcApplicationContext) ctx.getJobletContext().getServiceContext().getApplicationContext();
         ILibraryManager libraryManager = runtimeCtx.getLibraryManager();
 
-        ILibrary<ClassLoader> lib = libraryManager.getLibrary(feedId.getDataverseName(), adaptorLibraryName);
+        ILibrary lib = libraryManager.getLibrary(feedId.getDataverseName(), adaptorLibraryName);
         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
             throw new HyracksDataException("NYI: Python feed adapters");
         }
-        ClassLoader classLoader = lib.get();
+        ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
         if (classLoader != null) {
             try {
                 adapterFactory = (IAdapterFactory) (classLoader.loadClass(adaptorFactoryClassName).newInstance());

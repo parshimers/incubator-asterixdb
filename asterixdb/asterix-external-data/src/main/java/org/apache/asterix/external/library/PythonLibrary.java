@@ -27,7 +27,7 @@ import java.net.URL;
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 
-public class PythonLibrary implements ILibrary<URL> {
+public class PythonLibrary implements ILibrary {
 
     private final URL path;
 
@@ -40,8 +40,7 @@ public class PythonLibrary implements ILibrary<URL> {
         return ExternalFunctionLanguage.PYTHON;
     }
 
-    @Override
-    public URL get() {
+    public URL getURL() {
         return path;
 
     }

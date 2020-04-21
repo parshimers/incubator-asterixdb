@@ -30,6 +30,6 @@ public interface ILibraryManager {
 
     void deregister(DataverseName dv, String name);
 
-    <T> ILibrary<T> getLibrary(DataverseName dvName, String libraryName);
+    ILibrary getLibrary(DataverseName dvName, String libraryName);
 
 }

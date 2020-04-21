@@ -272,21 +272,18 @@ public class DeploymentUtils {
     }
 
     public static void shiv(String sourceFile, String outputDir) throws IOException {
-        ShimLoader sh = new ShimLoader();
-        sh.loadShim(outputDir, "pyro4.pyz");
+        loadShim(outputDir, "pyro4.pyz");
         unzip(sourceFile, outputDir);
         unzip(outputDir + File.separator + "pyro4.pyz", outputDir);
-        sh.loadShim(outputDir, "entrypoint.py");
+        loadShim(outputDir, "entrypoint.py");
     }
 
-    public static class ShimLoader {
-        public void loadShim(String outputDir, String name) throws IOException {
-            try (InputStream is = this.getClass().getClassLoader().getResourceAsStream(name)) {
-                if (is != null) {
-                    IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + File.separator + name)));
-                } else {
-                    throw new IOException("Classpath does not contain necessary Python resources!");
-                }
+    public static void loadShim(String outputDir, String name) throws IOException {
+        try (InputStream is = DeploymentUtils.class.getClassLoader().getResourceAsStream(name)) {
+            if (is != null) {
+                IOUtils.copyLarge(is, new FileOutputStream(new File(outputDir + File.separator + name)));
+            } else {
+                throw new IOException("Classpath does not contain necessary Python resources!");
             }
         }
     }

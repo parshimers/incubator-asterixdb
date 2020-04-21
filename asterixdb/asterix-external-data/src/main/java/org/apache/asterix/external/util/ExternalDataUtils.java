@@ -32,6 +32,7 @@ import org.apache.asterix.external.api.IDataParserFactory;
 import org.apache.asterix.external.api.IExternalDataSourceFactory.DataSourceType;
 import org.apache.asterix.external.api.IInputStreamFactory;
 import org.apache.asterix.external.api.IRecordReaderFactory;
+import org.apache.asterix.external.library.JavaLibrary;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AUnionType;
@@ -133,11 +134,11 @@ public class ExternalDataUtils {
         try {
             String libraryName = getLibraryName(stream);
             String className = getExternalClassName(stream);
-            ILibrary<ClassLoader> lib = libraryManager.getLibrary(dataverse, libraryName);
+            ILibrary lib = libraryManager.getLibrary(dataverse, libraryName);
             if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
                 throw new HyracksDataException("NYI: Python feed adapters");
             }
-            ClassLoader classLoader = lib.get();
+            ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
             return ((IInputStreamFactory) (classLoader.loadClass(className).newInstance()));
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
             throw new RuntimeDataException(ErrorCode.UTIL_EXTERNAL_DATA_UTILS_FAIL_CREATE_STREAM_FACTORY, e);
@@ -235,8 +236,11 @@ public class ExternalDataUtils {
         }
         DataverseName dataverseName = DataverseName.createSinglePartName(dataverseAndLibrary[0]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
         String libraryName = dataverseAndLibrary[1];
-        ILibrary<ClassLoader> lib = libraryManager.getLibrary(dataverseName, libraryName);
-        ClassLoader classLoader = lib.get();
+        ILibrary lib = libraryManager.getLibrary(dataverseName, libraryName);
+        if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
+            throw new AsterixException("NYI: Python feed adapters");
+        }
+        ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
         try {
             return (IRecordReaderFactory<?>) classLoader.loadClass(libraryAndFactory[1]).newInstance();
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
@@ -249,8 +253,11 @@ public class ExternalDataUtils {
         try {
             String library = parserFactoryName.substring(0,
                     parserFactoryName.indexOf(ExternalDataConstants.EXTERNAL_LIBRARY_SEPARATOR));
-            ILibrary<ClassLoader> lib = libraryManager.getLibrary(dataverse, library);
-            ClassLoader classLoader = lib.get();
+            ILibrary lib = libraryManager.getLibrary(dataverse, library);
+            if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
+                throw new AsterixException("NYI: Python feed adapters");
+            }
+            ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
             return (IDataParserFactory) classLoader
                     .loadClass(parserFactoryName
                             .substring(parserFactoryName.indexOf(ExternalDataConstants.EXTERNAL_LIBRARY_SEPARATOR) + 1))

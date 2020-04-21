@@ -32,7 +32,7 @@ public class LoadUdfMessage extends AbstractUdfMessage {
     }
 
     @Override
-    protected void handleAction(ILibraryManager mgr, boolean isMdNode, INcApplicationContext appCtx) throws Exception {
+    protected void handleAction(ILibraryManager mgr, INcApplicationContext appCtx) throws Exception {
         appCtx.getLibraryManager().setUpDeployedLibrary(
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                         "applications", dataverseName.getCanonicalForm() + "." + libraryName));

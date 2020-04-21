@@ -40,7 +40,7 @@ public class ExternalLibraryManager implements ILibraryManager {
     private static final Logger LOGGER = LogManager.getLogger();
     private final Map<Pair<DataverseName, String>, ILibrary> libraries = new ConcurrentHashMap<>();
 
-    public ExternalLibraryManager(File appDir) throws IOException, AsterixException {
+    public ExternalLibraryManager(File appDir) {
 
         File[] libs = appDir.listFiles(new FilenameFilter() {
             @Override
@@ -51,7 +51,11 @@ public class ExternalLibraryManager implements ILibraryManager {
         if (libs != null) {
             for (File lib : libs) {
                 String libraryPath = lib.getAbsolutePath();
-                setUpDeployedLibrary(libraryPath);
+                try {
+                    setUpDeployedLibrary(libraryPath);
+                } catch (AsterixException | IOException e){
+                    LOGGER.error("Unable to properly initialize external libraries",e);
+                }
             }
         }
     }
@@ -72,10 +76,11 @@ public class ExternalLibraryManager implements ILibraryManager {
     }
 
     public void setUpDeployedLibrary(String libraryPath) throws IOException, AsterixException {
-        String[] pathSplit = libraryPath.split("\\.");
-        String[] dvSplit = pathSplit[pathSplit.length - 2].split("/");
-        DataverseName dataverse = DataverseName.createSinglePartName(dvSplit[dvSplit.length - 1]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
-        String name = pathSplit[pathSplit.length - 1].trim();
+        // get the installed library dirs
+        String[] parts = libraryPath.split(File.separator);
+        DataverseName catenatedDv = DataverseName.createFromCanonicalForm(parts[parts.length - 1]);
+        String name = catenatedDv.getParts().get(catenatedDv.getParts().size() - 1);
+        DataverseName dataverse = DataverseName.create(catenatedDv.getParts(), 0, catenatedDv.getParts().size() - 1);
         try {
             File langFile = new File(libraryPath, "LANG");
             FileInputStream fo = new FileInputStream(langFile);
@@ -96,7 +101,7 @@ public class ExternalLibraryManager implements ILibraryManager {
     }
 
     @Override
-    public <T> ILibrary<T> getLibrary(DataverseName dataverseName, String libraryName) {
+    public ILibrary getLibrary(DataverseName dataverseName, String libraryName) {
         Pair<DataverseName, String> key = getKey(dataverseName, libraryName);
         return libraries.get(key);
     }

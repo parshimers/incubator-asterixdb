@@ -32,7 +32,7 @@ import org.apache.asterix.common.library.ILibrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class JavaLibrary implements ILibrary<ClassLoader> {
+public class JavaLibrary implements ILibrary {
 
     private final ExternalLibraryClassLoader cl;
 
@@ -90,7 +90,7 @@ public class JavaLibrary implements ILibrary<ClassLoader> {
         return ExternalFunctionLanguage.JAVA;
     }
 
-    public ClassLoader get() {
+    public ClassLoader getClassLoader() {
         return cl;
     }
 
