@@ -159,7 +159,8 @@ public class CCApplication extends BaseCCApplication {
 
         ccExtensionManager = new CCExtensionManager(new ArrayList<>(getExtensions()));
         IGlobalRecoveryManager globalRecoveryManager = createGlobalRecoveryManager();
-        ILibraryManager libraryManager = new ExternalLibraryManager(ccServiceCtx.getServerCtx().getAppDir());
+        ILibraryManager libraryManager = new ExternalLibraryManager(ccServiceCtx.getServerCtx().getAppDir(),
+                ccServiceCtx.getPersistedResourceRegistry());
         appCtx = createApplicationContext(libraryManager, globalRecoveryManager, lifecycleCoordinator,
                 () -> new Receptionist("CC"), ConfigValidator::new, ccExtensionManager);
         final CCConfig ccConfig = controllerService.getCCConfig();

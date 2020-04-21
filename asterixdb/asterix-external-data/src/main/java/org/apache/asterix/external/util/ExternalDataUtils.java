@@ -138,7 +138,7 @@ public class ExternalDataUtils {
             if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
                 throw new HyracksDataException("NYI: Python feed adapters");
             }
-            ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
+            ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
             return ((IInputStreamFactory) (classLoader.loadClass(className).newInstance()));
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
             throw new RuntimeDataException(ErrorCode.UTIL_EXTERNAL_DATA_UTILS_FAIL_CREATE_STREAM_FACTORY, e);
@@ -240,7 +240,7 @@ public class ExternalDataUtils {
         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
             throw new AsterixException("NYI: Python feed adapters");
         }
-        ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
+        ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
         try {
             return (IRecordReaderFactory<?>) classLoader.loadClass(libraryAndFactory[1]).newInstance();
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
@@ -257,7 +257,7 @@ public class ExternalDataUtils {
             if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
                 throw new AsterixException("NYI: Python feed adapters");
             }
-            ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
+            ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
             return (IDataParserFactory) classLoader
                     .loadClass(parserFactoryName
                             .substring(parserFactoryName.indexOf(ExternalDataConstants.EXTERNAL_LIBRARY_SEPARATOR) + 1))

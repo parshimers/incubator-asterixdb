@@ -19,22 +19,21 @@
  */
 package org.apache.asterix.common.library;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
-import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IJsonSerializable;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
-import org.apache.hyracks.storage.common.IIndex;
-import org.apache.hyracks.storage.common.IResource;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * The information needed to libraries at startup
  */
-public class LibraryDescriptor implements  IJsonSerializable {
+public class LibraryDescriptor implements IJsonSerializable {
 
     private static final long serialVersionUID = 1L;
+    public static final String DESCRIPTOR_NAME = "descriptor.json";
     /**
      * The library's language
      */

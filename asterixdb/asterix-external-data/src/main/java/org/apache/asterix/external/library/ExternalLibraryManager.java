@@ -18,10 +18,13 @@
  */
 package org.apache.asterix.external.library;
 
+import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static org.apache.asterix.common.library.LibraryDescriptor.DESCRIPTOR_NAME;
+
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,32 +32,42 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 public class ExternalLibraryManager implements ILibraryManager {
+
+    protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    static {
+        OBJECT_MAPPER.enable(SerializationFeature.INDENT_OUTPUT);
+        OBJECT_MAPPER.configure(SORT_PROPERTIES_ALPHABETICALLY, true);
+        OBJECT_MAPPER.configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+    }
 
     private static final Logger LOGGER = LogManager.getLogger();
     private final Map<Pair<DataverseName, String>, ILibrary> libraries = new ConcurrentHashMap<>();
+    private final IPersistedResourceRegistry reg;
 
-    public ExternalLibraryManager(File appDir) {
+    public ExternalLibraryManager(File appDir, IPersistedResourceRegistry reg) {
+        this.reg = reg;
 
-        File[] libs = appDir.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return dir.isDirectory();
-            }
-        });
+        File[] libs = appDir.listFiles((dir, name) -> dir.isDirectory());
         if (libs != null) {
             for (File lib : libs) {
                 String libraryPath = lib.getAbsolutePath();
                 try {
                     setUpDeployedLibrary(libraryPath);
-                } catch (AsterixException | IOException e){
-                    LOGGER.error("Unable to properly initialize external libraries",e);
+                } catch (AsterixException | IOException e) {
+                    LOGGER.error("Unable to properly initialize external libraries", e);
                 }
             }
         }
@@ -82,10 +95,10 @@ public class ExternalLibraryManager implements ILibraryManager {
         String name = catenatedDv.getParts().get(catenatedDv.getParts().size() - 1);
         DataverseName dataverse = DataverseName.create(catenatedDv.getParts(), 0, catenatedDv.getParts().size() - 1);
         try {
-            File langFile = new File(libraryPath, "LANG");
-            FileInputStream fo = new FileInputStream(langFile);
-            String langStr = IOUtils.toString(fo);
-            ExternalFunctionLanguage libLang = ExternalFunctionLanguage.valueOf(langStr);
+            File langFile = new File(libraryPath, DESCRIPTOR_NAME);
+            final JsonNode jsonNode = OBJECT_MAPPER.readValue(Files.readAllBytes(langFile.toPath()), JsonNode.class);
+            LibraryDescriptor desc = (LibraryDescriptor) reg.deserialize(jsonNode);
+            ExternalFunctionLanguage libLang = desc.getLang();
             switch (libLang) {
                 case JAVA:
                     register(dataverse, name, new JavaLibrary(libraryPath));

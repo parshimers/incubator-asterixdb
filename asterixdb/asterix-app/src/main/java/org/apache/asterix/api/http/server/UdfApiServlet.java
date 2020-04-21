@@ -18,20 +18,29 @@
  */
 package org.apache.asterix.api.http.server;
 
+import static org.apache.asterix.common.functions.ExternalFunctionLanguage.JAVA;
+import static org.apache.asterix.common.functions.ExternalFunctionLanguage.PYTHON;
+import static org.apache.asterix.common.library.LibraryDescriptor.DESCRIPTOR_NAME;
+
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.message.LoadUdfMessage;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.common.library.ILibrary;
-import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.functions.ExternalFunctionLanguage;
+import org.apache.asterix.common.library.ILibrary;
+import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
@@ -48,11 +57,14 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.deployment.DeploymentId;
+import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.google.common.collect.ImmutableMap;
 
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -68,6 +80,8 @@ public class UdfApiServlet extends BasicAuthServlet {
     private final ICCMessageBroker broker;
     public static final String UDF_TMP_DIR_PREFIX = "udf_temp";
     public static final int UDF_RESPONSE_TIMEOUT = 5000;
+    private Map<String, ExternalFunctionLanguage> exensionMap =
+            new ImmutableMap.Builder<String, ExternalFunctionLanguage>().put("pyz", PYTHON).put("zip", JAVA).build();
 
     public UdfApiServlet(ICcApplicationContext appCtx, ConcurrentMap<String, Object> ctx, String... paths) {
         super(ctx, paths);
@@ -126,11 +140,19 @@ public class UdfApiServlet extends BasicAuthServlet {
             }
             FileUpload udf = (FileUpload) f;
             String[] fileNameParts = udf.getFilename().split("\\.");
+            String suffix = fileNameParts[fileNameParts.length - 1];
+            ExternalFunctionLanguage libLang = exensionMap.get(suffix);
+            if (libLang == null) {
+                response.setStatus(HttpResponseStatus.BAD_REQUEST);
+                return;
+            }
+            LibraryDescriptor desc = new LibraryDescriptor(libLang);
             udfFile = File.createTempFile(resourceName, "." + fileNameParts[fileNameParts.length - 1]);
             udf.renameTo(udfFile);
-            setupBinariesAndClassloaders(dataverse, resourceName, udfFile);
+            setupBinariesAndClassloaders(dataverse, resourceName, udfFile, desc);
             installLibrary(mdTxnCtx, dataverse, resourceName);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            response.setStatus(HttpResponseStatus.OK);
         } catch (Exception e) {
             try {
                 ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
@@ -154,11 +176,19 @@ public class UdfApiServlet extends BasicAuthServlet {
             if (mdLockList != null) {
                 mdLockList.unlock();
             }
-            response.setStatus(HttpResponseStatus.OK);
         }
     }
 
-    private void setupBinariesAndClassloaders(DataverseName dataverse, String resourceName, File udfFile) throws Exception {
+    private File writeDescriptor(File folder, LibraryDescriptor desc) throws IOException {
+        IPersistedResourceRegistry reg = appCtx.getServiceContext().getPersistedResourceRegistry();
+        byte[] bytes = OBJECT_MAPPER.writeValueAsBytes(desc.toJson(reg));
+        File descFile = new File(folder, DESCRIPTOR_NAME);
+        FileUtil.writeAndForce(Paths.get(descFile.getAbsolutePath()), bytes);
+        return descFile;
+    }
+
+    private void setupBinariesAndClassloaders(DataverseName dataverse, String resourceName, File udfFile,
+            LibraryDescriptor desc) throws Exception {
         IHyracksClientConnection hcc = appCtx.getHcc();
         ILibraryManager libMgr = appCtx.getLibraryManager();
         DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
@@ -166,7 +196,9 @@ public class UdfApiServlet extends BasicAuthServlet {
         if (lib != null) {
             deleteUdf(dataverse, resourceName);
         }
-        hcc.deployBinary(udfName, Arrays.asList(new String[] { udfFile.getAbsolutePath() }), true);
+        File descriptor = writeDescriptor(udfFile.getParentFile(), desc);
+        hcc.deployBinary(udfName,
+                Arrays.asList(new String[] { udfFile.getAbsolutePath(), descriptor.getAbsolutePath() }), true);
         String deployedPath =
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                         "applications", udfName.toString());

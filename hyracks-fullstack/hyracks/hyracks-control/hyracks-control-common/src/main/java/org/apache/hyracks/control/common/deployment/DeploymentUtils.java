@@ -24,7 +24,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -227,10 +226,8 @@ public class DeploymentUtils {
                     if (extractFromArchive) {
                         if (targetFile.getAbsolutePath().endsWith(SHIV_SUFFIX)) {
                             shiv(targetFile.getAbsolutePath(), deploymentDir);
-                            touchLang(deploymentDir, "PYTHON");
                         } else if (targetFile.getAbsolutePath().endsWith(ZIP_SUFFIX)) {
                             unzip(targetFile.getAbsolutePath(), deploymentDir);
-                            touchLang(deploymentDir, "JAVA");
                         }
                     }
                     downloadedFileURLs.add(targetFile.toURI().toURL());
@@ -286,11 +283,5 @@ public class DeploymentUtils {
                 throw new IOException("Classpath does not contain necessary Python resources!");
             }
         }
-    }
-
-    public static void touchLang(String outputDir, String content) throws IOException {
-        PrintWriter pw = new PrintWriter(new FileOutputStream(new File(outputDir + File.separator + "LANG")));
-        pw.print(content);
-        pw.close();
     }
 }

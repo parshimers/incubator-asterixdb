@@ -133,12 +133,11 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ILibrary lib =
-                                appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
+                        ILibrary lib = appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
                         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
                             throw new HyracksDataException("NYI: Python feed adapters");
                         }
-                        ClassLoader cl = ((JavaLibrary)lib).getClassLoader();
+                        ClassLoader cl = ((JavaLibrary) lib).getClassLoader();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:
@@ -210,12 +209,11 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ILibrary lib =
-                                appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
+                        ILibrary lib = appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
                         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
                             throw new HyracksDataException("NYI: Python feed adapters");
                         }
-                        ClassLoader cl = ((JavaLibrary)lib).getClassLoader();
+                        ClassLoader cl = ((JavaLibrary) lib).getClassLoader();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:

@@ -113,7 +113,7 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
             throw new HyracksDataException("NYI: Python feed adapters");
         }
-        ClassLoader classLoader = ((JavaLibrary)lib).getClassLoader();
+        ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
         if (classLoader != null) {
             try {
                 adapterFactory = (IAdapterFactory) (classLoader.loadClass(adaptorFactoryClassName).newInstance());

@@ -32,6 +32,6 @@ public class DeleteUdfMessage extends AbstractUdfMessage {
 
     @Override
     protected void handleAction(ILibraryManager mgr, INcApplicationContext appCtx) {
-            mgr.deregister(dataverseName, libraryName);
+        mgr.deregister(dataverseName, libraryName);
     }
 }

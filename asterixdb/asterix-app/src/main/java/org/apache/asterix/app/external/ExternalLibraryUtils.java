@@ -18,14 +18,13 @@
  */
 package org.apache.asterix.app.external;
 
-import java.io.FilenameFilter;
-import java.util.List;
-import java.util.Set;
-
 import static org.apache.asterix.api.http.server.UdfApiServlet.UDF_RESPONSE_TIMEOUT;
 import static org.apache.asterix.api.http.server.UdfApiServlet.makeDeploymentId;
 
+import java.io.FilenameFilter;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.asterix.app.message.DeleteUdfMessage;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
@@ -50,8 +49,6 @@ public class ExternalLibraryUtils {
     private ExternalLibraryUtils() {
     }
 
-
-
     public static void deleteDeployedUdf(ICCMessageBroker broker, ICcApplicationContext appCtx,
             DataverseName dataverseName, String lib) throws Exception {
         long reqId = broker.newRequestId();
@@ -62,7 +59,5 @@ public class ExternalLibraryUtils {
         appCtx.getLibraryManager().deregister(dataverseName, lib);
         appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverseName, lib)));
     }
-
-
 
 }
