@@ -142,11 +142,8 @@ public class CCApplication extends BaseCCApplication {
         final ClusterControllerService controllerService =
                 (ClusterControllerService) ccServiceCtx.getControllerService();
         ccServiceCtx.setMessageBroker(new CCMessageBroker(controllerService));
-
         configureLoggingLevel(ccServiceCtx.getAppConfig().getLoggingLevel(ExternalProperties.Option.LOG_LEVEL));
-
         LOGGER.info("Starting Asterix cluster controller");
-
         String strIP = ccServiceCtx.getCCContext().getClusterControllerInfo().getClientNetAddress();
         int port = ccServiceCtx.getCCContext().getClusterControllerInfo().getClientNetPort();
         hcc = new HyracksConnection(strIP, port,
@@ -156,11 +153,9 @@ public class CCApplication extends BaseCCApplication {
                 new ReplicationProperties(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()));
         INcLifecycleCoordinator lifecycleCoordinator = createNcLifeCycleCoordinator(repProp.isReplicationEnabled());
         componentProvider = new StorageComponentProvider();
-
         ccExtensionManager = new CCExtensionManager(new ArrayList<>(getExtensions()));
         IGlobalRecoveryManager globalRecoveryManager = createGlobalRecoveryManager();
-        ILibraryManager libraryManager = new ExternalLibraryManager(ccServiceCtx.getServerCtx().getAppDir(),
-                ccServiceCtx.getPersistedResourceRegistry());
+        ILibraryManager libraryManager = new ExternalLibraryManager(ccServiceCtx.getServerCtx().getAppDir());
         appCtx = createApplicationContext(libraryManager, globalRecoveryManager, lifecycleCoordinator,
                 () -> new Receptionist("CC"), ConfigValidator::new, ccExtensionManager);
         final CCConfig ccConfig = controllerService.getCCConfig();

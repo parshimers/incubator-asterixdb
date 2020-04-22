@@ -19,6 +19,7 @@
 
 package org.apache.asterix.common.library;
 
+import java.io.File;
 import java.io.IOException;
 
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -27,6 +28,8 @@ import org.apache.asterix.common.metadata.DataverseName;
 public interface ILibraryManager {
 
     void setUpDeployedLibrary(String path) throws IOException, AsterixException;
+
+    void scanLibraries(File appDir);
 
     void deregister(DataverseName dv, String name);
 

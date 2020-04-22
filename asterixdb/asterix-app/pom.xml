@@ -409,7 +409,7 @@
       <id>asterix-gerrit-asterix-app-sql-execution</id>
       <properties>
         <test.excludes>**/*.java</test.excludes>
-        <itest.includes>**/SqlppExecution*IT.java</itest.includes>
+        <itest.includes>**/SqlppExecution*IT.java,**/PythonExecution*IT.java</itest.includes>
         <failIfNoTests>false</failIfNoTests>
       </properties>
     </profile>

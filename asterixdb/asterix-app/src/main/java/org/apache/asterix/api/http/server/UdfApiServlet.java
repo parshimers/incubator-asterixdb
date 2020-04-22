@@ -57,7 +57,6 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.deployment.DeploymentId;
-import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.util.file.FileUtil;
@@ -159,19 +158,19 @@ public class UdfApiServlet extends BasicAuthServlet {
             } catch (Exception e2) {
                 e.addSuppressed(e2);
             }
-            response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
-            LOGGER.error(e);
-        } finally {
-            multipartDec.destroy();
-            if (udfFile != null) {
-                udfFile.delete();
-            }
             if (mdTxnCtx != null) {
                 try {
                     MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
                 } catch (RemoteException r) {
                     LOGGER.error("Unable to abort metadata transaction", r);
                 }
+            }
+            response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            LOGGER.error(e);
+        } finally {
+            multipartDec.destroy();
+            if (udfFile != null) {
+                udfFile.delete();
             }
             if (mdLockList != null) {
                 mdLockList.unlock();
@@ -180,8 +179,7 @@ public class UdfApiServlet extends BasicAuthServlet {
     }
 
     private File writeDescriptor(File folder, LibraryDescriptor desc) throws IOException {
-        IPersistedResourceRegistry reg = appCtx.getServiceContext().getPersistedResourceRegistry();
-        byte[] bytes = OBJECT_MAPPER.writeValueAsBytes(desc.toJson(reg));
+        byte[] bytes = OBJECT_MAPPER.writeValueAsBytes(desc.toJson());
         File descFile = new File(folder, DESCRIPTOR_NAME);
         FileUtil.writeAndForce(Paths.get(descFile.getAbsolutePath()), bytes);
         return descFile;
@@ -202,6 +200,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         String deployedPath =
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                         "applications", udfName.toString());
+        descriptor.delete();
         libMgr.setUpDeployedLibrary(deployedPath);
         long reqId = broker.newRequestId();
         List<INcAddressedMessage> requests = new ArrayList<>();

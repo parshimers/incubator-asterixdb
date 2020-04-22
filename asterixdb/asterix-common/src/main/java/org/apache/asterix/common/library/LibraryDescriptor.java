@@ -25,6 +25,7 @@ import org.apache.hyracks.api.io.IJsonSerializable;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
@@ -34,6 +35,7 @@ public class LibraryDescriptor implements IJsonSerializable {
 
     private static final long serialVersionUID = 1L;
     public static final String DESCRIPTOR_NAME = "descriptor.json";
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
     /**
      * The library's language
      */
@@ -47,15 +49,16 @@ public class LibraryDescriptor implements IJsonSerializable {
         return lang;
     }
 
-    @Override
-    public JsonNode toJson(IPersistedResourceRegistry registry) throws HyracksDataException {
-        ObjectNode json = registry.getClassIdentifier(getClass(), serialVersionUID);
-        json.put("datasetId", lang.name());
-        return json;
+    public JsonNode toJson() throws HyracksDataException {
+        final ObjectNode objectNode = JSON_MAPPER.createObjectNode();
+        objectNode.put(IPersistedResourceRegistry.TYPE_FIELD_ID, "LibraryDescriptor");
+        objectNode.put(IPersistedResourceRegistry.VERSION_FIELD_ID, serialVersionUID);
+        objectNode.put(IPersistedResourceRegistry.CLASS_FIELD_ID, this.getClass().getName());
+        objectNode.put("lang", lang.name());
+        return objectNode;
     }
 
-    public static IJsonSerializable fromJson(IPersistedResourceRegistry registry, JsonNode json)
-            throws HyracksDataException {
+    public static IJsonSerializable fromJson(JsonNode json) throws HyracksDataException {
         final ExternalFunctionLanguage lang = ExternalFunctionLanguage.valueOf(json.get("lang").asText());
         return new LibraryDescriptor(lang);
     }
