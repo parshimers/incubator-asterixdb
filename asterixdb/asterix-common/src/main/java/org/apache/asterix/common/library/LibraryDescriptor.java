@@ -20,7 +20,6 @@
 package org.apache.asterix.common.library;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IJsonSerializable;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 
@@ -49,16 +48,13 @@ public class LibraryDescriptor implements IJsonSerializable {
         return lang;
     }
 
-    public JsonNode toJson() throws HyracksDataException {
-        final ObjectNode objectNode = JSON_MAPPER.createObjectNode();
-        objectNode.put(IPersistedResourceRegistry.TYPE_FIELD_ID, "LibraryDescriptor");
-        objectNode.put(IPersistedResourceRegistry.VERSION_FIELD_ID, serialVersionUID);
-        objectNode.put(IPersistedResourceRegistry.CLASS_FIELD_ID, this.getClass().getName());
-        objectNode.put("lang", lang.name());
-        return objectNode;
+    public JsonNode toJson(IPersistedResourceRegistry registry) {
+        ObjectNode jsonNode = registry.getClassIdentifier(LibraryDescriptor.class, serialVersionUID);
+        jsonNode.put("lang", lang.name());
+        return jsonNode;
     }
 
-    public static IJsonSerializable fromJson(JsonNode json) throws HyracksDataException {
+    public static IJsonSerializable fromJson(IPersistedResourceRegistry registry, JsonNode json) {
         final ExternalFunctionLanguage lang = ExternalFunctionLanguage.valueOf(json.get("lang").asText());
         return new LibraryDescriptor(lang);
     }

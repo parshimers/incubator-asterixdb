@@ -58,6 +58,7 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.deployment.DeploymentId;
+import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.util.file.FileUtil;
@@ -184,7 +185,8 @@ public class UdfApiServlet extends BasicAuthServlet {
     }
 
     private File writeDescriptor(File folder, LibraryDescriptor desc) throws IOException {
-        byte[] bytes = OBJECT_MAPPER.writeValueAsBytes(desc.toJson());
+        IPersistedResourceRegistry reg = appCtx.getServiceContext().getPersistedResourceRegistry();
+        byte[] bytes = OBJECT_MAPPER.writeValueAsBytes(desc.toJson(reg));
         File descFile = new File(folder, DESCRIPTOR_NAME);
         FileUtil.writeAndForce(Paths.get(descFile.getAbsolutePath()), bytes);
         return descFile;
@@ -194,11 +196,11 @@ public class UdfApiServlet extends BasicAuthServlet {
             LibraryDescriptor desc) throws Exception {
         IHyracksClientConnection hcc = appCtx.getHcc();
         ILibraryManager libMgr = appCtx.getLibraryManager();
-        DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
+        DeploymentId udfName = new DeploymentId(ExternalLibraryUtils.makeDeploymentId(dataverse, resourceName));
         ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
-//        if (lib != null) {
-//            deleteUdf(dataverse, resourceName);
-//        }
+        //        if (lib != null) {
+        //            deleteUdf(dataverse, resourceName);
+        //        }
         File descriptor = writeDescriptor(udfFile.getParentFile(), desc);
         hcc.deployBinary(udfName,
                 Arrays.asList(new String[] { udfFile.getAbsolutePath(), descriptor.getAbsolutePath() }), true);
@@ -233,7 +235,6 @@ public class UdfApiServlet extends BasicAuthServlet {
         }
     }
 
-
     private static void deleteLibrary(MetadataTransactionContext mdTxnCtx, DataverseName dataverse, String libraryName)
             throws RemoteException, AlgebricksException {
         Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
@@ -257,13 +258,6 @@ public class UdfApiServlet extends BasicAuthServlet {
             }
         }
         MetadataManager.INSTANCE.dropLibrary(mdTxnCtx, dataverse, libraryName);
-    }
-
-    public static String makeDeploymentId(DataverseName dv, String resourceName) {
-        List<String> dvParts = dv.getParts();
-        dvParts.add(resourceName);
-        DataverseName dvWithLibrarySuffix = DataverseName.create(dvParts);
-        return dvWithLibrarySuffix.getCanonicalForm();
     }
 
     @Override

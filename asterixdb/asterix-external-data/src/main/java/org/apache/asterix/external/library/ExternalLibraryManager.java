@@ -35,6 +35,7 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -54,8 +55,10 @@ public class ExternalLibraryManager implements ILibraryManager {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private final Map<Pair<DataverseName, String>, ILibrary> libraries = new ConcurrentHashMap<>();
+    private final IPersistedResourceRegistry reg;
 
-    public ExternalLibraryManager(File appDir) {
+    public ExternalLibraryManager(File appDir, IPersistedResourceRegistry reg) {
+        this.reg = reg;
         scanLibraries(appDir);
     }
 
@@ -98,7 +101,7 @@ public class ExternalLibraryManager implements ILibraryManager {
         try {
             File langFile = new File(libraryPath, DESCRIPTOR_NAME);
             final JsonNode jsonNode = OBJECT_MAPPER.readValue(Files.readAllBytes(langFile.toPath()), JsonNode.class);
-            LibraryDescriptor desc = (LibraryDescriptor) LibraryDescriptor.fromJson(jsonNode);
+            LibraryDescriptor desc = (LibraryDescriptor) reg.deserialize(jsonNode);
             ExternalFunctionLanguage libLang = desc.getLang();
             switch (libLang) {
                 case JAVA:

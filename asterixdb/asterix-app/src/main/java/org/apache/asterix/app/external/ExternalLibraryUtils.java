@@ -19,10 +19,10 @@
 package org.apache.asterix.app.external;
 
 import static org.apache.asterix.api.http.server.UdfApiServlet.UDF_RESPONSE_TIMEOUT;
-import static org.apache.asterix.api.http.server.UdfApiServlet.makeDeploymentId;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.apache.asterix.app.message.DeleteUdfMessage;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
@@ -46,4 +46,10 @@ public class ExternalLibraryUtils {
         appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverseName, lib)));
     }
 
+    public static String makeDeploymentId(DataverseName dv, String resourceName) {
+        List<String> dvParts = dv.getParts();
+        dvParts.add(resourceName);
+        DataverseName dvWithLibrarySuffix = DataverseName.create(dvParts);
+        return dvWithLibrarySuffix.getCanonicalForm();
+    }
 }

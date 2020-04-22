@@ -23,8 +23,8 @@ import java.io.IOException;
 import java.net.URL;
 
 import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.http.HttpEntity;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
