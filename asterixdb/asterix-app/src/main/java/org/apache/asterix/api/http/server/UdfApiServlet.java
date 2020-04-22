@@ -24,6 +24,7 @@ import static org.apache.asterix.common.library.LibraryDescriptor.DESCRIPTOR_NAM
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
@@ -100,6 +101,7 @@ public class UdfApiServlet extends BasicAuthServlet {
 
     @Override
     protected void post(IServletRequest request, IServletResponse response) {
+        PrintWriter responseWriter = response.writer();
         FullHttpRequest req = request.getHttpRequest();
         Pair<String, DataverseName> resourceNames;
         try {
@@ -166,6 +168,8 @@ public class UdfApiServlet extends BasicAuthServlet {
                 }
             }
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            responseWriter.write(e.getMessage());
+            responseWriter.flush();
             LOGGER.error(e);
         } finally {
             multipartDec.destroy();
@@ -175,6 +179,7 @@ public class UdfApiServlet extends BasicAuthServlet {
             if (mdLockList != null) {
                 mdLockList.unlock();
             }
+            return;
         }
     }
 
@@ -191,9 +196,9 @@ public class UdfApiServlet extends BasicAuthServlet {
         ILibraryManager libMgr = appCtx.getLibraryManager();
         DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
         ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
-        if (lib != null) {
-            deleteUdf(dataverse, resourceName);
-        }
+//        if (lib != null) {
+//            deleteUdf(dataverse, resourceName);
+//        }
         File descriptor = writeDescriptor(udfFile.getParentFile(), desc);
         hcc.deployBinary(udfName,
                 Arrays.asList(new String[] { udfFile.getAbsolutePath(), descriptor.getAbsolutePath() }), true);
@@ -228,6 +233,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         }
     }
 
+
     private static void deleteLibrary(MetadataTransactionContext mdTxnCtx, DataverseName dataverse, String libraryName)
             throws RemoteException, AlgebricksException {
         Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
@@ -241,17 +247,15 @@ public class UdfApiServlet extends BasicAuthServlet {
         List<Function> functions = MetadataManager.INSTANCE.getDataverseFunctions(mdTxnCtx, dataverse);
         for (Function function : functions) {
             if (libraryName.equals(function.getLibrary())) {
-                MetadataManager.INSTANCE.dropFunction(mdTxnCtx, function.getSignature());
+                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE, libraryName);
             }
         }
         List<DatasourceAdapter> adapters = MetadataManager.INSTANCE.getDataverseAdapters(mdTxnCtx, dataverse);
         for (DatasourceAdapter adapter : adapters) {
             if (libraryName.equals(adapter.getLibrary())) {
-                MetadataManager.INSTANCE.dropAdapter(mdTxnCtx, adapter.getAdapterIdentifier().getDataverseName(),
-                        adapter.getAdapterIdentifier().getName());
+                throw new AsterixException(ErrorCode.METADATA_DROP_LIBRARY_IN_USE, libraryName);
             }
         }
-        // drop the library
         MetadataManager.INSTANCE.dropLibrary(mdTxnCtx, dataverse, libraryName);
     }
 
@@ -260,21 +264,6 @@ public class UdfApiServlet extends BasicAuthServlet {
         dvParts.add(resourceName);
         DataverseName dvWithLibrarySuffix = DataverseName.create(dvParts);
         return dvWithLibrarySuffix.getCanonicalForm();
-    }
-
-    private void deleteUdf(DataverseName dataverse, String resourceName) throws Exception {
-        MetadataTransactionContext mdTxnCtx = null;
-        try {
-            MetadataManager.INSTANCE.init();
-            mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-            deleteLibrary(mdTxnCtx, dataverse, resourceName);
-            ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
-        } catch (Exception e) {
-            if (mdTxnCtx != null) {
-                MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
-            }
-            throw new AsterixException(e);
-        }
     }
 
     @Override
@@ -286,14 +275,37 @@ public class UdfApiServlet extends BasicAuthServlet {
             response.setStatus(HttpResponseStatus.BAD_REQUEST);
             return;
         }
+        PrintWriter responseWriter = response.writer();
         String resourceName = resourceNames.first;
         DataverseName dataverse = resourceNames.second;
+        IMetadataLockUtil mdLockUtil = appCtx.getMetadataLockUtil();
+        MetadataTransactionContext mdTxnCtx = null;
+        LockList mdLockList = null;
         try {
-            deleteUdf(dataverse, resourceName);
+            MetadataManager.INSTANCE.init();
+            mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+            MetadataProvider metadataProvider = MetadataProvider.create(appCtx, null);
+            mdLockList = metadataProvider.getLocks();
+            mdLockUtil.dropLibraryBegin(appCtx.getMetadataLockManager(), metadataProvider.getLocks(), dataverse,
+                    resourceName);
+            deleteLibrary(mdTxnCtx, dataverse, resourceName);
+            ExternalLibraryUtils.deleteDeployedUdf(broker, appCtx, dataverse, resourceName);
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
+            try {
+                MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
+            } catch (RemoteException r) {
+                LOGGER.error("Unable to abort metadata transaction", r);
+            }
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            responseWriter.write(e.getMessage());
+            responseWriter.flush();
             LOGGER.error(e);
             return;
+        } finally {
+            if (mdLockList != null) {
+                mdLockList.unlock();
+            }
         }
         response.setStatus(HttpResponseStatus.OK);
     }

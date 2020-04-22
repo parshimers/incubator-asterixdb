@@ -21,30 +21,16 @@ package org.apache.asterix.app.external;
 import static org.apache.asterix.api.http.server.UdfApiServlet.UDF_RESPONSE_TIMEOUT;
 import static org.apache.asterix.api.http.server.UdfApiServlet.makeDeploymentId;
 
-import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-
 import org.apache.asterix.app.message.DeleteUdfMessage;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.hyracks.api.deployment.DeploymentId;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.google.common.collect.ImmutableSet;
 
 public class ExternalLibraryUtils {
-
-    private static final Logger LOGGER = LogManager.getLogger();
-    private static final FilenameFilter nonHiddenFileNameFilter = (dir, name) -> !name.startsWith(".");
-    private static final Set<String> pythonExtensions =
-            new ImmutableSet.Builder<String>().add(".pyz").add(".py").build();
-    private static final Set<String> javaExtensions =
-            new ImmutableSet.Builder<String>().add(".zip").add(".jar").build();
 
     private ExternalLibraryUtils() {
     }
