@@ -131,7 +131,6 @@ public class UdfApiServlet extends BasicAuthServlet {
             }
             MetadataManager.INSTANCE.init();
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-            // Retrieves file splits of the dataset.
             MetadataProvider metadataProvider = MetadataProvider.create(appCtx, null);
             mdLockList = metadataProvider.getLocks();
             mdLockUtil.createLibraryBegin(appCtx.getMetadataLockManager(), metadataProvider.getLocks(), dataverse,
