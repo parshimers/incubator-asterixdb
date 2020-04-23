@@ -21,6 +21,7 @@ package org.apache.asterix.app.message;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.hyracks.control.common.deployment.DeploymentUtils;
 import org.apache.hyracks.util.file.FileUtil;
 
 public class LoadUdfMessage extends AbstractUdfMessage {
@@ -35,6 +36,6 @@ public class LoadUdfMessage extends AbstractUdfMessage {
     protected void handleAction(ILibraryManager mgr, INcApplicationContext appCtx) throws Exception {
         appCtx.getLibraryManager().setUpDeployedLibrary(
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                        "applications", dataverseName.getCanonicalForm() + "." + libraryName));
+                        DeploymentUtils.DEPLOYMENT, dataverseName.getCanonicalForm() + "." + libraryName));
     }
 }
