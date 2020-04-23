@@ -29,20 +29,20 @@ import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 
 public interface IExternalFunctionInfo extends IFunctionInfo {
 
-    public IResultTypeComputer getResultTypeComputer();
+    IResultTypeComputer getResultTypeComputer();
 
-    public IAType getReturnType();
+    IAType getReturnType();
 
-    public List<String> getExternalIdentifier();
+    List<String> getExternalIdentifier();
 
-    public List<IAType> getArgumentList();
+    List<IAType> getArgumentList();
 
-    public ExternalFunctionLanguage getLanguage();
+    ExternalFunctionLanguage getLanguage();
 
-    public FunctionKind getKind();
+    FunctionKind getKind();
 
-    public String getLibrary();
+    String getLibrary();
 
-    public Map<String, String> getParams();
+    Map<String, String> getParams();
 
 }

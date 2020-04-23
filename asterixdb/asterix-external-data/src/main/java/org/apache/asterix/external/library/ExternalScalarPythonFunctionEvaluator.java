@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
@@ -70,11 +69,10 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private final PythonLibraryEvaluator libraryEvaluator;
 
-    protected final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
+    private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     private final PointableAllocator pointableAllocator;
     private final JObjectPointableVisitor pointableVisitor;
     private final Object[] argHolder;
-    protected final File pythonPath;
     private final IObjectPool<IJObject, IAType> reflectingPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
     private final Map<IAType, TypeInfo> infoPool = new HashMap<>();
     private static final String ENTRYPOINT = "entrypoint.py";
@@ -83,11 +81,11 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private final IPointable[] argValues;
 
-    public ExternalScalarPythonFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
-            IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
+    ExternalScalarPythonFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
+                                          IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
 
-        pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
+        File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
         this.pointableAllocator = new PointableAllocator();
         this.pointableVisitor = new JObjectPointableVisitor();
 
@@ -111,7 +109,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             argEvals[i].evaluate(tuple, argValues[i]);
             try {
                 setArgument(i, argValues[i]);
-            } catch (IOException | AsterixException e) {
+            } catch (IOException e) {
                 throw new HyracksDataException("Error evaluating Python UDF", e);
             }
         }
@@ -166,7 +164,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             waitForPython();
         }
 
-        public Object callPython(Object[] arguments) throws IOException {
+        Object callPython(Object[] arguments) throws IOException {
             return remoteObj.call("nextTuple", arguments);
         }
 
@@ -200,7 +198,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
 
         private void waitForPython() throws IOException, InterruptedException {
-            for (int i = 10; i > 0; i++) {
+            for (int i = 0; i < 10; i++) {
                 try {
                     remoteObj.call("ping");
                     break;
@@ -238,7 +236,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
     }
 
-    private void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
+    private void setArgument(int index, IValueReference valueReference) throws IOException {
         IVisitablePointable pointable;
         IJObject jobj;
         IAType type = argTypes[index];

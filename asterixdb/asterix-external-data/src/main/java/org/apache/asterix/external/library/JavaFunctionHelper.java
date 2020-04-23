@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.api.IFunctionHelper;
@@ -63,7 +62,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
 
     private boolean isValidResult = false;
 
-    public JavaFunctionHelper(IExternalFunctionInfo finfo, IAType[] argTypes, IDataOutputProvider outputProvider) {
+    JavaFunctionHelper(IExternalFunctionInfo finfo, IAType[] argTypes, IDataOutputProvider outputProvider) {
         this.finfo = finfo;
         this.outputProvider = outputProvider;
         this.pointableVisitor = new JObjectPointableVisitor();
@@ -100,10 +99,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
         if (expectedType.equals(BuiltinType.ANY)) {
             return false;
         }
-        if (!expectedType.deepEqual(result.getIAType())) {
-            return true;
-        }
-        return false;
+        return !expectedType.deepEqual(result.getIAType());
     }
 
     /**
@@ -117,7 +113,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
         return this.isValidResult;
     }
 
-    public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
+    void setArgument(int index, IValueReference valueReference) throws IOException {
         IVisitablePointable pointable;
         IJObject jObject;
         IAType type = argTypes[index];

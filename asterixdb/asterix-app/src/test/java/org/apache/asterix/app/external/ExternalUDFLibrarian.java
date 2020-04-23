@@ -51,7 +51,7 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
     private String host;
     private int port;
 
-    public ExternalUDFLibrarian(String host, int port) {
+    private ExternalUDFLibrarian(String host, int port) {
         hc = new DefaultHttpClient();
         this.host = host;
         this.port = port;

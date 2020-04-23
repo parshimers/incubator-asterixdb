@@ -31,7 +31,7 @@ public class PythonLibrary implements ILibrary {
 
     private final URL path;
 
-    public PythonLibrary(String path) throws MalformedURLException {
+    PythonLibrary(String path) throws MalformedURLException {
         this.path = new File(path).toURL();
     }
 

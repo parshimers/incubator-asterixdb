@@ -79,7 +79,7 @@ public class UdfApiServlet extends BasicAuthServlet {
     private static final Logger LOGGER = LogManager.getLogger();
     private final ICcApplicationContext appCtx;
     private final ICCMessageBroker broker;
-    public static final String UDF_TMP_DIR_PREFIX = "udf_temp";
+    private static final String UDF_TMP_DIR_PREFIX = "udf_temp";
     public static final int UDF_RESPONSE_TIMEOUT = 5000;
     private Map<String, ExternalFunctionLanguage> exensionMap =
             new ImmutableMap.Builder<String, ExternalFunctionLanguage>().put("pyz", PYTHON).put("zip", JAVA).build();
@@ -180,7 +180,6 @@ public class UdfApiServlet extends BasicAuthServlet {
             if (mdLockList != null) {
                 mdLockList.unlock();
             }
-            return;
         }
     }
 
@@ -203,11 +202,13 @@ public class UdfApiServlet extends BasicAuthServlet {
         //        }
         File descriptor = writeDescriptor(udfFile.getParentFile(), desc);
         hcc.deployBinary(udfName,
-                Arrays.asList(new String[] { udfFile.getAbsolutePath(), descriptor.getAbsolutePath() }), true);
+                Arrays.asList(udfFile.getAbsolutePath(), descriptor.getAbsolutePath()), true);
         String deployedPath =
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                         "applications", udfName.toString());
-        descriptor.delete();
+        if(!descriptor.delete()){
+            throw new IOException("Could not remove already uploaded library descriptor");
+        }
         libMgr.setUpDeployedLibrary(deployedPath);
         long reqId = broker.newRequestId();
         List<INcAddressedMessage> requests = new ArrayList<>();
@@ -272,6 +273,18 @@ public class UdfApiServlet extends BasicAuthServlet {
         PrintWriter responseWriter = response.writer();
         String resourceName = resourceNames.first;
         DataverseName dataverse = resourceNames.second;
+        try{
+            deleteUdf(dataverse,resourceName);
+        } catch (Exception e) {
+            response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            responseWriter.write(e.getMessage());
+            responseWriter.flush();
+            return;
+        }
+        response.setStatus(HttpResponseStatus.OK);
+    }
+
+    private void deleteUdf(DataverseName dataverse, String resourceName) throws Exception {
         IMetadataLockUtil mdLockUtil = appCtx.getMetadataLockUtil();
         MetadataTransactionContext mdTxnCtx = null;
         LockList mdLockList = null;
@@ -291,16 +304,12 @@ public class UdfApiServlet extends BasicAuthServlet {
             } catch (RemoteException r) {
                 LOGGER.error("Unable to abort metadata transaction", r);
             }
-            response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
-            responseWriter.write(e.getMessage());
-            responseWriter.flush();
             LOGGER.error(e);
-            return;
-        } finally {
+            throw e;
+        }  finally {
             if (mdLockList != null) {
                 mdLockList.unlock();
             }
         }
-        response.setStatus(HttpResponseStatus.OK);
     }
 }

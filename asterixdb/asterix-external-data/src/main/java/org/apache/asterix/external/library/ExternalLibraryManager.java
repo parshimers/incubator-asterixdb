@@ -124,7 +124,7 @@ public class ExternalLibraryManager implements ILibraryManager {
     }
 
     private static Pair<DataverseName, String> getKey(DataverseName dataverseName, String libraryName) {
-        return new Pair(dataverseName, libraryName);
+        return new Pair<>(dataverseName, libraryName);
     }
 
 }

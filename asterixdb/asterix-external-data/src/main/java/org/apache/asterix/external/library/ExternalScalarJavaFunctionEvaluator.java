@@ -29,7 +29,6 @@ import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionFactory;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.IAType;
-import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -40,13 +39,13 @@ import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
 class ExternalScalarJavaFunctionEvaluator extends ExternalScalarFunctionEvaluator {
 
-    protected final IExternalScalarFunction externalFunctionInstance;
-    protected final IPointable inputVal = VoidPointable.FACTORY.createPointable();
-    protected final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
+    private final IExternalScalarFunction externalFunctionInstance;
+    private final IPointable inputVal = VoidPointable.FACTORY.createPointable();
+    private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     protected final JavaFunctionHelper functionHelper;
 
-    public ExternalScalarJavaFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
-            IAType[] argTypes, IEvaluatorContext context) throws HyracksDataException {
+    ExternalScalarJavaFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
+                                        IAType[] argTypes, IEvaluatorContext context) throws HyracksDataException {
         super(finfo, args, argTypes, context);
 
         DataverseName functionDataverse = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
@@ -87,7 +86,7 @@ class ExternalScalarJavaFunctionEvaluator extends ExternalScalarFunctionEvaluato
         }
     }
 
-    public void setArguments(IFrameTupleReference tuple) throws AlgebricksException, IOException {
+    public void setArguments(IFrameTupleReference tuple) throws IOException {
         for (int i = 0; i < argEvals.length; i++) {
             argEvals[i].evaluate(tuple, inputVal);
             functionHelper.setArgument(i, inputVal);
