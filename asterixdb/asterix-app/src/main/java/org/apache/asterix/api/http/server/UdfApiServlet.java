@@ -59,6 +59,7 @@ import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
+import org.apache.hyracks.control.common.deployment.DeploymentUtils;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.util.file.FileUtil;
@@ -205,7 +206,7 @@ public class UdfApiServlet extends BasicAuthServlet {
                 Arrays.asList(udfFile.getAbsolutePath(), descriptor.getAbsolutePath()), true);
         String deployedPath =
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
-                        "applications", udfName.toString());
+                        DeploymentUtils.DEPLOYMENT, udfName.toString());
         if(!descriptor.delete()){
             throw new IOException("Could not remove already uploaded library descriptor");
         }
@@ -219,12 +220,11 @@ public class UdfApiServlet extends BasicAuthServlet {
 
     private static void installLibrary(MetadataTransactionContext mdTxnCtx, DataverseName dataverse, String libraryName)
             throws RemoteException, AlgebricksException {
-        Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
-        // Get the dataverse
         Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
         if (dv == null) {
             throw new AsterixException(ErrorCode.UNKNOWN_DATAVERSE);
         }
+        Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
         if (libraryInMetadata != null) {
             //replacing binary, library already exists
             return;

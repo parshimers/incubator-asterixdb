@@ -55,7 +55,7 @@ import org.apache.logging.log4j.Logger;
  */
 public class DeploymentUtils {
 
-    private static final String DEPLOYMENT = "applications";
+    public static final String DEPLOYMENT = "applications";
     private static final Logger LOGGER = LogManager.getLogger();
     private static final String SHIV_SUFFIX = ".pyz";
     private static final String ZIP_SUFFIX = ".zip";
