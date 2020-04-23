@@ -198,16 +198,15 @@ public class UdfApiServlet extends BasicAuthServlet {
         ILibraryManager libMgr = appCtx.getLibraryManager();
         DeploymentId udfName = new DeploymentId(ExternalLibraryUtils.makeDeploymentId(dataverse, resourceName));
         ILibrary lib = libMgr.getLibrary(dataverse, resourceName);
-        //        if (lib != null) {
-        //            deleteUdf(dataverse, resourceName);
-        //        }
+        if (lib != null) {
+            deleteUdf(dataverse, resourceName);
+        }
         File descriptor = writeDescriptor(udfFile.getParentFile(), desc);
-        hcc.deployBinary(udfName,
-                Arrays.asList(udfFile.getAbsolutePath(), descriptor.getAbsolutePath()), true);
+        hcc.deployBinary(udfName, Arrays.asList(udfFile.getAbsolutePath(), descriptor.getAbsolutePath()), true);
         String deployedPath =
                 FileUtil.joinPath(appCtx.getServiceContext().getServerCtx().getBaseDir().getAbsolutePath(),
                         DeploymentUtils.DEPLOYMENT, udfName.toString());
-        if(!descriptor.delete()){
+        if (!descriptor.delete()) {
             throw new IOException("Could not remove already uploaded library descriptor");
         }
         libMgr.setUpDeployedLibrary(deployedPath);
@@ -273,8 +272,8 @@ public class UdfApiServlet extends BasicAuthServlet {
         PrintWriter responseWriter = response.writer();
         String resourceName = resourceNames.first;
         DataverseName dataverse = resourceNames.second;
-        try{
-            deleteUdf(dataverse,resourceName);
+        try {
+            deleteUdf(dataverse, resourceName);
         } catch (Exception e) {
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             responseWriter.write(e.getMessage());
@@ -306,7 +305,7 @@ public class UdfApiServlet extends BasicAuthServlet {
             }
             LOGGER.error(e);
             throw e;
-        }  finally {
+        } finally {
             if (mdLockList != null) {
                 mdLockList.unlock();
             }

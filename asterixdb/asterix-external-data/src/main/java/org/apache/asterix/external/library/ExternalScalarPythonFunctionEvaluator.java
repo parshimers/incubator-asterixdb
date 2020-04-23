@@ -82,7 +82,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final IPointable[] argValues;
 
     ExternalScalarPythonFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
-                                          IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
+            IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
 
         File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));

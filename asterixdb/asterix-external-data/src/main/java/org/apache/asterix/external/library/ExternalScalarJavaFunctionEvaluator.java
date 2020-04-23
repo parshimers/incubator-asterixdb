@@ -44,8 +44,8 @@ class ExternalScalarJavaFunctionEvaluator extends ExternalScalarFunctionEvaluato
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     protected final JavaFunctionHelper functionHelper;
 
-    ExternalScalarJavaFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
-                                        IAType[] argTypes, IEvaluatorContext context) throws HyracksDataException {
+    ExternalScalarJavaFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args, IAType[] argTypes,
+            IEvaluatorContext context) throws HyracksDataException {
         super(finfo, args, argTypes, context);
 
         DataverseName functionDataverse = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
