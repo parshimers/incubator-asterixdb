@@ -19,6 +19,7 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.builders.IAsterixListBuilder;
@@ -42,20 +43,22 @@ public final class JOrderedList extends JList<List<? extends Object>> {
 
     public JOrderedList(IJType listItemType) {
         super();
+        jObjects = new ArrayList<>();
         this.listType = new AOrderedListType(listItemType.getIAType(), null);
     }
 
     public JOrderedList(IAType listItemType) {
         super();
+        jObjects = new ArrayList<>();
         this.listType = new AOrderedListType(listItemType, null);
     }
 
     public List<? extends Object> getValueGeneric() {
-        return jObjects;
+        return (ArrayList) jObjects;
     }
 
     public List<IJObject> getValue() {
-        return jObjects;
+        return (List) jObjects;
     }
 
     @Override

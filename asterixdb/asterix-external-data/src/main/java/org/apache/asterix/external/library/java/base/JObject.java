@@ -28,9 +28,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.external.api.IJObject;
@@ -42,6 +41,7 @@ import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multiset;
 
 public abstract class JObject<T> implements IJObject<T> {
 
@@ -51,8 +51,8 @@ public abstract class JObject<T> implements IJObject<T> {
             .put(Long.class, BuiltinType.AINT64).put(Float.class, BuiltinType.AFLOAT)
             .put(Double.class, BuiltinType.ADOUBLE).put(LocalTime.class, BuiltinType.ATIME)
             .put(LocalDate.class, BuiltinType.ADATE).put(LocalDateTime.class, BuiltinType.ADATETIME)
-            .put(Duration.class, BuiltinType.ADURATION).put(ArrayList.class, FULL_OPEN_ORDEREDLIST_TYPE)
-            .put(HashSet.class, FULLY_OPEN_UNORDEREDLIST_TYPE).put(String.class, BuiltinType.ASTRING).build();
+            .put(Duration.class, BuiltinType.ADURATION).put(List.class, FULL_OPEN_ORDEREDLIST_TYPE)
+            .put(String.class, BuiltinType.ASTRING).put(Multiset.class, FULLY_OPEN_UNORDEREDLIST_TYPE).build();
     protected IAObject value;
     protected byte[] bytes;
     protected IObjectPool<IJObject, Class> pool;

@@ -40,7 +40,7 @@ public class AllTypesFunction implements IExternalScalarFunction {
     private JOrderedList newFieldList;
 
     @Override
-    public void initialize(IFunctionHelper functionHelper) throws Exception {
+    public void initialize(IFunctionHelper functionHelper) {
         newFieldList = new JOrderedList(JBuiltinType.JINT);
     }
 
@@ -85,12 +85,6 @@ public class AllTypesFunction implements IExternalScalarFunction {
         JString newFieldString = (JString) functionHelper.getObject(JTypeTag.STRING);
         newFieldString.setValue("processed");
         result.addField("status", newFieldString);
-
-        /*
-         * JString element = (JString)
-         * functionHelper.getObject(JTypeTag.STRING); element.setValue("raman");
-         * newFieldList.add(element); result.addField("mylist", newFieldList);
-         */
 
         JString newFieldString2 = (JString) functionHelper.getObject(JTypeTag.STRING);
         newFieldString2.setValue("this is working");

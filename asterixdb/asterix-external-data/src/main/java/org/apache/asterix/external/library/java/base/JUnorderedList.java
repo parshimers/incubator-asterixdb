@@ -19,7 +19,6 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
-import java.util.List;
 
 import org.apache.asterix.builders.IAsterixListBuilder;
 import org.apache.asterix.builders.UnorderedListBuilder;
@@ -32,27 +31,27 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
-public final class JUnorderedList extends JList<List<? extends Object>> {
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multiset;
+
+public final class JUnorderedList extends JList<Multiset<? extends Object>> {
 
     private AUnorderedListType listType;
 
     public JUnorderedList(IJType elementType) {
         super();
+        jObjects = HashMultiset.create();
         this.listType = new AUnorderedListType(elementType.getIAType(), null);
     }
 
     public JUnorderedList(IAType elementType) {
         super();
+        jObjects = HashMultiset.create();
         this.listType = new AUnorderedListType(elementType, null);
     }
 
-    public List<? extends Object> getValueGeneric() {
-        return jObjects;
-    }
-
-    @Override
-    public void add(IJObject jObject) {
-        jObjects.add(jObject);
+    public Multiset<? extends Object> getValueGeneric() {
+        return (Multiset) jObjects;
     }
 
     @Override
@@ -70,19 +69,14 @@ public final class JUnorderedList extends JList<List<? extends Object>> {
     }
 
     @Override
-    public void setValueGeneric(List<? extends Object> vals) {
+    public void setValueGeneric(Multiset<? extends Object> vals) {
         reset();
-        if (vals.size() > 0) {
-            Object first = vals.get(0);
-            IAType asxClass = JObject.convertType(first.getClass());
-            IJObject obj = pool.allocate(asxClass);
-            obj.setValueGeneric(first);
-            IAType listType = obj.getIAType();
-            this.listType = new AUnorderedListType(listType, "");
-        }
         for (Object v : vals) {
             IAType asxClass = JObject.convertType(v.getClass());
             IJObject obj = pool.allocate(asxClass);
+            if (this.listType == null) {
+                this.listType = new AUnorderedListType(obj.getIAType(), "");
+            }
             obj.setValueGeneric(v);
             add(obj);
         }
