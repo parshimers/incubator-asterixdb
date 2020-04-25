@@ -135,7 +135,7 @@ public class FeedMetadataUtil {
                         String libraryName = anameComponents[0];
                         ILibrary lib = appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
                         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-                            throw new HyracksDataException("NYI: Python feed adapters");
+                            throw new HyracksDataException("Unexpected library language: " + lib.getLanguage());
                         }
                         ClassLoader cl = ((JavaLibrary) lib).getClassLoader();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
@@ -211,7 +211,7 @@ public class FeedMetadataUtil {
                         String libraryName = anameComponents[0];
                         ILibrary lib = appCtx.getLibraryManager().getLibrary(feed.getDataverseName(), libraryName);
                         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-                            throw new HyracksDataException("NYI: Python feed adapters");
+                            throw new HyracksDataException("Unexpected library language: " + lib.getLanguage());
                         }
                         ClassLoader cl = ((JavaLibrary) lib).getClassLoader();
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();

@@ -111,7 +111,7 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
 
         ILibrary lib = libraryManager.getLibrary(feedId.getDataverseName(), adaptorLibraryName);
         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-            throw new HyracksDataException("NYI: Python feed adapters");
+            throw new HyracksDataException("Unexpected library language: " + lib.getLanguage());
         }
         ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
         if (classLoader != null) {

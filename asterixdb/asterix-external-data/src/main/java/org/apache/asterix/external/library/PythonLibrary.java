@@ -21,18 +21,16 @@
 package org.apache.asterix.external.library;
 
 import java.io.File;
-import java.net.MalformedURLException;
-import java.net.URL;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
 
 public class PythonLibrary implements ILibrary {
 
-    private final URL path;
+    private final File path;
 
-    PythonLibrary(String path) throws MalformedURLException {
-        this.path = new File(path).toURL();
+    PythonLibrary(String path) {
+        this.path = new File(path);
     }
 
     @Override
@@ -40,7 +38,7 @@ public class PythonLibrary implements ILibrary {
         return ExternalFunctionLanguage.PYTHON;
     }
 
-    public URL getURL() {
+    public File getFile() {
         return path;
 
     }

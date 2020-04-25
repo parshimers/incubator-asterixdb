@@ -69,7 +69,7 @@ public final class JUnorderedList extends JList<Multiset<? extends Object>> {
     }
 
     @Override
-    public void setValueGeneric(Multiset<? extends Object> vals) {
+    public void setValueGeneric(Multiset<? extends Object> vals) throws HyracksDataException {
         reset();
         for (Object v : vals) {
             IAType asxClass = JObject.convertType(v.getClass());

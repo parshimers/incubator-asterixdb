@@ -25,8 +25,9 @@ import static org.apache.asterix.common.library.LibraryDescriptor.DESCRIPTOR_NAM
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
@@ -54,7 +55,7 @@ public class ExternalLibraryManager implements ILibraryManager {
     }
 
     private static final Logger LOGGER = LogManager.getLogger();
-    private final Map<Pair<DataverseName, String>, ILibrary> libraries = new ConcurrentHashMap<>();
+    private final Map<Pair<DataverseName, String>, ILibrary> libraries = Collections.synchronizedMap(new HashMap());
     private final IPersistedResourceRegistry reg;
 
     public ExternalLibraryManager(File appDir, IPersistedResourceRegistry reg) {
@@ -110,6 +111,8 @@ public class ExternalLibraryManager implements ILibraryManager {
                 case PYTHON:
                     register(dataverse, name, new PythonLibrary(libraryPath));
                     break;
+                default:
+                    throw new IllegalStateException("Library path file refers to unknown language");
             }
         } catch (IOException | AsterixException e) {
             LOGGER.error("Failed to initialized library", e);

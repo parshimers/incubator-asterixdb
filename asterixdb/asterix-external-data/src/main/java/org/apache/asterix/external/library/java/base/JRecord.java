@@ -182,7 +182,8 @@ public final class JRecord extends JComplexObject<Map<String, Object>> {
     }
 
     @Override
-    public void setValueGeneric(Map<String, Object> o) {
+    public void setValueGeneric(Map<String, Object> o) throws HyracksDataException {
+        reset();
         for (Map.Entry<String, Object> e : o.entrySet()) {
             IAType asxClass = JObject.convertType(e.getValue().getClass());
             IJObject obj = pool.allocate(asxClass);

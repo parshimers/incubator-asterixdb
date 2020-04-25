@@ -136,7 +136,7 @@ public class ExternalDataUtils {
             String className = getExternalClassName(stream);
             ILibrary lib = libraryManager.getLibrary(dataverse, libraryName);
             if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-                throw new HyracksDataException("NYI: Python feed adapters");
+                throw new HyracksDataException("Unexpected library language: " + lib.getLanguage());
             }
             ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
             return ((IInputStreamFactory) (classLoader.loadClass(className).newInstance()));
@@ -238,7 +238,7 @@ public class ExternalDataUtils {
         String libraryName = dataverseAndLibrary[1];
         ILibrary lib = libraryManager.getLibrary(dataverseName, libraryName);
         if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-            throw new AsterixException("NYI: Python feed adapters");
+            throw new AsterixException("Unexpected library language: " + lib.getLanguage());
         }
         ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
         try {
@@ -255,7 +255,7 @@ public class ExternalDataUtils {
                     parserFactoryName.indexOf(ExternalDataConstants.EXTERNAL_LIBRARY_SEPARATOR));
             ILibrary lib = libraryManager.getLibrary(dataverse, library);
             if (lib.getLanguage() != ExternalFunctionLanguage.JAVA) {
-                throw new AsterixException("NYI: Python feed adapters");
+                throw new AsterixException("Unexpected library language: " + lib.getLanguage());
             }
             ClassLoader classLoader = ((JavaLibrary) lib).getClassLoader();
             return (IDataParserFactory) classLoader

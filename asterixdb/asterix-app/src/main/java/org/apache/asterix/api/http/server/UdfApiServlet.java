@@ -149,7 +149,7 @@ public class UdfApiServlet extends BasicAuthServlet {
                 return;
             }
             LibraryDescriptor desc = new LibraryDescriptor(libLang);
-            udfFile = File.createTempFile(resourceName, "." + fileNameParts[fileNameParts.length - 1]);
+            udfFile = File.createTempFile(resourceName, "." + suffix, workingDir);
             udf.renameTo(udfFile);
             setupBinariesAndClassloaders(dataverse, resourceName, udfFile, desc);
             installLibrary(mdTxnCtx, dataverse, resourceName);

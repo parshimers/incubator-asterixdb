@@ -30,7 +30,7 @@ public interface IJObject<T> {
 
     IAObject getIAObject();
 
-    void setValueGeneric(T o);
+    void setValueGeneric(T o) throws HyracksDataException;
 
     T getValueGeneric();
 

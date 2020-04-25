@@ -143,7 +143,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
             PythonLibrary library = (PythonLibrary) libMgr.getLibrary(fnId.dataverseName, fnId.libraryName);
-            String wd = library.getURL().getFile();
+            String wd = library.getFile().getAbsolutePath();
             int port = getFreeHighPort();
             String packageModule = externalIdents.get(0);
             String clazz = "None";

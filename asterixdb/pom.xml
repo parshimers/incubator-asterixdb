@@ -70,7 +70,7 @@
     <test.includes>${global.test.includes}</test.includes>
     <test.excludes>${global.test.excludes}</test.excludes>
     <global.itest.includes>**/*IT.java,**/*IT.java,**/*ITCase.java</global.itest.includes>
-    <global.itest.excludes/>
+    <global.itest.excludes>**/ExternalPythonFunctionIT.java</global.itest.excludes>
     <itest.includes>${global.itest.includes}</itest.includes>
     <itest.excludes>${global.itest.excludes}</itest.excludes>
     <license.stage>compile</license.stage>
@@ -286,8 +286,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
         <configuration>
-           <failOnWarning>true</failOnWarning>
-           <outputXML>true</outputXML>
+          <failOnWarning>true</failOnWarning>
+          <outputXML>true</outputXML>
           <ignoredUnusedDeclaredDependencies>
             <ignoredUnusedDeclaredDependency>net.razorvine.serpent:jar:1.23</ignoredUnusedDeclaredDependency>
           </ignoredUnusedDeclaredDependencies>
@@ -643,6 +643,7 @@
       <properties>
         <pyro-shim.stage>process-classes</pyro-shim.stage>
         <pytestlib.stage>generate-test-resources</pytestlib.stage>
+        <global.itest.excludes/>
       </properties>
     </profile>
     <profile>

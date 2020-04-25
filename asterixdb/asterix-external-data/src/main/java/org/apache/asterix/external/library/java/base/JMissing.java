@@ -43,6 +43,9 @@ public final class JMissing extends JObject<Object> {
 
     @Override
     public void setValueGeneric(Object o) {
+        if (o != null) {
+            throw new IllegalArgumentException("Not null");
+        }
     }
 
     @Override

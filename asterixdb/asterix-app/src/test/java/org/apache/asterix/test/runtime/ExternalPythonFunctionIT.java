@@ -35,7 +35,7 @@ import org.junit.runners.Parameterized.Parameters;
  * Runs the SQLPP runtime tests with the storage parallelism.
  */
 @RunWith(Parameterized.class)
-public class SqlppExecutionPythonIT {
+public class ExternalPythonFunctionIT {
     protected static final String TEST_CONFIG_FILE_NAME = "src/test/resources/cc.conf";
 
     @BeforeClass
@@ -55,7 +55,7 @@ public class SqlppExecutionPythonIT {
 
     protected TestCaseContext tcCtx;
 
-    public SqlppExecutionPythonIT(TestCaseContext tcCtx) {
+    public ExternalPythonFunctionIT(TestCaseContext tcCtx) {
         this.tcCtx = tcCtx;
     }
 
