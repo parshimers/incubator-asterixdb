@@ -174,7 +174,8 @@
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>{$python.path}</executable>
+              <!--suppress UnresolvedMavenProperty -->
+              <executable>${python.path}</executable>
               <workingDirectory>${project.build.directory}</workingDirectory>
               <arguments>
                 <argument>-m</argument>
@@ -433,7 +434,7 @@
       <id>asterix-gerrit-verify-asterix-app</id>
       <properties>
         <test.includes>**/AqlExecutionTest.java</test.includes>
-        <itest.excludes>**/SqlppExecution*IT.java,**/SqlppRQG*IT.java,**/RebalanceWithCancellationIT.java</itest.excludes>
+        <itest.excludes>**/External*IT.java,**/SqlppExecution*IT.java,**/SqlppRQG*IT.java,**/RebalanceWithCancellationIT.java</itest.excludes>
         <failIfNoTests>false</failIfNoTests>
       </properties>
     </profile>

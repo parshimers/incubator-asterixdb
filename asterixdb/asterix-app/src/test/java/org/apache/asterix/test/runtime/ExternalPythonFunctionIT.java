@@ -48,7 +48,7 @@ public class ExternalPythonFunctionIT {
         LangExecutionUtil.tearDown();
     }
 
-    @Parameters(name = "SqlppExecutionIT {index}: {0}")
+    @Parameters(name = "ExternalPythonFunctionIT {index}: {0}")
     public static Collection<Object[]> tests() throws Exception {
         return LangExecutionUtil.tests("only_sqlpp.xml", "testsuite_it_python.xml");
     }
