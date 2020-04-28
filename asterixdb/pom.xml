@@ -288,18 +288,7 @@
         <configuration>
           <failOnWarning>true</failOnWarning>
           <outputXML>true</outputXML>
-          <ignoredUnusedDeclaredDependencies>
-            <ignoredUnusedDeclaredDependency>net.razorvine.serpent:jar:1.23</ignoredUnusedDeclaredDependency>
-          </ignoredUnusedDeclaredDependencies>
         </configuration>
-        <executions>
-            <execution>
-              <phase>process-test-classes</phase>
-              <goals>
-                  <goal>analyze-only</goal>
-              </goals>
-            </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -590,6 +579,11 @@
           <groupId>net.revelc.code</groupId>
           <artifactId>impsort-maven-plugin</artifactId>
           <version>1.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>1.6.0</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -1382,6 +1376,21 @@
         <groupId>org.postgresql</groupId>
         <artifactId>postgresql</artifactId>
         <version>42.2.10</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpmime</artifactId>
+        <version>4.5.11</version>
+      </dependency>
+      <dependency>
+        <groupId>net.razorvine</groupId>
+        <artifactId>pyrolite</artifactId>
+        <version>4.30</version>
+      </dependency>
+      <dependency>
+        <groupId>net.razorvine</groupId>
+        <artifactId>serpent</artifactId>
+        <version>1.23</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

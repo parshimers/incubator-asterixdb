@@ -37,6 +37,8 @@
     <root.dir>${basedir}/..</root.dir>
     <appendedResourcesDirectory>${basedir}/src/main/appended-resources</appendedResourcesDirectory>
     <sonar.sources>pom.xml,src/main/java,src/main/resources</sonar.sources>
+    <pip.path>${project.build.directory}${file.separator}bin${file.separator}pip3</pip.path>
+    <shiv.path>${project.build.directory}${file.separator}bin${file.separator}shiv</shiv.path>
   </properties>
   <build>
     <plugins>
@@ -165,7 +167,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
         <executions>
           <execution>
             <id>venv</id>
@@ -191,7 +192,7 @@
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>${project.build.directory}/bin/pip3</executable>
+              <executable>${pip.path}</executable>
               <workingDirectory>${project.build.directory}</workingDirectory>
               <arguments>
                 <argument>install</argument>
@@ -201,8 +202,8 @@
                 <argument>shiv</argument>
               </arguments>
               <environmentVariables>
-                <VIRTUALENV>{project.build.directory}</VIRTUALENV>
-                <PATH>{project.build.directory}:$PATH/bin</PATH>
+                <VIRTUALENV>${project.build.directory}</VIRTUALENV>
+                <PATH>${project.build.directory}${path.separator}${env.PATH}${file.separator}bin</PATH>
               </environmentVariables>
             </configuration>
           </execution>
@@ -213,16 +214,16 @@
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>${project.build.directory}/bin/shiv</executable>
+              <executable>${shiv.path}</executable>
               <workingDirectory>${project.build.directory}</workingDirectory>
               <arguments>
                 <argument>-o </argument>
-                <argument>${project.build.directory}/classes/pyro4.pyz</argument>
+                <argument>${project.build.directory}${file.separator}classes${file.separator}pyro4.pyz</argument>
                 <argument>pyro4</argument>
               </arguments>
               <environmentVariables>
-                <VIRTUALENV>{project.build.directory}</VIRTUALENV>
-                <PATH>{project.build.directory}:$PATH/bin</PATH>
+                <VIRTUALENV>${project.build.directory}</VIRTUALENV>
+                <PATH>${project.build.directory}${path.separator}${env.PATH}${file.separator}bin</PATH>
               </environmentVariables>
             </configuration>
           </execution>
@@ -233,18 +234,18 @@
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>${project.build.directory}/bin/shiv</executable>
+              <executable>${shiv.path}</executable>
               <workingDirectory>${project.build.directory}</workingDirectory>
               <arguments>
                 <argument>-o </argument>
-                <argument>${project.build.directory}/TweetSent.pyz</argument>
+                <argument>${project.build.directory}${file.separator}TweetSent.pyz</argument>
                 <argument>--site-packages</argument>
-                <argument>${project.build.directory}/../src/test/resources/TweetSent</argument>
+                <argument>${project.build.directory}${file.separator}..${file.separator}src${file.separator}test${file.separator}resources${file.separator}TweetSent</argument>
                 <argument>scikit-learn</argument>
               </arguments>
               <environmentVariables>
-                <VIRTUALENV>{project.build.directory}</VIRTUALENV>
-                <PATH>{project.build.directory}:$PATH/bin</PATH>
+                <VIRTUALENV>${project.build.directory}</VIRTUALENV>
+                <PATH>${project.build.directory}${path.separator}${env.PATH}${file.separator}bin</PATH>
               </environmentVariables>
             </configuration>
           </execution>
@@ -372,6 +373,18 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+      <id>windows.python.envs</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <pip.path>${project.build.directory}${file.separator}Scripts${file.separator}pip3.exe</pip.path>
+        <shiv.path>${project.build.directory}${file.separator}Scripts${file.separator}shiv.exe</shiv.path>
+      </properties>
     </profile>
     <profile>
       <id>asterix-gerrit-asterix-app</id>
@@ -814,11 +827,10 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-csv</artifactId>
     </dependency>
-      <dependency>
-          <groupId>org.apache.httpcomponents</groupId>
-          <artifactId>httpmime</artifactId>
-          <version>4.5.11</version>
-          <scope>test</scope>
-      </dependency>
+    <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpmime</artifactId>
+        <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>
