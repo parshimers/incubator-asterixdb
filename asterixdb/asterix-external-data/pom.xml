@@ -307,10 +307,6 @@
       <artifactId>commons-io</artifactId>
     </dependency>
     <dependency>
-      <groupId>commons-lang</groupId>
-      <artifactId>commons-lang</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.apache.hyracks</groupId>
       <artifactId>hyracks-dataflow-common</artifactId>
     </dependency>
@@ -449,8 +445,8 @@
       <artifactId>guava</artifactId>
     </dependency>
     <dependency>
-        <groupId>net.razorvine</groupId>
-        <artifactId>pyrolite</artifactId>
+      <groupId>net.razorvine</groupId>
+      <artifactId>pyrolite</artifactId>
     </dependency>
     <dependency>
       <groupId>net.razorvine</groupId>
