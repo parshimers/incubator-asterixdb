@@ -17,11 +17,12 @@
 
 import math,sys
 sys.path.insert(0,'./site-packages/')
-import Pyro4
+from Pyro5.api import config, Daemon, expose
+import msgpack
 from importlib import import_module
 from pathlib import Path
 
-@Pyro4.expose
+@expose
 class Wrapper(object):
     wrapped_module = None
     wrapped_class = None
@@ -41,10 +42,11 @@ class Wrapper(object):
             self.wrapped_fn = locals()[fn_name]
 
     def nextTuple(self, *args):
-        return self.wrapped_fn(args)
+        position = args[1]
+        return msgpack.packb(self.wrapped_fn(msgpack.unpackb(args[0][:position])))
 
     def ping(self):
-        return "pong"
+        return msgpack.packb("pong")
 
     def check_module_path(self,module):
         cwd = Path('.').resolve()
@@ -53,8 +55,10 @@ class Wrapper(object):
 
 
 port = int(sys.argv[1])
+config.SERIALIZER = "msgpack"
+config.SOCK_NODELAY= "True"
 wrap = Wrapper(sys.argv[2],sys.argv[3],sys.argv[4])
-d = Pyro4.Daemon(host="127.0.0.1",port=port)
+d = Daemon(host="127.0.0.1",port=port)
 d.register(wrap,"nextTuple")
-print(Pyro4.config.dump())
+print(config.dump())
 d.requestLoop()

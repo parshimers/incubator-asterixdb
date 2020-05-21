@@ -19,15 +19,13 @@
 
 package org.apache.asterix.external.library;
 
-import java.io.DataOutput;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.ConnectException;
 import java.net.ServerSocket;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channel;
+import java.nio.channels.Channels;
+import java.util.*;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -36,12 +34,10 @@ import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.java.JObjectPointableVisitor;
 import org.apache.asterix.external.library.java.base.JComplexObject;
 import org.apache.asterix.external.library.java.base.JObject;
+import org.apache.asterix.external.library.msgpack.MessagePacker;
+import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
-import org.apache.asterix.om.pointables.AFlatValuePointable;
-import org.apache.asterix.om.pointables.AListVisitablePointable;
-import org.apache.asterix.om.pointables.ARecordVisitablePointable;
 import org.apache.asterix.om.pointables.PointableAllocator;
-import org.apache.asterix.om.pointables.base.IVisitablePointable;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
@@ -72,7 +68,9 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     private final PointableAllocator pointableAllocator;
     private final JObjectPointableVisitor pointableVisitor;
-    private final Object[] argHolder;
+    private final ByteBuffer argHolder;
+    private final ByteBuffer resultWrapper;
+    private final ByteBuffer outputWrapper;
     private final IObjectPool<IJObject, IAType> reflectingPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
     private final Map<IAType, TypeInfo> infoPool = new HashMap<>();
     private static final String ENTRYPOINT = "entrypoint.py";
@@ -100,7 +98,9 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         for (int i = 0; i < argValues.length; i++) {
             argValues[i] = VoidPointable.FACTORY.createPointable();
         }
-        this.argHolder = new Object[args.length];
+        this.argHolder = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
+        this.resultWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
+        this.outputWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
     }
 
     @Override
@@ -114,7 +114,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }
         }
         try {
-            Object res = libraryEvaluator.callPython(argHolder);
+             byte[] res = libraryEvaluator.callPython(argHolder);
             resultBuffer.reset();
             wrap(res, resultBuffer.getDataOutput());
         } catch (IOException e) {
@@ -129,6 +129,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         IExternalFunctionInfo finfo;
         ILibraryManager libMgr;
         File pythonHome;
+        Channel stdIn;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
                 ILibraryManager libMgr, File pythonHome) {
@@ -138,6 +139,18 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.pythonHome = pythonHome;
 
         }
+
+        private static void inheritIO(final InputStream src, final PrintStream dest) {
+            new Thread(new Runnable() {
+                public void run() {
+                    Scanner sc = new Scanner(src);
+                    while (sc.hasNextLine()) {
+                        dest.println(sc.nextLine());
+                    }
+                }
+            }).start();
+        }
+
 
         public void initialize() throws IOException, InterruptedException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
@@ -157,15 +170,18 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
                     PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port), packageModule, clazz, fn);
             pb.directory(new File(wd));
-            pb.environment().clear();
-            pb.inheritIO();
+//            pb.environment().clear();
             p = pb.start();
+            inheritIO(p.getInputStream(), System.out);
+            inheritIO(p.getErrorStream(), System.err);
+            stdIn = Channels.newChannel(p.getOutputStream());
             remoteObj = new PyroProxy("127.0.0.1", port, "nextTuple");
             waitForPython();
         }
 
-        Object callPython(Object[] arguments) throws IOException {
-            return remoteObj.call("nextTuple", arguments);
+        byte[] callPython(ByteBuffer arguments) throws IOException {
+            Object ret = remoteObj.call("nextTuple",arguments.array(),arguments.position());
+            return (byte[])ret;
         }
 
         @Override
@@ -237,57 +253,19 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     }
 
     private void setArgument(int index, IValueReference valueReference) throws IOException {
-        IVisitablePointable pointable;
-        IJObject jobj;
         IAType type = argTypes[index];
-        TypeInfo info;
-        switch (type.getTypeTag()) {
-            case OBJECT:
-                pointable = pointableAllocator.allocateRecordValue(type);
-                pointable.set(valueReference);
-                info = getTypeInfo(type);
-                jobj = pointableVisitor.visit((ARecordVisitablePointable) pointable, info);
-                break;
-            case ARRAY:
-            case MULTISET:
-                pointable = pointableAllocator.allocateListValue(type);
-                pointable.set(valueReference);
-                info = getTypeInfo(type);
-                jobj = pointableVisitor.visit((AListVisitablePointable) pointable, info);
-                break;
+        ATypeTag tag = type.getTypeTag();
+        switch (tag) {
             case ANY:
                 TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
                 pointy.set(valueReference);
                 ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-                info = getTypeInfo(rtType);
-                switch (rtTypeTag) {
-                    case OBJECT:
-                        pointable = pointableAllocator.allocateRecordValue(rtType);
-                        pointable.set(valueReference);
-                        jobj = pointableVisitor.visit((ARecordVisitablePointable) pointable, info);
-                        break;
-                    case ARRAY:
-                    case MULTISET:
-                        pointable = pointableAllocator.allocateListValue(rtType);
-                        pointable.set(valueReference);
-                        jobj = pointableVisitor.visit((AListVisitablePointable) pointable, info);
-                        break;
-                    default:
-                        pointable = pointableAllocator.allocateFieldValue(rtType);
-                        pointable.set(valueReference);
-                        jobj = pointableVisitor.visit((AFlatValuePointable) pointable, info);
-                        break;
-                }
+                MessagePacker.pack(valueReference, rtTypeTag, argHolder);
                 break;
             default:
-                pointable = pointableAllocator.allocateFieldValue(type);
-                pointable.set(valueReference);
-                info = getTypeInfo(type);
-                jobj = pointableVisitor.visit((AFlatValuePointable) pointable, info);
-                break;
+                throw new IllegalArgumentException("NYI");
         }
-        argHolder[index] = jobj.getValueGeneric();
     }
 
     private TypeInfo getTypeInfo(IAType type) {
@@ -299,14 +277,18 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         return typeInfo;
     }
 
-    private void wrap(Object o, DataOutput out) throws HyracksDataException {
-        Class concrete = o.getClass();
-        IAType asxConv = JObject.convertType(concrete);
-        IJObject res = reflectingPool.allocate(asxConv);
-        if (res instanceof JComplexObject) {
-            ((JComplexObject) res).setPool(reflectingPool);
+    private void wrap(byte[] in, DataOutput out) throws HyracksDataException {
+        resultWrapper.clear();
+        resultWrapper.put(in);
+        resultWrapper.position(0);
+        resultWrapper.limit(in.length);
+        MessageUnpacker.unpack(resultWrapper,outputWrapper);
+        byte[] outsnip = Arrays.copyOfRange(outputWrapper.array(),outputWrapper.position(),outputWrapper.limit());
+        try {
+            out.write(outsnip);
+        } catch (IOException e) {
+            throw new HyracksDataException(e.getMessage());
         }
-        res.setValueGeneric(o);
-        res.serialize(out, true);
+
     }
 }

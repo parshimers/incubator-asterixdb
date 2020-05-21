@@ -468,5 +468,15 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>auth</artifactId>
     </dependency>
+      <dependency>
+          <groupId>org.msgpack</groupId>
+          <artifactId>msgpack-core</artifactId>
+          <version>0.8.20</version>
+      </dependency>
+    <dependency>
+      <groupId>org.msgpack</groupId>
+      <artifactId>jackson-dataformat-msgpack</artifactId>
+      <version>0.8.20</version>
+    </dependency>
   </dependencies>
 </project>

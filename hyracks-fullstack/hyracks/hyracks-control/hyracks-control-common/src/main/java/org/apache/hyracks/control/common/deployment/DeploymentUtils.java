@@ -269,9 +269,9 @@ public class DeploymentUtils {
     }
 
     public static void shiv(String sourceFile, String outputDir) throws IOException {
-        loadShim(outputDir, "pyro4.pyz");
+        //        loadShim(outputDir, "pyro4.pyz");
         unzip(sourceFile, outputDir);
-        unzip(outputDir + File.separator + "pyro4.pyz", outputDir);
+        //        unzip(outputDir + File.separator + "pyro4.pyz", outputDir);
         loadShim(outputDir, "entrypoint.py");
     }
 
