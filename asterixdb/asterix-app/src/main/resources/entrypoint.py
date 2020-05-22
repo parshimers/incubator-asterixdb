@@ -54,11 +54,11 @@ class Wrapper(object):
         return cwd in module_path.parents
 
 
-port = int(sys.argv[1])
+sock = str(sys.argv[1])
 config.SERIALIZER = "msgpack"
 config.SOCK_NODELAY= "True"
 wrap = Wrapper(sys.argv[2],sys.argv[3],sys.argv[4])
-d = Daemon(host="127.0.0.1",port=port)
+d = Daemon(unixsocket=sock)
 d.register(wrap,"nextTuple")
 print(config.dump())
 d.requestLoop()

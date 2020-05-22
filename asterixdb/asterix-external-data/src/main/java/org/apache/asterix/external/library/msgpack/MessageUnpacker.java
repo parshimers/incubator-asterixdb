@@ -14,11 +14,17 @@ public class MessageUnpacker {
 
     public static void unpack(ByteBuffer in, ByteBuffer out) {
         byte tag = in.get();
-        if(isFixStr(tag)){
+        if (isFixStr(tag)) {
             int len = tag ^ FIXSTR_PREFIX;
-            unpackStr(in,out,len);
-        }
-        else {
+            unpackStr(in, out, len);
+        } else if (isFixInt(tag)) {
+            out.put(ATypeTag.SERIALIZED_INT8_TYPE_TAG);
+            if (isPosFixInt(tag)) {
+                out.put((byte) (tag ^ POSFIXINT_MASK));
+            } else if (isNegFixInt(tag)) {
+                out.put((byte) (tag ^ NEGFIXINT_PREFIX));
+            }
+        } else {
             switch (tag) {
                 case INT64:
                     unpackInt64(in, out);
@@ -43,8 +49,8 @@ public class MessageUnpacker {
     private static void unpackStr(ByteBuffer in, ByteBuffer out, int len) {
         out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
         CharBuffer res = Charset.forName("UTF-8").decode(in.slice());
-        int adv = VarLenIntEncoderDecoder.encode(len,in.array(),in.position());
-        in.position(in.position()+adv);
+        int adv = VarLenIntEncoderDecoder.encode(len, in.array(), in.position());
+        in.position(in.position() + adv);
         out.put(UTF8StringUtil.writeStringToBytes(res.toString()));
     }
 

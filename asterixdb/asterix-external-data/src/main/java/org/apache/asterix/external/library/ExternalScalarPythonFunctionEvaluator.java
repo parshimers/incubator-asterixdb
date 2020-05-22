@@ -19,21 +19,29 @@
 
 package org.apache.asterix.external.library;
 
-import java.io.*;
+import java.io.DataOutput;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.Channels;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Scanner;
+import java.util.UUID;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.java.JObjectPointableVisitor;
-import org.apache.asterix.external.library.java.base.JComplexObject;
-import org.apache.asterix.external.library.java.base.JObject;
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
@@ -60,6 +68,9 @@ import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
 
 import net.razorvine.pyro.PyroProxy;
+import org.apache.hyracks.util.file.FileUtil;
+
+import static java.lang.Thread.sleep;
 
 class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvaluator {
 
@@ -105,6 +116,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     @Override
     public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
+        argHolder.clear();
         for (int i = 0, ln = argEvals.length; i < ln; i++) {
             argEvals[i].evaluate(tuple, argValues[i]);
             try {
@@ -114,7 +126,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }
         }
         try {
-             byte[] res = libraryEvaluator.callPython(argHolder);
+            byte[] res = libraryEvaluator.callPython(argHolder);
             resultBuffer.reset();
             wrap(res, resultBuffer.getDataOutput());
         } catch (IOException e) {
@@ -151,13 +163,11 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }).start();
         }
 
-
         public void initialize() throws IOException, InterruptedException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
             PythonLibrary library = (PythonLibrary) libMgr.getLibrary(fnId.dataverseName, fnId.libraryName);
             String wd = library.getFile().getAbsolutePath();
-            int port = getFreeHighPort();
             String packageModule = externalIdents.get(0);
             String clazz = "None";
             String fn;
@@ -167,21 +177,27 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             } else {
                 fn = externalIdents.get(1);
             }
+            String sockName = UUID.randomUUID().toString();
+            String sock = FileUtil.joinPath("/tmp",sockName);
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port), packageModule, clazz, fn);
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, sock, packageModule, clazz, fn);
             pb.directory(new File(wd));
-//            pb.environment().clear();
+            //            pb.environment().clear();
             p = pb.start();
             inheritIO(p.getInputStream(), System.out);
             inheritIO(p.getErrorStream(), System.err);
             stdIn = Channels.newChannel(p.getOutputStream());
-            remoteObj = new PyroProxy("127.0.0.1", port, "nextTuple");
+            File sockFile = new File(sock);
+            while(!sockFile.exists()){
+                sleep(10);
+            }
+            remoteObj = new PyroProxy(new File(sock),"nextTuple");
             waitForPython();
         }
 
         byte[] callPython(ByteBuffer arguments) throws IOException {
-            Object ret = remoteObj.call("nextTuple",arguments.array(),arguments.position());
-            return (byte[])ret;
+            Object ret = remoteObj.call("nextTuple", arguments.array(), arguments.position());
+            return (byte[]) ret;
         }
 
         @Override
@@ -204,14 +220,14 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             return evaluator;
         }
 
-        private int getFreeHighPort() throws IOException {
-            int port;
-            try (ServerSocket socket = new ServerSocket(0)) {
-                socket.setReuseAddress(true);
-                port = socket.getLocalPort();
-            }
-            return port;
-        }
+//        private int getFreeHighPort() throws IOException {
+//            int port;
+//            try (ServerSocket socket = new ServerSocket(0)) {
+//                socket.setReuseAddress(true);
+//                port = socket.getLocalPort();
+//            }
+//            return port;
+//        }
 
         private void waitForPython() throws IOException, InterruptedException {
             for (int i = 0; i < 100; i++) {
@@ -219,7 +235,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                     remoteObj.call("ping");
                     break;
                 } catch (ConnectException e) {
-                    Thread.sleep(100);
+                    sleep(100);
                 }
             }
         }
@@ -278,12 +294,13 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     }
 
     private void wrap(byte[] in, DataOutput out) throws HyracksDataException {
+        outputWrapper.clear();
         resultWrapper.clear();
         resultWrapper.put(in);
         resultWrapper.position(0);
         resultWrapper.limit(in.length);
-        MessageUnpacker.unpack(resultWrapper,outputWrapper);
-        byte[] outsnip = Arrays.copyOfRange(outputWrapper.array(),outputWrapper.position(),outputWrapper.limit());
+        MessageUnpacker.unpack(resultWrapper, outputWrapper);
+        byte[] outsnip = Arrays.copyOfRange(outputWrapper.array(), outputWrapper.position(), outputWrapper.limit());
         try {
             out.write(outsnip);
         } catch (IOException e) {
