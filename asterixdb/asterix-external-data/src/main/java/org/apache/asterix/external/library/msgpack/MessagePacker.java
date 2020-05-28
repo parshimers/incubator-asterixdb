@@ -6,7 +6,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
 import org.apache.asterix.om.types.ATypeTag;
-import org.apache.asterix.transaction.management.service.locking.TypeUtil;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.util.string.UTF8StringUtil;
 
@@ -18,7 +17,7 @@ public class MessagePacker {
                 packStr(ptr, out);
                 break;
             case BIGINT:
-                packInt(ptr, out);
+                packInt(out,ptr.getByteArray(),ptr.getStartOffset(),ptr.getLength());
                 break;
             case ARRAY:
                 packArray(ptr,out);
@@ -29,9 +28,9 @@ public class MessagePacker {
 
     }
 
-    private static void packInt(IValueReference ptr, ByteBuffer out) {
+    private static void packInt(ByteBuffer out, byte[] in, int inOffset, int inLen) {
         out.put(INT64);
-        out.put(ptr.getByteArray(), ptr.getStartOffset() + 1, ptr.getLength() - 2);
+        out.put(in, inOffset, inLen - 2);
     }
 
     private static void packStr(IValueReference ptr, ByteBuffer out) {
