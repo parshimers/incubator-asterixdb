@@ -16,7 +16,7 @@ public class MessageUnpacker {
         byte tag = in.get();
         if (isFixStr(tag)) {
             int len = tag ^ FIXSTR_PREFIX;
-            unpackStr(in, out, len);
+            unpackFixStr(in, out);
         } else if (isFixInt(tag)) {
             out.put(ATypeTag.SERIALIZED_INT8_TYPE_TAG);
             if (isPosFixInt(tag)) {
@@ -27,10 +27,10 @@ public class MessageUnpacker {
         } else {
             switch (tag) {
                 case INT64:
-                    unpackInt64(in, out);
+                    unpackLong(in, out);
                     break;
                 case STR32:
-                    unpackStr(in, out, in.getInt());
+                    unpackStr(in, out);
                     break;
                 default:
                     throw new IllegalArgumentException("NYI");
@@ -41,15 +41,26 @@ public class MessageUnpacker {
         out.limit(pos);
     }
 
-    private static void unpackInt64(ByteBuffer in, ByteBuffer out) {
+    public static void unpackLong(ByteBuffer in, ByteBuffer out) {
         out.put(ATypeTag.SERIALIZED_INT64_TYPE_TAG);
         out.putLong(in.getLong());
     }
 
-    private static void unpackStr(ByteBuffer in, ByteBuffer out, int len) {
+    public static void unpackFixStr(ByteBuffer in, ByteBuffer out) {
+        byte len = ((byte)(in.get() & FIXSTR_PREFIX));
+        out.put(in.get(len));
+    }
+
+    public static int unpackInt(ByteBuffer in){
+        assert in.get() == INT32;
+        return in.getInt();
+    }
+
+
+    public static void unpackStr(ByteBuffer in, ByteBuffer out) {
         out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
         CharBuffer res = Charset.forName("UTF-8").decode(in.slice());
-        int adv = VarLenIntEncoderDecoder.encode(len, in.array(), in.position());
+        int adv = VarLenIntEncoderDecoder.encode(res.length(), in.array(), in.position());
         in.position(in.position() + adv);
         out.put(UTF8StringUtil.writeStringToBytes(res.toString()));
     }

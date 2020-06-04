@@ -6,8 +6,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
 import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.transaction.management.service.locking.TypeUtil;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.util.string.UTF8StringUtil;
+import org.msgpack.core.MessagePack;
 
 public class MessagePacker {
 
@@ -17,7 +19,7 @@ public class MessagePacker {
                 packStr(ptr, out);
                 break;
             case BIGINT:
-                packInt(out,ptr.getByteArray(),ptr.getStartOffset(),ptr.getLength());
+                packLong(out,ptr.getByteArray(),ptr.getStartOffset(),ptr.getLength());
                 break;
             case ARRAY:
                 packArray(ptr,out);
@@ -27,39 +29,52 @@ public class MessagePacker {
 
     }
 
-    public static void packInt(ByteBuffer out, byte[] in, int inOffset, int inLen) {
+    public static void packLong(ByteBuffer out, byte[] in, int inOffset, int inLen) {
         out.put(INT64);
         out.put(in, inOffset, inLen - 2);
     }
 
-    public static void packByte(ByteBuffer out, byte[] in, int inOffset, int inLen) {
+    public static void packByte(ByteBuffer out, byte in) {
         out.put(INT8);
-        out.put(in, inOffset, inLen - 2);
+        out.put(in);
     }
 
-    public static void packInt(byte[] out, int in, int offset){
-        out[offset] = INT32;
-        for(int i=offset+1;i<offset+Integer.BYTES+1;i++){
-            int mask = Integer.SIZE - (Byte.SIZE*(Integer.BYTES-(i-1)));
+
+    public static void packInt(ByteBuffer out, int in){
+        out.put(INT32);
+        out.putInt(in);
+
+    }
+
+    public static void packIntRaw(byte[] out, int in, int offset){
+        for(int i=offset;i<offset+Integer.BYTES;i++){
+            int mask = Integer.SIZE - (Byte.SIZE*(Integer.BYTES-i));
             out[i] = (byte)(in >>> (mask));
         }
     }
 
-    public static void packFixPos(byte[] out, byte in, int offset){
+    public static void packFixPos(ByteBuffer out, byte in){
         byte mask = (byte)(1 << 7);
         if((in & mask) != 0){
             throw new IllegalArgumentException("fixint7 must be positive");
         }
-        out[offset] = in;
+        out.put(in);
     }
 
-    public static void packFixStr(byte[] out, String in, int offset){
+    public static void packFixStr(ByteBuffer buf, String in){
         byte[] strBytes = in.getBytes(Charset.forName("UTF-8"));
         if(strBytes.length > 31){
             throw new IllegalArgumentException("fixstr cannot be longer than 31");
         }
-        out[offset] = (byte) (FIXSTR_PREFIX + strBytes.length);
-        System.arraycopy(strBytes,0,out,offset+1,strBytes.length);
+        buf.put((byte) (FIXSTR_PREFIX + strBytes.length));
+        buf.put(strBytes);
+    }
+
+    public static void packStr(ByteBuffer out, String in) {
+        out.put(STR32);
+        byte[] strBytes = in.getBytes(Charset.forName("UTF-8"));
+        out.putInt(strBytes.length);
+        out.put(strBytes);
     }
 
     private static void packStr(IValueReference ptr, ByteBuffer out) {
@@ -78,5 +93,9 @@ public class MessagePacker {
         int szOffs = ptr.getStartOffset() + (Byte.BYTES*2);
         out.putInt(-1);
         int pos = out.position();
+    }
+
+    public static void packFixArrayHeader(ByteBuffer buf,byte numObj){
+        buf.put((byte) (FIXARRAY_PREFIX + (0x0F  & numObj)));
     }
 }
