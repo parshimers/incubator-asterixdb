@@ -17,16 +17,27 @@
 
 import math,sys
 sys.path.insert(0,'./site-packages/')
-from Pyro5.api import config, Daemon, expose
 import msgpack
+import socket
+import os
+import sys
 from importlib import import_module
 from pathlib import Path
+from enum import Enum
 
-@expose
+class MessageType(Enum):
+    HELO = 1
+    QUIT = 2
+    INIT = 3
+    INIT_RSP = 4
+    CALL = 5
+    CALL_RSP = 6
+
 class Wrapper(object):
     wrapped_module = None
     wrapped_class = None
     wrapped_fn = None
+
 
     def __init__(self, module_name, class_name, fn_name):
         self.wrapped_module = import_module(module_name)
@@ -53,12 +64,65 @@ class Wrapper(object):
         module_path = Path(module.__file__).resolve()
         return cwd in module_path.parents
 
+    def read_header(self,bytes):
+        #dgaf about this for rn
+        self.ver_hlen = bytes[0]
+        self.type = bytes[1]
+        self.dlen = int(bytes[2:6])
+        self.body = bytes[7:self.dlen]
 
-sock = str(sys.argv[1])
+
+    def helo(self):
+        resp = msgpack.packb("helo")
+        dlen = len(resp)
+        type = MessageType.HELO
+        resp = bytes[dlen+7]
+        resp[0] = self.ver_hlen
+        resp[1] = bytes(type)
+        resp[2:6] = dlen
+        resp[7:dlen] = resp
+        return
+
+    def init(self):
+        return
+    def quit(self):
+        return
+    def call(self):
+        return
+
+    type_handler = {
+        MessageType.HELO: helo(),
+        MessageType.QUIT: quit(),
+        MessageType.INIT: init(),
+        MessageType.CALL: call()
+    }
+
+    def read_body(self):
+        unpacked_body = msgpack.unpackb(self.body)
+        self.type_handler[self.type]()
+
+    def connect_sock(self,sock_name):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            self.sock.connect(sock_name)
+        except socket.error as msg:
+            print(sys.stderr, msg)
+
+    def disconnect_sock(self):
+        self.sock.close()
+
+    def recv_msg(self):
+        return
+
+    def send_msg(self):
+        return
+
+
+
+
+sock_name = str(sys.argv[1])
 config.SERIALIZER = "msgpack"
 config.SOCK_NODELAY= "True"
 wrap = Wrapper(sys.argv[2],sys.argv[3],sys.argv[4])
-d = Daemon(unixsocket=sock)
-d.register(wrap,"nextTuple")
-print(config.dump())
-d.requestLoop()
+wrap.connect_sock(sock_name)
+wrap.helo()
