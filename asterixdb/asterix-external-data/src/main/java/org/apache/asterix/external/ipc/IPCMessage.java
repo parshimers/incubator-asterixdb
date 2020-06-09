@@ -1,14 +1,11 @@
 package org.apache.asterix.external.ipc;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
-import org.apache.asterix.transaction.management.service.locking.TypeUtil;
-import org.apache.hyracks.util.string.UTF8StringUtil;
 import org.msgpack.core.MessagePack;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.util.Arrays;
 
 public class IPCMessage {
     public static int HEADER_LENGTH_MIN = 7;
@@ -19,89 +16,88 @@ public class IPCMessage {
     ByteBuffer buf;
     ByteBuffer otherBuf;
 
-    public IPCMessage(){
+    public IPCMessage() {
         this.type = null;
         dataLength = -1;
         this.buf = ByteBuffer.wrap(new byte[4096]);
         this.otherBuf = ByteBuffer.wrap(new byte[4096]);
     }
 
-    public ByteBuffer toBytes(){
+    public ByteBuffer toBytes() {
         return buf;
     }
 
-    public void setType(MessageType type){
+    public void setType(MessageType type) {
         this.type = type;
     }
 
-    public void packHeader(){
+    public void packHeader() {
         buf.clear();
         byte ver_hlen = PythonIPCProto.VERSION << 4;
         ver_hlen += (byte) (0x0f & HEADER_LENGTH_MIN);
-        MessagePacker.packFixPos(buf,ver_hlen);
-        MessagePacker.packFixPos(buf,type.getValue());
-        MessagePacker.packInt(buf,dataLength);
+        MessagePacker.packFixPos(buf, ver_hlen);
+        MessagePacker.packFixPos(buf, type.getValue());
+        MessagePacker.packInt(buf, dataLength);
     }
 
-    public void readFully(ByteBuffer buf){
+    public void readFully(ByteBuffer buf) {
         readHead(buf);
         readBody(type);
     }
 
     //TODO: THIS IS WRONG UNLESS YOU LIVE IN 1972
-    private int getStringLength(String s){
+    private int getStringLength(String s) {
         return s.length();
     }
 
-    public void readHead(ByteBuffer buf){
-        byte ver_hlen = (byte)(buf.get() & MessagePack.Code.POSFIXINT_MASK);
-        byte ver = (byte) (ver_hlen <<4);
-        if(ver!=PythonIPCProto.VERSION){
+    public void readHead(ByteBuffer buf) {
+        byte ver_hlen = (byte) (buf.get() & MessagePack.Code.POSFIXINT_MASK);
+        byte ver = (byte) (ver_hlen << 4);
+        if (ver != PythonIPCProto.VERSION) {
             //die
         }
-        byte hlen = (byte)(0x0f & ver_hlen);
+        byte hlen = (byte) (0x0f & ver_hlen);
         //todo: respect hlen
-        type = MessageType.fromByte((byte)(buf.get()&MessagePack.Code.POSFIXINT_MASK));
+        type = MessageType.fromByte((byte) (buf.get() & MessagePack.Code.POSFIXINT_MASK));
         dataLength = MessageUnpacker.unpackInt(buf);
     }
 
     public void hello(String lib) {
         this.type = MessageType.HELO;
-        dataLength = getStringLength(lib+1);
+        dataLength = getStringLength(lib + 1);
         packHeader();
-        MessagePacker.packFixStr(buf,lib);
+        MessagePacker.packFixStr(buf, lib);
     }
 
-
-    public void quit(String lib){
+    public void quit(String lib) {
         this.type = MessageType.QUIT;
-        dataLength = getStringLength(lib+1);
+        dataLength = getStringLength(lib + 1);
         packHeader();
-        MessagePacker.packFixStr(buf,lib);
+        MessagePacker.packFixStr(buf, lib);
     }
 
-    public void init(String[] ident){
+    public void init(String[] ident) {
         this.type = MessageType.INIT;
-        dataLength = Arrays.stream(ident).mapToInt(s->getStringLength(s)).sum() +2;
+        dataLength = Arrays.stream(ident).mapToInt(s -> getStringLength(s)).sum() + 2;
         packHeader();
-        MessagePacker.packFixArrayHeader(buf,(byte)ident.length);
-        for(String s: ident){
-            MessagePacker.packStr(buf,s);
+        MessagePacker.packFixArrayHeader(buf, (byte) ident.length);
+        for (String s : ident) {
+            MessagePacker.packStr(buf, s);
         }
     }
 
-    public void call(String fn, byte[] args, int numArgs){
+    public void call(String fn, byte[] args, int numArgs) {
         this.type = MessageType.CALL;
         dataLength = getStringLength(fn) + 2 + args.length;
         //FIX THIS - 15 PARAM LIMIT
-        MessagePacker.packFixArrayHeader(buf,(byte)(numArgs+1));
-        MessagePacker.packStr(buf,fn);
+        MessagePacker.packFixArrayHeader(buf, (byte) (numArgs + 1));
+        MessagePacker.packStr(buf, fn);
         buf.put(args);
 
     }
 
-    private void readBody(MessageType type){
-        switch(type){
+    private void readBody(MessageType type) {
+        switch (type) {
             case CALL_RSP:
                 callResp();
                 break;
@@ -118,24 +114,24 @@ public class IPCMessage {
         }
     }
 
-    public ByteBuffer callResp(){
+    public ByteBuffer callResp() {
         //caller needs to decide how to unpack...?
         otherBuf.reset();
-        MessageUnpacker.unpackStr(buf,otherBuf);
+        MessageUnpacker.unpackStr(buf, otherBuf);
         //name of fn is in there... ignore it for now
         return buf.slice();
     }
 
-    public boolean initResp(){
-       return true;
+    public boolean initResp() {
+        return true;
     }
 
-   public boolean heloResp(){
+    public boolean heloResp() {
         //TODO check response
-       return true;
+        return true;
     }
 
-    public boolean quitResp(){
+    public boolean quitResp() {
         return true;
     }
 }

@@ -47,15 +47,14 @@ public class MessageUnpacker {
     }
 
     public static void unpackFixStr(ByteBuffer in, ByteBuffer out) {
-        byte len = ((byte)(in.get() & FIXSTR_PREFIX));
+        byte len = ((byte) (in.get() & FIXSTR_PREFIX));
         out.put(in.get(len));
     }
 
-    public static int unpackInt(ByteBuffer in){
+    public static int unpackInt(ByteBuffer in) {
         assert in.get() == INT32;
         return in.getInt();
     }
-
 
     public static void unpackStr(ByteBuffer in, ByteBuffer out) {
         out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);

@@ -23,9 +23,9 @@ import os
 import sys
 from importlib import import_module
 from pathlib import Path
-from enum import Enum
+from enum import IntEnum
 
-class MessageType(Enum):
+class MessageType(IntEnum):
     HELO = 1
     QUIT = 2
     INIT = 3
@@ -64,23 +64,27 @@ class Wrapper(object):
         module_path = Path(module.__file__).resolve()
         return cwd in module_path.parents
 
-    def read_header(self,bytes):
+    def read_header(self,bs):
         #dgaf about this for rn
-        self.ver_hlen = bytes[0]
-        self.type = bytes[1]
-        self.dlen = int(bytes[2:6])
-        self.body = bytes[7:self.dlen]
+        self.ver_hlen = bs[0]
+        self.type = bs[1]
+        self.dlen = int(bs[2:6])
+        self.body = bytearray(7+self.dlen)
 
 
     def helo(self):
-        resp = msgpack.packb("helo")
-        dlen = len(resp)
-        type = MessageType.HELO
-        resp = bytes[dlen+7]
-        resp[0] = self.ver_hlen
-        resp[1] = bytes(type)
-        resp[2:6] = dlen
-        resp[7:dlen] = resp
+        resp_body = msgpack.packb("helo")
+        dlen = len(resp_body)
+        typ = MessageType.HELO
+        resp = bytearray(dlen+7)
+        resp[0] = 23 
+        resp[1] = typ 
+        print(dlen)
+        print(type(resp_body))
+        resp[2] = dlen 
+        resp[7:] = resp_body
+        self.resp = resp
+        self.send_msg()
         return
 
     def init(self):
@@ -91,14 +95,14 @@ class Wrapper(object):
         return
 
     type_handler = {
-        MessageType.HELO: helo(),
-        MessageType.QUIT: quit(),
-        MessageType.INIT: init(),
-        MessageType.CALL: call()
+        MessageType.HELO: helo,
+        MessageType.QUIT: quit,
+        MessageType.INIT: init,
+        MessageType.CALL: call
     }
 
     def read_body(self):
-        unpacked_body = msgpack.unpackb(self.body)
+        self.unpacked_body = msgpack.unpackb(self.body)
         self.type_handler[self.type]()
 
     def connect_sock(self,sock_name):
@@ -112,17 +116,19 @@ class Wrapper(object):
         self.sock.close()
 
     def recv_msg(self):
+        header = self.sock.recv(7)
+        self.read_header(header)
+        self.sock.recv_into(self.body,self.dlen)
         return
 
     def send_msg(self):
+        self.sock.sendall(self.resp)
         return
 
 
 
 
 sock_name = str(sys.argv[1])
-config.SERIALIZER = "msgpack"
-config.SOCK_NODELAY= "True"
 wrap = Wrapper(sys.argv[2],sys.argv[3],sys.argv[4])
 wrap.connect_sock(sock_name)
 wrap.helo()

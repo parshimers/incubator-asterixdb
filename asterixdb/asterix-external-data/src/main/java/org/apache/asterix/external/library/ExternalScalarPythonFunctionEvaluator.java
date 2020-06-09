@@ -24,8 +24,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.net.ConnectException;
-import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.Channels;
@@ -41,6 +39,7 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
+import org.apache.asterix.external.ipc.PythonIPCProto;
 import org.apache.asterix.external.library.java.JObjectPointableVisitor;
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
@@ -66,11 +65,7 @@ import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
-
-import net.razorvine.pyro.PyroProxy;
 import org.apache.hyracks.util.file.FileUtil;
-
-import static java.lang.Thread.sleep;
 
 class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvaluator {
 
@@ -137,7 +132,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private static class PythonLibraryEvaluator extends AbstractStateObject implements IDeallocatable {
         Process p;
-        PyroProxy remoteObj;
         IExternalFunctionInfo finfo;
         ILibraryManager libMgr;
         File pythonHome;
@@ -177,27 +171,27 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             } else {
                 fn = externalIdents.get(1);
             }
-            String sockName = UUID.randomUUID().toString();
-            String sock = FileUtil.joinPath("/tmp",sockName);
+//            String sockName = UUID.randomUUID().toString();
+//            String sock = FileUtil.joinPath("/tmp", sockName);
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, sock, packageModule, clazz, fn);
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, "/tmp/foo.sock", packageModule, clazz, fn);
             pb.directory(new File(wd));
             //            pb.environment().clear();
-            p = pb.start();
-            inheritIO(p.getInputStream(), System.out);
-            inheritIO(p.getErrorStream(), System.err);
-            stdIn = Channels.newChannel(p.getOutputStream());
-            File sockFile = new File(sock);
-            while(!sockFile.exists()){
-                sleep(10);
-            }
-            remoteObj = new PyroProxy(new File(sock),"nextTuple");
-            waitForPython();
+            File sockFile = new File("/tmp/foo.sock");
+            PythonIPCProto proto = new PythonIPCProto();
+            proto.init(sockFile.getAbsolutePath());
+//            p = pb.start();
+//            inheritIO(p.getInputStream(), System.out);
+//            inheritIO(p.getErrorStream(), System.err);
+//            stdIn = Channels.newChannel(p.getOutputStream());
+            proto.recieveMsg();
+
         }
 
         byte[] callPython(ByteBuffer arguments) throws IOException {
-            Object ret = remoteObj.call("nextTuple", arguments.array(), arguments.position());
-            return (byte[]) ret;
+            //            Object ret = remoteObj.call("nextTuple", arguments.array(), arguments.position());
+            //            return (byte[]) ret;
+            return null;
         }
 
         @Override
@@ -220,23 +214,23 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             return evaluator;
         }
 
-//        private int getFreeHighPort() throws IOException {
-//            int port;
-//            try (ServerSocket socket = new ServerSocket(0)) {
-//                socket.setReuseAddress(true);
-//                port = socket.getLocalPort();
-//            }
-//            return port;
-//        }
+        //        private int getFreeHighPort() throws IOException {
+        //            int port;
+        //            try (ServerSocket socket = new ServerSocket(0)) {
+        //                socket.setReuseAddress(true);
+        //                port = socket.getLocalPort();
+        //            }
+        //            return port;
+        //        }
 
         private void waitForPython() throws IOException, InterruptedException {
             for (int i = 0; i < 100; i++) {
-                try {
-                    remoteObj.call("ping");
-                    break;
-                } catch (ConnectException e) {
-                    sleep(100);
-                }
+                //                try {
+                ////                    remoteObj.call("ping");
+                //                    break;
+                //                } catch (ConnectException e) {
+                //                    sleep(100);
+                //                }
             }
         }
     }
