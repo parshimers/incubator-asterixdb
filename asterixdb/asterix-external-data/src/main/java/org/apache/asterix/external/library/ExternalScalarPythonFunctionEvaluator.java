@@ -25,8 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
-import java.nio.channels.Channels;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +37,7 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
+import org.apache.asterix.external.ipc.MessageType;
 import org.apache.asterix.external.ipc.PythonIPCProto;
 import org.apache.asterix.external.library.java.JObjectPointableVisitor;
 import org.apache.asterix.external.library.msgpack.MessagePacker;
@@ -121,7 +120,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }
         }
         try {
-            byte[] res = libraryEvaluator.callPython(argHolder);
+            ByteBuffer res = libraryEvaluator.callPython(argHolder, argTypes.length);
             resultBuffer.reset();
             wrap(res, resultBuffer.getDataOutput());
         } catch (IOException e) {
@@ -135,7 +134,10 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         IExternalFunctionInfo finfo;
         ILibraryManager libMgr;
         File pythonHome;
-        Channel stdIn;
+        PythonIPCProto proto;
+        String module;
+        String clazz;
+        String fn;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
                 ILibraryManager libMgr, File pythonHome) {
@@ -171,27 +173,31 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             } else {
                 fn = externalIdents.get(1);
             }
-//            String sockName = UUID.randomUUID().toString();
-//            String sock = FileUtil.joinPath("/tmp", sockName);
+            this.fn = fn;
+            this.clazz = clazz;
+            this.module = packageModule;
+            String sockName = UUID.randomUUID().toString();
+            String sockPath = FileUtil.joinPath("/tmp", sockName);
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, "/tmp/foo.sock", packageModule, clazz, fn);
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, sockPath, packageModule, clazz, fn);
             pb.directory(new File(wd));
             //            pb.environment().clear();
-            File sockFile = new File("/tmp/foo.sock");
-            PythonIPCProto proto = new PythonIPCProto();
-            proto.init(sockFile.getAbsolutePath());
-//            p = pb.start();
-//            inheritIO(p.getInputStream(), System.out);
-//            inheritIO(p.getErrorStream(), System.err);
-//            stdIn = Channels.newChannel(p.getOutputStream());
-            proto.recieveMsg();
-
+            File sockFile = new File(sockPath);
+            proto = new PythonIPCProto();
+            p = pb.start();
+            inheritIO(p.getInputStream(), System.out);
+            inheritIO(p.getErrorStream(), System.err);
+            proto.start(sockFile);
+            proto.helo();
+            proto.init(packageModule, clazz, fn);
         }
 
-        byte[] callPython(ByteBuffer arguments) throws IOException {
+        ByteBuffer callPython(ByteBuffer arguments, int numArgs) throws IOException {
             //            Object ret = remoteObj.call("nextTuple", arguments.array(), arguments.position());
+            //FIX!
+            return proto.call(module, clazz, fn, arguments, numArgs);
             //            return (byte[]) ret;
-            return null;
+
         }
 
         @Override
@@ -287,13 +293,11 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         return typeInfo;
     }
 
-    private void wrap(byte[] in, DataOutput out) throws HyracksDataException {
+    private void wrap(ByteBuffer resultWrapper, DataOutput out) throws HyracksDataException {
         outputWrapper.clear();
-        resultWrapper.clear();
-        resultWrapper.put(in);
         resultWrapper.position(0);
-        resultWrapper.limit(in.length);
         MessageUnpacker.unpack(resultWrapper, outputWrapper);
+        //NO.
         byte[] outsnip = Arrays.copyOfRange(outputWrapper.array(), outputWrapper.position(), outputWrapper.limit());
         try {
             out.write(outsnip);

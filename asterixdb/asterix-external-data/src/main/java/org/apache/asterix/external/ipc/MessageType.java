@@ -1,12 +1,12 @@
 package org.apache.asterix.external.ipc;
 
 public enum MessageType {
-    HELO((byte) 1),
-    QUIT((byte) 2),
-    INIT((byte) 3),
-    INIT_RSP((byte) 4),
-    CALL((byte) 5),
-    CALL_RSP((byte) 6);
+    HELO((byte) 0),
+    QUIT((byte) 1),
+    INIT((byte) 2),
+    INIT_RSP((byte) 3),
+    CALL((byte) 4),
+    CALL_RSP((byte) 5);
 
     private final byte msg;
 

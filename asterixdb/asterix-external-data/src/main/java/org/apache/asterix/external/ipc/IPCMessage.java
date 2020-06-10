@@ -5,16 +5,17 @@ import java.util.Arrays;
 
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
-import org.msgpack.core.MessagePack;
 
 public class IPCMessage {
-    public static int HEADER_LENGTH_MIN = 7;
+    public static int HEADER_LENGTH_MIN = 3;
+    public static int HEADER_LENGTH_MAX = 11;
     public static int VERSION_HLEN_IDX = 0;
     public static int TYPE_IDX = 1;
     MessageType type;
-    int dataLength;
+    long dataLength;
     ByteBuffer buf;
     ByteBuffer otherBuf;
+    String[] initAry = new String[3];
 
     public IPCMessage() {
         this.type = null;
@@ -37,11 +38,11 @@ public class IPCMessage {
         ver_hlen += (byte) (0x0f & HEADER_LENGTH_MIN);
         MessagePacker.packFixPos(buf, ver_hlen);
         MessagePacker.packFixPos(buf, type.getValue());
-        MessagePacker.packInt(buf, dataLength);
+        //TODO: NO!
+        MessagePacker.packInt(buf, (int) dataLength);
     }
 
     public void readFully(ByteBuffer buf) {
-        readHead(buf);
         readBody(type);
     }
 
@@ -51,22 +52,23 @@ public class IPCMessage {
     }
 
     public void readHead(ByteBuffer buf) {
-        byte ver_hlen = (byte) (buf.get() & MessagePack.Code.POSFIXINT_MASK);
+        byte ver_hlen = buf.get();
         byte ver = (byte) (ver_hlen << 4);
         if (ver != PythonIPCProto.VERSION) {
             //die
         }
         byte hlen = (byte) (0x0f & ver_hlen);
         //todo: respect hlen
-        type = MessageType.fromByte((byte) (buf.get() & MessagePack.Code.POSFIXINT_MASK));
-        dataLength = MessageUnpacker.unpackInt(buf);
+        byte typ = buf.get();
+        type = MessageType.fromByte(typ);
+        dataLength = MessageUnpacker.unpackNextInt(buf);
     }
 
-    public void hello(String lib) {
+    public void hello() {
         this.type = MessageType.HELO;
-        dataLength = getStringLength(lib + 1);
+        dataLength = getStringLength("HELO" + 1);
         packHeader();
-        MessagePacker.packFixStr(buf, lib);
+        MessagePacker.packFixStr(buf, "HELO");
     }
 
     public void quit(String lib) {
@@ -76,24 +78,33 @@ public class IPCMessage {
         MessagePacker.packFixStr(buf, lib);
     }
 
-    public void init(String[] ident) {
+    public void init(String module, String clazz, String fn) {
         this.type = MessageType.INIT;
-        dataLength = Arrays.stream(ident).mapToInt(s -> getStringLength(s)).sum() + 2;
+        initAry[0] = module;
+        initAry[1] = clazz;
+        initAry[2] = fn;
+        dataLength = Arrays.stream(initAry).mapToInt(s -> getStringLength(s)).sum() + 2;
         packHeader();
-        MessagePacker.packFixArrayHeader(buf, (byte) ident.length);
-        for (String s : ident) {
+        MessagePacker.packFixArrayHeader(buf, (byte) initAry.length);
+        for (String s : initAry) {
             MessagePacker.packStr(buf, s);
         }
     }
 
-    public void call(String fn, byte[] args, int numArgs) {
+    public void call(String module, String clazz, String fn, byte[] args, int lim, int numArgs) {
         this.type = MessageType.CALL;
-        dataLength = getStringLength(fn) + 2 + args.length;
+        initAry[0] = module;
+        initAry[1] = clazz;
+        initAry[2] = fn;
+        dataLength = Arrays.stream(initAry).mapToInt(s -> getStringLength(s)).sum() + 3 + lim;
         //FIX THIS - 15 PARAM LIMIT
-        MessagePacker.packFixArrayHeader(buf, (byte) (numArgs + 1));
-        MessagePacker.packStr(buf, fn);
-        buf.put(args);
-
+        packHeader();
+        MessagePacker.packFixArrayHeader(buf, (byte) initAry.length);
+        for (String s : initAry) {
+            MessagePacker.packStr(buf, s);
+        }
+        MessagePacker.packFixArrayHeader(buf, (byte) numArgs);
+        buf.put(args,0,lim);
     }
 
     private void readBody(MessageType type) {
@@ -116,9 +127,6 @@ public class IPCMessage {
 
     public ByteBuffer callResp() {
         //caller needs to decide how to unpack...?
-        otherBuf.reset();
-        MessageUnpacker.unpackStr(buf, otherBuf);
-        //name of fn is in there... ignore it for now
         return buf.slice();
     }
 

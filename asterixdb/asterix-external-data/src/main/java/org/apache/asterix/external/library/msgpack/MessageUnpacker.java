@@ -41,6 +41,31 @@ public class MessageUnpacker {
         out.limit(pos);
     }
 
+    public static long unpackNextInt(ByteBuffer in) {
+        byte tag = in.get();
+        if (isFixInt(tag)) {
+            if (isPosFixInt(tag)) {
+                return tag;
+            } else if (isNegFixInt(tag)) {
+                return (tag ^ NEGFIXINT_PREFIX);
+            }
+        } else {
+            switch (tag) {
+                case INT8:
+                    return in.get();
+                case INT16:
+                    return in.getShort();
+                case INT32:
+                    return in.getInt();
+                case INT64:
+                    return in.getLong();
+                default:
+                    throw new IllegalArgumentException("NYI");
+            }
+        }
+        return -1;
+    }
+
     public static void unpackLong(ByteBuffer in, ByteBuffer out) {
         out.put(ATypeTag.SERIALIZED_INT64_TYPE_TAG);
         out.putLong(in.getLong());
