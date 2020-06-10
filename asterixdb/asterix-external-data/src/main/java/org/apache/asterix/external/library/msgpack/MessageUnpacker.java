@@ -19,7 +19,7 @@ public class MessageUnpacker {
         } else if (isFixInt(tag)) {
             out.put(ATypeTag.SERIALIZED_INT8_TYPE_TAG);
             if (isPosFixInt(tag)) {
-                out.put((byte) (tag & POSFIXINT_MASK));
+                out.put((byte) tag);
             } else if (isNegFixInt(tag)) {
                 out.put((byte) (tag & NEGFIXINT_PREFIX));
             }
