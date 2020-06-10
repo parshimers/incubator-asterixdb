@@ -185,7 +185,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             File sockFile = new File(sockPath);
             proto = new PythonIPCProto();
             p = pb.start();
-            inheritIO(p.getInputStream(), System.out);
+            inheritIO(p.getInputStream(), System.err);
             inheritIO(p.getErrorStream(), System.err);
             proto.start(sockFile);
             proto.helo();

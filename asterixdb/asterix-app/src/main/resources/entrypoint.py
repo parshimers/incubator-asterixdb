@@ -21,7 +21,9 @@ import msgpack
 import socket
 import os
 import sys
+import time
 from importlib import import_module
+from inspect import signature
 from pathlib import Path
 from enum import IntEnum
 
@@ -37,7 +39,7 @@ class Wrapper(object):
     wrapped_module = None
     wrapped_class = None
     wrapped_fn = None
-    packer = msgpack.Packer(use_bin_type=True, autoreset=False)
+    packer = msgpack.Packer(use_bin_type=False, autoreset=False)
     unpacker = msgpack.Unpacker()
 
     wrapped_fns = {}
@@ -59,11 +61,11 @@ class Wrapper(object):
             self.wrapped_fns[(module_name,class_name,fn_name)] = wrapped_fn
 
 
-    def nextTuple(self, *args):
-        return msgpack.packb(self.wrapped_fn(args))
-
-    def ping(self):
-        return msgpack.packb("pong")
+    def nextTuple(self, *args, key=None):
+        fun = self.wrapped_fns[key]
+        print(args)
+        print(fun)
+        return self.wrapped_fns[key](*args)
 
     def check_module_path(self,module):
         cwd = Path('.').resolve()
@@ -74,9 +76,7 @@ class Wrapper(object):
         #dgaf about this for rn
         header = self.unpacked_msg
         self.ver_hlen = header[0]
-        print(header[0])
         self.type = MessageType(header[1])
-        print(header[1])
         self.dlen = header[2]
         return True
 
@@ -91,7 +91,6 @@ class Wrapper(object):
         self.packer.pack(dlen)
         self.packer.pack("helo")
         self.resp = self.packer.getbuffer()
-        print(self.resp)
         self.send_msg()
         self.packer.reset()
 
@@ -119,12 +118,17 @@ class Wrapper(object):
         module = args[0]
         clazz = args[1]
         fn = args[2]
-        result = self.nextTuple(self.unpacked_msg[4])
+        key = (module,clazz,fn)
+        print(self.unpacked_msg[4])
+        print(key)
+        result = self.nextTuple(self.unpacked_msg[4],key=key)
+        print(result)
         #TODO: NO NO NO NO
         resultsz = len(msgpack.packb(result))
         self.packer.pack(23)
         self.packer.pack(int(MessageType.CALL_RSP))
         self.packer.pack(resultsz)
+        print(result)
         self.packer.pack(result)
         self.resp = self.packer.getbuffer()
         self.send_msg()
@@ -135,7 +139,7 @@ class Wrapper(object):
         MessageType.HELO: helo,
         MessageType.QUIT: quit,
         MessageType.INIT: handle_init,
-        MessageType.CALL: call
+        MessageType.CALL: handle_call
     }
 
     def connect_sock(self,sock_name):
@@ -149,7 +153,7 @@ class Wrapper(object):
         self.sock.close()
 
     def recv_msg(self):
-        #TODO: make this worked with bigger than 4k records
+        #TODO: make this work with bigger than 4k records
         completed = False
         header_read = False
         while not completed:
@@ -170,7 +174,6 @@ class Wrapper(object):
 
     def send_msg(self):
         self.sock.sendall(self.resp)
-        print("sent ;)")
         return
 
     def recv_loop(self):
@@ -179,6 +182,7 @@ class Wrapper(object):
 
 sock_name = str(sys.argv[1])
 wrap = Wrapper()
+time.sleep(2)
 wrap.connect_sock(sock_name)
 wrap.helo()
 wrap.recv_loop()
