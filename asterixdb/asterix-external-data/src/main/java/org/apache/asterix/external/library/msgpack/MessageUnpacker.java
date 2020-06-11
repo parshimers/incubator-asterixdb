@@ -5,7 +5,9 @@ import static org.msgpack.core.MessagePack.Code.*;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
+import org.apache.asterix.builders.RecordBuilder;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.util.encoding.VarLenIntEncoderDecoder;
 import org.apache.hyracks.util.string.UTF8StringUtil;
@@ -25,12 +27,33 @@ public class MessageUnpacker {
             }
         } else {
             switch (tag) {
+                case INT16:
+                    unpackShort(in, out);
+                    break;
+                case INT32:
+                    unpackInt(in, out);
+                    break;
                 case INT64:
                     unpackLong(in, out);
                     break;
+                case STR16:
+                    unpackStr(in, out);
                 case STR32:
                     unpackStr(in, out);
                     break;
+                case ARRAY16:
+                    unpackArray(in,out,in.getShort() & 0xffff);
+                    break;
+                case ARRAY32:
+                    unpackArray(in,out,in.getInt() & 0xffffffff);
+                    break;
+                case MAP16:
+                    unpackMap(in,out,in.getShort() & 0xffff);
+                    break;
+                case MAP32:
+                    unpackMap(in,out,in.getInt() & 0xffff);
+                    break;
+
                 default:
                     throw new IllegalArgumentException("NYI");
             }
@@ -65,9 +88,52 @@ public class MessageUnpacker {
         return -1;
     }
 
+    public static void unpackShort(ByteBuffer in, ByteBuffer out) {
+        out.put(ATypeTag.SERIALIZED_INT16_TYPE_TAG);
+        out.putLong(in.getShort());
+    }
+    public static void unpackInt(ByteBuffer in, ByteBuffer out) {
+        out.put(ATypeTag.SERIALIZED_INT32_TYPE_TAG);
+        out.putLong(in.getInt());
+    }
+
     public static void unpackLong(ByteBuffer in, ByteBuffer out) {
         out.put(ATypeTag.SERIALIZED_INT64_TYPE_TAG);
         out.putLong(in.getLong());
+    }
+
+    public static void unpackArray(ByteBuffer in, ByteBuffer out, int count){
+        int offs = in.position();
+        out.put(ATypeTag.SERIALIZED_ORDEREDLIST_TYPE_TAG);
+        out.putInt(ATypeTag.ANY.serialize());
+        out.putInt(count);
+        int asxLenPos = in.position();
+        //reserve space
+        out.putInt(-1);
+        for(int i=0; i<count; i++){
+            unpack(in, out);
+        }
+        int totalLen = in.position() - offs;
+        out.putInt(asxLenPos,totalLen);
+    }
+
+    public static void unpackMap(ByteBuffer in, ByteBuffer out, int count){
+        private byte[] nullBitMap;
+        openPartOutputStream.reset();
+        numberOfOpenFields = 0;
+        offsetPosition = 0;
+        fieldNamesHashes.clear();
+        Arrays.fill(nullBitMap, (byte) 0xAA);
+        int offs = in.position();
+        out.put(ATypeTag.SERIALIZED_RECORD_TYPE_TAG);
+        out.putInt(-1);
+        out.put((byte)0);
+        out.putInt(-2);
+        out.putInt(10);
+        out.putInt(count);
+
+
+
     }
 
     public static void unpackFixStr(byte tag, ByteBuffer in, ByteBuffer out) {
