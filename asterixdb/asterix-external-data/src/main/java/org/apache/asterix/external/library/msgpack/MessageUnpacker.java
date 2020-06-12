@@ -14,53 +14,83 @@ import org.apache.hyracks.util.string.UTF8StringUtil;
 
 public class MessageUnpacker {
 
-    public static void unpack(ByteBuffer in, ByteBuffer out) {
+
+    public static void unpack(ByteBuffer in, ByteBuffer out, boolean tagged) {
         byte tag = in.get();
         if (isFixStr(tag)) {
-            unpackFixStr(tag, in, out);
+            unpackStr(in,out,(tag^FIXSTR_PREFIX), tagged);
         } else if (isFixInt(tag)) {
-            out.put(ATypeTag.SERIALIZED_INT8_TYPE_TAG);
-            if (isPosFixInt(tag)) {
-                out.put((byte) tag);
-            } else if (isNegFixInt(tag)) {
-                out.put((byte) (tag & NEGFIXINT_PREFIX));
+            if(tagged){
+                out.put(ATypeTag.SERIALIZED_INT8_TYPE_TAG);
             }
+            if (isPosFixInt(tag)) {
+                out.put(tag);
+            } else if (isNegFixInt(tag)) {
+                out.put((byte) (tag ^ NEGFIXINT_PREFIX));
+            }
+        }
+        else if(isFixedArray(tag)){
+            unpackArray(in,out,(tag^FIXARRAY_PREFIX));
+        }
+        else if(isFixedMap(tag)){
+            unpackMap(in,out,(tag^FIXMAP_PREFIX));
         } else {
             switch (tag) {
+                case TRUE:
+                    out.put(ATypeTag.SERIALIZED_BOOLEAN_TYPE_TAG);
+                    out.put((byte)1);
+                case FALSE:
+                    out.put(ATypeTag.SERIALIZED_BOOLEAN_TYPE_TAG);
+                    out.put((byte)0);
+                case NIL:
+                    out.put(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
+                case UINT8:
+                    unpackUByte(in,out,tagged);
+                    break;
+                case UINT16:
+                    unpackUShort(in,out,tagged);
+                    break;
+                case UINT32:
+                    unpackUInt(in,out,tagged);
+                    break;
                 case INT16:
-                    unpackShort(in, out);
+                    unpackShort(in, out, tagged);
                     break;
                 case INT32:
-                    unpackInt(in, out);
+                    unpackInt(in, out, tagged);
                     break;
                 case INT64:
-                    unpackLong(in, out);
+                    unpackLong(in, out,tagged);
+                    break;
+                case FLOAT32:
+                    unpackFloat(in,out,tagged);
+                    break;
+                case FLOAT64:
+                    unpackDouble(in,out,tagged);
                     break;
                 case STR16:
-                    unpackStr(in, out);
+                    unpackStr(in, out,  in.getShort() & 0xffff, tagged);
+                    break;
                 case STR32:
-                    unpackStr(in, out);
+                    unpackStr(in, out,  in.getInt() & 0xffffffff, tagged);
                     break;
                 case ARRAY16:
-                    unpackArray(in,out,in.getShort() & 0xffff);
+                    unpackArray(in,out, in.getShort() & 0xffff);
                     break;
                 case ARRAY32:
-                    unpackArray(in,out,in.getInt() & 0xffffffff);
+                    unpackArray(in,out, in.getInt() & 0xffffffff);
                     break;
                 case MAP16:
-                    unpackMap(in,out,in.getShort() & 0xffff);
+                    unpackMap(in,out, in.getShort() & 0xffff);
                     break;
                 case MAP32:
-                    unpackMap(in,out,in.getInt() & 0xffff);
+                    unpackMap(in,out, in.getInt() & 0xffff);
                     break;
 
                 default:
                     throw new IllegalArgumentException("NYI");
             }
         }
-        int pos = out.position();
-        out.position(0);
-        out.limit(pos);
     }
 
     public static long unpackNextInt(ByteBuffer in) {
@@ -88,61 +118,108 @@ public class MessageUnpacker {
         return -1;
     }
 
-    public static void unpackShort(ByteBuffer in, ByteBuffer out) {
-        out.put(ATypeTag.SERIALIZED_INT16_TYPE_TAG);
-        out.putLong(in.getShort());
+    public static void unpackShort(ByteBuffer in, ByteBuffer out, boolean tagged) {
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_INT16_TYPE_TAG);
+        }
+        out.putShort(in.getShort());
     }
-    public static void unpackInt(ByteBuffer in, ByteBuffer out) {
-        out.put(ATypeTag.SERIALIZED_INT32_TYPE_TAG);
-        out.putLong(in.getInt());
+    public static void unpackInt(ByteBuffer in, ByteBuffer out, boolean tagged) {
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_INT32_TYPE_TAG);
+        }
+        out.putInt(in.getInt());
     }
 
-    public static void unpackLong(ByteBuffer in, ByteBuffer out) {
-        out.put(ATypeTag.SERIALIZED_INT64_TYPE_TAG);
+    public static void unpackLong(ByteBuffer in, ByteBuffer out, boolean tagged) {
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_INT64_TYPE_TAG);
+        }
         out.putLong(in.getLong());
+    }
+    public static void unpackUByte(ByteBuffer in, ByteBuffer out, boolean tagged) {
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_INT16_TYPE_TAG);
+        }
+        out.putShort((short)(in.get() & ((short)0x00FF)));
+    }
+    public static void unpackUShort(ByteBuffer in, ByteBuffer out, boolean tagged) {
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_INT32_TYPE_TAG);
+        }
+        out.putInt(in.getShort() & 0x0000FFFF);
+    }
+    public static void unpackUInt(ByteBuffer in, ByteBuffer out, boolean tagged) {
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_INT64_TYPE_TAG);
+        }
+        out.putLong(in.getInt() & 0x00000000FFFFFFFFl);
+    }
+
+    public static void unpackFloat(ByteBuffer in, ByteBuffer out, boolean tagged){
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_FLOAT_TYPE_TAG);
+        }
+        out.putFloat(in.getFloat());
+
+    }
+    public static void unpackDouble(ByteBuffer in, ByteBuffer out, boolean tagged){
+        if(tagged) {
+            out.put(ATypeTag.SERIALIZED_DOUBLE_TYPE_TAG);
+        }
+        out.putDouble(in.getDouble());
     }
 
     public static void unpackArray(ByteBuffer in, ByteBuffer out, int count){
-        int offs = in.position();
+        int offs = out.position();
         out.put(ATypeTag.SERIALIZED_ORDEREDLIST_TYPE_TAG);
-        out.putInt(ATypeTag.ANY.serialize());
-        out.putInt(count);
-        int asxLenPos = in.position();
+        out.put(ATypeTag.ANY.serialize());
+        int asxLenPos = out.position();
         //reserve space
         out.putInt(-1);
-        for(int i=0; i<count; i++){
-            unpack(in, out);
+        out.putInt(count);
+        int slotStartOffs = out.position()+out.arrayOffset();
+        for(int i=0; i< count; i++){
+            out.putInt(0xFFFF);
         }
-        int totalLen = in.position() - offs;
+        for(int i=0; i<count; i++){
+            out.putInt(slotStartOffs+(i*4),(out.position()-offs)+Integer.BYTES);
+            unpack(in, out, true);
+        }
+        int totalLen = out.position() - offs;
         out.putInt(asxLenPos,totalLen);
     }
 
     public static void unpackMap(ByteBuffer in, ByteBuffer out, int count){
-        private byte[] nullBitMap;
-        openPartOutputStream.reset();
-        numberOfOpenFields = 0;
-        offsetPosition = 0;
-        fieldNamesHashes.clear();
-        Arrays.fill(nullBitMap, (byte) 0xAA);
-        int offs = in.position();
+        //hdr size = 6?
+        int startOffs = out.position();
         out.put(ATypeTag.SERIALIZED_RECORD_TYPE_TAG);
+        int totalSizeOffs = out.position();
         out.putInt(-1);
-        out.put((byte)0);
-        out.putInt(-2);
-        out.putInt(10);
+        //isExpanded
+        out.put((byte)1);
+        int openPartOffs = out.position();
+        out.putInt(-1);
+        //isExpanded, so num of open fields
+        out.putInt(openPartOffs,out.position());
         out.putInt(count);
-
-
-
-    }
-
-    public static void unpackFixStr(byte tag, ByteBuffer in, ByteBuffer out) {
-        byte len = ((byte) (tag ^ FIXSTR_PREFIX));
-        out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
-        CharBuffer res = Charset.forName("UTF-8").decode(in.slice());
-        int adv = VarLenIntEncoderDecoder.encode(len, in.array(), in.position());
-        in.position(in.position() + adv);
-        out.put(UTF8StringUtil.writeStringToBytes(res.toString()));
+        int offsetAryPos = out.position();
+        int offsetArySz = count * 2;
+        //allocate space for open field offsets
+        for(int i=0;i<offsetArySz;i++){
+            out.putInt(0xDEADBEEF);
+        }
+        for(int i=0;i<count;i++) {
+            int offs = out.position();
+            int relOffs = offs - startOffs;
+            unpack(in,out, false);
+            int hash = UTF8StringUtil.hash(out.array(), relOffs);
+            out.putInt(offsetAryPos, hash);
+            offsetAryPos += 4;
+            out.putInt(offsetAryPos, relOffs);
+            unpack(in, out, true);
+        }
+        out.putInt(totalSizeOffs,out.position()-startOffs);
     }
 
     public static int unpackInt(ByteBuffer in) {
@@ -150,12 +227,21 @@ public class MessageUnpacker {
         return in.getInt();
     }
 
-    public static void unpackStr(ByteBuffer in, ByteBuffer out) {
-        out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
-        CharBuffer res = Charset.forName("UTF-8").decode(in.slice());
-        int adv = VarLenIntEncoderDecoder.encode(res.length(), in.array(), in.position());
-        in.position(in.position() + adv);
-        out.put(UTF8StringUtil.writeStringToBytes(res.toString()));
+    public static void unpackStr(ByteBuffer in, ByteBuffer out, int len, boolean tag) {
+        //TODO (ian): this probably breaks for 3 and 4 byte UTF-8
+        if(tag) {
+            out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
+        }
+        int strLen = UTF8StringUtil.getStringLength(in.array(),in.position()+in.arrayOffset(),len);
+        int adv = VarLenIntEncoderDecoder.encode(strLen, out.array(), out.position()+out.arrayOffset());
+        out.position(out.position()+adv);
+        System.arraycopy(in.array(),in.arrayOffset()+in.position(),out.array(),out.arrayOffset()+out.position(),len);
+        out.position(out.position()+len);
+        in.position(in.position()+len);
+    }
+
+    public static void unpackStr(ByteBuffer in, ByteBuffer out, int len){
+        unpackStr(in,out,len,true);
     }
 
 }

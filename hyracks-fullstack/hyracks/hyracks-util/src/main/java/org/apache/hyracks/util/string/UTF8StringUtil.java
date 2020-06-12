@@ -149,6 +149,17 @@ public class UTF8StringUtil {
         return charCount;
     }
 
+    public static int getStringLength(byte[] b, int offs, int len){
+        int pos = offs;
+        int end = pos + len;
+        int charCount = 0;
+        while (pos < end) {
+            charCount++;
+            pos += charSize(b, pos);
+        }
+        return charCount;
+    }
+
     public static int getUTFLength(byte[] b, int s) {
         return VarLenIntEncoderDecoder.decode(b, s);
     }

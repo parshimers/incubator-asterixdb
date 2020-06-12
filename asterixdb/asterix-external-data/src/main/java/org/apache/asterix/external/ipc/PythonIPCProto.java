@@ -6,6 +6,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
 import org.newsclub.net.unix.AFUNIXServerSocket;
 import org.newsclub.net.unix.AFUNIXSocketAddress;
@@ -19,21 +22,38 @@ public class PythonIPCProto {
     public IPCMessage recv;
     OutputStream sockOut;
     InputStream sockIn;
+    Executor exec;
+    Semaphore started;
+
 
     ByteBuffer recvBuffer = ByteBuffer.wrap(new byte[4096]);
 
     public PythonIPCProto() throws IOException {
+        started = new Semaphore(1);
         sockServ = AFUNIXServerSocket.newInstance();
         send = new IPCMessage();
         recv = new IPCMessage();
     }
 
-    public void start(File s ) throws IOException {
+    public void start(File s ) throws IOException, InterruptedException {
         AFUNIXSocketAddress addr = new AFUNIXSocketAddress(s);
         sockServ.bind(addr);
-        sock = sockServ.accept();
-        sockOut = sock.getOutputStream();
-        sockIn = sock.getInputStream();
+        exec = Executors.newSingleThreadExecutor();
+        exec.execute(() -> {
+            try {
+                started.acquire();
+                sock=sockServ.accept();
+                sockOut = sock.getOutputStream();
+                sockIn = sock.getInputStream();
+                started.release();
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public void waitForStarted() throws InterruptedException {
+        started.acquire();
     }
 
     public void helo() throws IOException {

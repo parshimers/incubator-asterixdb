@@ -182,7 +182,6 @@ class Wrapper(object):
 
 sock_name = str(sys.argv[1])
 wrap = Wrapper()
-time.sleep(2)
 wrap.connect_sock(sock_name)
 wrap.helo()
 wrap.recv_loop()

@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -184,10 +186,11 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             //            pb.environment().clear();
             File sockFile = new File(sockPath);
             proto = new PythonIPCProto();
+            proto.start(sockFile);
             p = pb.start();
             inheritIO(p.getInputStream(), System.err);
             inheritIO(p.getErrorStream(), System.err);
-            proto.start(sockFile);
+            proto.waitForStarted();
             proto.helo();
             proto.init(packageModule, clazz, fn);
         }
@@ -296,9 +299,12 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private void wrap(ByteBuffer resultWrapper, DataOutput out) throws HyracksDataException {
         outputWrapper.clear();
         resultWrapper.position(0);
-        MessageUnpacker.unpack(resultWrapper, outputWrapper);
+        MessageUnpacker.unpack(resultWrapper, outputWrapper, true);
         //NO.
-        byte[] outsnip = Arrays.copyOfRange(outputWrapper.array(), outputWrapper.position(), outputWrapper.limit());
+        int pos = outputWrapper.position()+outputWrapper.arrayOffset();
+        outputWrapper.position(0);
+        outputWrapper.limit(pos);
+        byte[] outsnip = Arrays.copyOfRange(outputWrapper.array(), outputWrapper.position()+outputWrapper.arrayOffset(), outputWrapper.limit());
         try {
             out.write(outsnip);
         } catch (IOException e) {
