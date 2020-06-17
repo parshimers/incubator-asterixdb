@@ -7,6 +7,15 @@ import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 
 public class IPCMessage {
+    /*
+        HEADER FORMAT
+        All fields are msgpack
+        --------------------------------------------------------
+        | VERSION & HLEN |     TYPE     |   DATA LENGTH (DLEN)  |
+        | 1 nibble each  |    fixpos    |   fixpos to uint32    |
+        |    fixpos (1b) |              |                       |
+        ---------------------------------------------------------
+     */
     public static int HEADER_LENGTH_MIN = 3;
     public static int HEADER_LENGTH_MAX = 11;
     public static int VERSION_HLEN_IDX = 0;
@@ -33,13 +42,17 @@ public class IPCMessage {
     }
 
     public void packHeader() {
+        //TODO: know dlen beforehand
         buf.clear();
-        byte ver_hlen = PythonIPCProto.VERSION << 4;
-        ver_hlen += (byte) (0x0f & HEADER_LENGTH_MIN);
+        byte ver_hlen = 0xB;//placeholder
+        int headerPos = buf.position();
         MessagePacker.packFixPos(buf, ver_hlen);
         MessagePacker.packFixPos(buf, type.getValue());
-        //TODO: NO!
-        MessagePacker.packInt(buf, (int) dataLength);
+        byte dataSizeSize = MessagePacker.minPackPosLong(buf, dataLength);
+        int currPos = buf.position();
+        buf.position(headerPos);
+        buf.put(((byte)((PythonIPCProto.VERSION<<4)+(dataSizeSize+2 & 0xF))));
+        buf.position(currPos);
     }
 
     public void readFully(ByteBuffer buf) {
