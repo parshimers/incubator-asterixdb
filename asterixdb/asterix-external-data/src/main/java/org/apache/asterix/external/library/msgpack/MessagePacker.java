@@ -34,8 +34,6 @@ import static org.msgpack.core.MessagePack.Code.UINT32;
 import static org.msgpack.core.MessagePack.Code.UINT64;
 import static org.msgpack.core.MessagePack.Code.UINT8;
 
-import java.io.DataOutput;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
@@ -44,12 +42,10 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AUnionType;
 import org.apache.asterix.om.types.AbstractCollectionType;
 import org.apache.asterix.om.types.BuiltinType;
-import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
 import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.BooleanPointable;
 import org.apache.hyracks.data.std.primitive.BytePointable;
@@ -277,10 +273,6 @@ public class MessagePacker {
             return recordType == null || recordType.isOpen();
         }
 
-        public static final int getSchemeFieldCount(ARecordType recordType) {
-            return recordType.getFieldNames().length;
-        }
-
         public static int getLength(byte[] bytes, int start) {
             return IntegerPointable.getInteger(bytes, start + TAG_SIZE);
         }
@@ -302,57 +294,6 @@ public class MessagePacker {
             return RecordUtil.computeNullBitmapSize(recordType);
         }
 
-        public static boolean isClosedFieldNull(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            return getNullBitmapSize(recordType) > 0
-                    && RecordUtil.isNull(bytes[getNullBitmapOffset(bytes, start, recordType) + fieldId / 4], fieldId);
-        }
-
-        public static boolean isClosedFieldMissing(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            return getNullBitmapSize(recordType) > 0 && RecordUtil
-                    .isMissing(bytes[getNullBitmapOffset(bytes, start, recordType) + fieldId / 4], fieldId);
-        }
-
-        // -----------------------
-        // Closed field accessors.
-        // -----------------------
-
-        //        public static final void getClosedFieldValue(ARecordType recordType, int fieldId, DataOutput dOut) throws IOException {
-        //            if (isClosedFieldNull(recordType, fieldId)) {
-        //                dOut.writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
-        //            } else if (isClosedFieldMissing(recordType, fieldId)) {
-        //                dOut.writeByte(ATypeTag.SERIALIZED_MISSING_TYPE_TAG);
-        //            } else {
-        //                dOut.write(getClosedFieldTag(recordType, fieldId));
-        //                dOut.write(bytes, getClosedFieldOffset(recordType, fieldId), getClosedFieldSize(recordType, fieldId));
-        //            }
-        //        }
-
-        /**
-         * This is always untagged
-         *
-         * @param recordType
-         * @param fieldId
-         * @param pointable
-         * @throws IOException
-         */
-        public static final void getClosedFieldValue(byte[] bytes, int start, ARecordType recordType, int fieldId,
-                IPointable pointable) throws IOException {
-            if (isClosedFieldNull(bytes, start, recordType, fieldId)
-                    || isClosedFieldMissing(bytes, start, recordType, fieldId)) {
-                throw new IllegalStateException("Can't read a null or missing field");
-            }
-            pointable.set(bytes, getClosedFieldOffset(bytes, start, recordType, fieldId),
-                    getClosedFieldSize(bytes, start, recordType, fieldId));
-        }
-
-        public static String getClosedFieldName(ARecordType recordType, int fieldId) {
-            return recordType.getFieldNames()[fieldId];
-        }
-
-        public static final byte getClosedFieldTag(ARecordType recordType, int fieldId) {
-            return getClosedFieldType(recordType, fieldId).getTypeTag().serialize();
-        }
-
         public static final IAType getClosedFieldType(ARecordType recordType, int fieldId) {
             IAType aType = recordType.getFieldTypes()[fieldId];
             if (NonTaggedFormatUtil.isOptional(aType)) {
@@ -362,25 +303,11 @@ public class MessagePacker {
             return aType;
         }
 
-        public static final int getClosedFieldSize(byte[] bytes, int start, ARecordType recordType, int fieldId)
-                throws HyracksDataException {
-            if (isClosedFieldNull(bytes, start, recordType, fieldId)) {
-                return 0;
-            }
-            return NonTaggedFormatUtil.getFieldValueLength(bytes,
-                    getClosedFieldOffset(bytes, start, recordType, fieldId),
-                    getClosedFieldType(recordType, fieldId).getTypeTag(), false);
-        }
-
         public static final int getClosedFieldOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
             int offset = getNullBitmapOffset(bytes, start, recordType) + getNullBitmapSize(recordType)
                     + fieldId * FIELD_OFFSET_SIZE;
             return start + IntegerPointable.getInteger(bytes, offset);
         }
-
-        // -----------------------
-        // Open field count.
-        // -----------------------
 
         public static final int getOpenFieldCount(byte[] bytes, int start, ARecordType recordType) {
             return isExpanded(bytes, start, recordType)
@@ -395,40 +322,9 @@ public class MessagePacker {
             return start + IntegerPointable.getInteger(bytes, getOpenPartOffset(start, recordType));
         }
 
-        // -----------------------
-        // Open field accessors.
-        // -----------------------
-
-        public static final void getOpenFieldValue(byte[] bytes, int start, ARecordType recordType, int fieldId,
-                DataOutput dOut) throws IOException {
-            dOut.write(bytes, getOpenFieldValueOffset(bytes, start, recordType, fieldId),
-                    getOpenFieldValueSize(bytes, start, recordType, fieldId));
-        }
-
         public static final int getOpenFieldValueOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
             return getOpenFieldNameOffset(bytes, start, recordType, fieldId)
                     + getOpenFieldNameSize(bytes, start, recordType, fieldId);
-        }
-
-        public static final int getOpenFieldValueSize(byte[] bytes, int start, ARecordType recordType, int fieldId)
-                throws HyracksDataException {
-            int offset = getOpenFieldValueOffset(bytes, start, recordType, fieldId);
-            ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER
-                    .deserialize(getOpenFieldTag(bytes, start, recordType, fieldId));
-            return NonTaggedFormatUtil.getFieldValueLength(bytes, offset, tag, true);
-        }
-
-        public static final void getOpenFieldName(byte[] bytes, int start, ARecordType recordType, int fieldId,
-                DataOutput dOut) throws IOException {
-            dOut.writeByte(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
-            dOut.write(bytes, getOpenFieldNameOffset(bytes, start, recordType, fieldId),
-                    getOpenFieldNameSize(bytes, start, recordType, fieldId));
-        }
-
-        public static final String getOpenFieldName(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            StringBuilder str = new StringBuilder();
-            int offset = getOpenFieldNameOffset(bytes, start, recordType, fieldId);
-            return UTF8StringUtil.toString(str, bytes, offset).toString();
         }
 
         public static int getOpenFieldNameSize(byte[] bytes, int start, ARecordType recordType, int fieldId) {
