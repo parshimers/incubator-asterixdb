@@ -25,9 +25,6 @@ public class PythonIPCProto {
     Executor exec;
     Semaphore started;
 
-
-    ByteBuffer recvBuffer = ByteBuffer.wrap(new byte[4096]);
-
     public PythonIPCProto() throws IOException {
         started = new Semaphore(1);
         sockServ = AFUNIXServerSocket.newInstance();
@@ -57,41 +54,62 @@ public class PythonIPCProto {
     }
 
     public void helo() throws IOException {
-        //wait for HELO
-        recieveMsg();
-        assert getResponseType() == MessageType.HELO;
+        receiveMsg();
+        if(getResponseType() != MessageType.HELO){
+            throw new IllegalStateException("Illegal reply recieved, expected INIT_RSP");
+        }
     }
 
-    public void init(String module, String clazz, String fn) throws IOException {
+    public int init(String module, String clazz, String fn) throws IOException {
         send.init(module, clazz, fn);
         sendMsg();
-        recieveMsg();
-        assert getResponseType() == MessageType.INIT_RSP;
+        receiveMsg();
+        if(getResponseType() != MessageType.INIT_RSP){
+            throw new IllegalStateException("Illegal reply recieved, expected INIT_RSP");
+        }
+        return recv.initResp();
     }
 
-    public ByteBuffer call(String module, String clazz, String fn, ByteBuffer args, int numArgs) throws IOException {
-        send.call(module, clazz, fn, args.array(), args.position(), numArgs);
+    public ByteBuffer call(int ipcId, ByteBuffer args, int numArgs) throws IOException {
+        send.call(ipcId, args.array(), args.position(), numArgs);
         sendMsg();
-        recieveMsg();
-        assert getResponseType() == MessageType.CALL_RSP;
+        receiveMsg();
+        if(getResponseType() != MessageType.CALL_RSP){
+            throw new IllegalStateException("Illegal reply recieved, expected CALL_RSP");
+        }
         return recv.callResp();
     }
 
-    public void recieveMsg() throws IOException {
-        recv.buf.clear();
-        recv.buf.position(0);
+    public void quit() throws IOException{
+        send.quit();
+    }
+
+    private int readAtLeast(long thresh) throws IOException {
         int read = 0;
-        long reqRead = -1;
-        while (!Thread.interrupted() && read < 1) {
+        while (!Thread.interrupted() && read < thresh) {
             int rd = sockIn.read(recv.buf.array());
             if (rd != -1) {
                 read += rd;
             }
         }
+        return read;
+    }
+
+    public void receiveMsg() throws IOException {
+        //TODO: desync???
+        recv.buf.clear();
+        recv.buf.position(0);
+        int read = readAtLeast(1);
+        recv.readVerHlen(recv.buf);
+        if(read < recv.headerLength){
+            read += readAtLeast((recv.headerLength-1)-read);
+        }
         recv.readHead(recv.buf);
-        reqRead = recv.dataLength;
-        while (!Thread.interrupted() && read < reqRead) {
-            read += sockIn.read(recvBuffer.array());
+        while(recv.dataLength + recv.headerLength > recv.buf.array().length){
+            recv.doubleBuffer();
+        }
+        if(read< recv.headerLength + recv.dataLength){
+            readAtLeast((recv.dataLength+recv.headerLength+1)-read);
         }
     }
 

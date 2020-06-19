@@ -15,17 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import math,sys
-sys.path.insert(0,'./site-packages/')
-import msgpack
-import socket
-import os
 import sys
-import time
-from importlib import import_module
-from inspect import signature
-from pathlib import Path
+sys.path.insert(0, './site-packages/')
+from io import BytesIO
 from enum import IntEnum
+from pathlib import Path
+from importlib import import_module
+import socket
+import msgpack
+
+PROTO_VERSION = 1
+
 
 class MessageType(IntEnum):
     HELO = 0
@@ -35,102 +35,103 @@ class MessageType(IntEnum):
     CALL = 4
     CALL_RSP = 5
 
+
 class Wrapper(object):
     wrapped_module = None
     wrapped_class = None
     wrapped_fn = None
     packer = msgpack.Packer(use_bin_type=False, autoreset=False)
     unpacker = msgpack.Unpacker()
-
+    response_buf = BytesIO()
     wrapped_fns = {}
-
+    fn_id_next = 0
+    alive = True
 
     def init(self, module_name, class_name, fn_name):
         self.wrapped_module = import_module(module_name)
         # do not allow modules to be called that are not part of the uploaded module
+        wrapped_fn = None
         if not self.check_module_path(self.wrapped_module):
             wrapped_module = None
             return None
         if class_name is not None:
-            self.wrapped_class = getattr(import_module(module_name),class_name)()
+            self.wrapped_class = getattr(
+                import_module(module_name), class_name)()
         if self.wrapped_class is not None:
-            wrapped_fn = getattr(self.wrapped_class,fn_name)
-            self.wrapped_fns[(module_name,class_name,fn_name)] = wrapped_fn
+            wrapped_fn = getattr(self.wrapped_class, fn_name)
         else:
             wrapped_fn = locals()[fn_name]
-            self.wrapped_fns[(module_name,class_name,fn_name)] = wrapped_fn
-
+        fn_id = self.fn_id_next
+        self.wrapped_fns[fn_id] = wrapped_fn
+        self.fn_id_next = self.fn_id_next + 1
+        return fn_id
 
     def nextTuple(self, *args, key=None):
         fun = self.wrapped_fns[key]
-        print(args)
-        print(fun)
         return self.wrapped_fns[key](*args)
 
-    def check_module_path(self,module):
+    def check_module_path(self, module):
         cwd = Path('.').resolve()
         module_path = Path(module.__file__).resolve()
         return cwd in module_path.parents
 
     def read_header(self):
-        #dgaf about this for rn
         header = self.unpacked_msg
         self.ver_hlen = header[0]
         self.type = MessageType(header[1])
         self.dlen = header[2]
         return True
 
+    def get_ver_hlen(self, hlen):
+        return hlen + (PROTO_VERSION << 4)
+
+    def get_hlen(self):
+        return self.ver_hlen - (PROTO_VERSION << 4)
 
     def helo(self):
-        resp_body = msgpack.packb("helo")
-        dlen = len(resp_body)
         typ = MessageType.HELO
-        resp = bytearray(dlen+7)
-        self.packer.pack(23)
+        self.packer.pack(self.get_ver_hlen(3))
         self.packer.pack(int(typ))
-        self.packer.pack(dlen)
+        self.packer.pack(5)
         self.packer.pack("helo")
         self.resp = self.packer.getbuffer()
         self.send_msg()
         self.packer.reset()
 
     def handle_init(self):
-        #TODO: isn't right. needs to handle module,fn too
         args = self.unpacked_msg[3]
         module = args[0]
         clazz = args[1]
         fn = args[2]
-        self.init(module,clazz,fn)
-        self.packer.pack(23)
+        fn_id = self.init(module, clazz, fn)
+        self.packer.pack(self.get_ver_hlen(3))
         self.packer.pack(int(MessageType.INIT_RSP))
-        self.packer.pack(3)
-        self.packer.pack("ok")
+        # TODO: would die if you had more than 128 functions per interpreter..
+        self.packer.pack(1)
+        self.packer.pack(int(fn_id))
         self.resp = self.packer.getbuffer()
         self.send_msg()
         self.packer.reset()
         return True
 
     def quit(self):
-        return
+        self.alive = False
 
     def handle_call(self):
-        args = self.unpacked_msg[3]
-        module = args[0]
-        clazz = args[1]
-        fn = args[2]
-        key = (module,clazz,fn)
-        print(self.unpacked_msg[4])
-        print(key)
-        result = self.nextTuple(self.unpacked_msg[4],key=key)
-        print(result)
-        #TODO: NO NO NO NO
-        resultsz = len(msgpack.packb(result))
-        self.packer.pack(23)
+        key = self.unpacked_msg[3]
+        result = self.nextTuple(self.unpacked_msg[4], key=key)
+        self.packer.reset()
+        self.response_buf.seek(0)
+        body = msgpack.packb(result)
+        dlen = msgpack.packb(len(body))
+        hlen = len(dlen) + 2  # ver_hlen + type
+        ver_hlen = self.get_ver_hlen(hlen)
+        self.packer.pack(int(ver_hlen))
         self.packer.pack(int(MessageType.CALL_RSP))
-        self.packer.pack(resultsz)
-        print(result)
-        self.packer.pack(result)
-        self.resp = self.packer.getbuffer()
+        self.response_buf.write(self.packer.bytes())
+        self.response_buf.write(dlen)
+        self.response_buf.write(body)
+        self.resp = self.response_buf.getvalue()
         self.send_msg()
         self.packer.reset()
         return True
@@ -142,7 +143,7 @@ class Wrapper(object):
         MessageType.CALL: handle_call
     }
 
-    def connect_sock(self,sock_name):
+    def connect_sock(self, sock_name):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             self.sock.connect(sock_name)
@@ -153,7 +154,6 @@ class Wrapper(object):
         self.sock.close()
 
     def recv_msg(self):
-        #TODO: make this work with bigger than 4k records
         completed = False
         header_read = False
         while not completed:
@@ -165,10 +165,10 @@ class Wrapper(object):
             if not header_read:
                 self.read_header()
                 header_read = True
-            #TODO: hlen is not static
-            if len(readbuf) < self.dlen-5:
-                readbuf += self.sock.recv(self.dlen-len(readbuf))
-                self.unpacker.feed(readbuf)
+           # print(len(readbuf))
+           # if len(readbuf) < self.dlen-self.get_hlen():
+           #     readbuf = readbuf + self.sock.recv(self.dlen-len(readbuf))
+           #     self.unpacker.feed(readbuf)
 
             completed = self.type_handler[self.type](self)
 
@@ -177,8 +177,9 @@ class Wrapper(object):
         return
 
     def recv_loop(self):
-        while True:
+        while self.alive:
             self.recv_msg()
+
 
 sock_name = str(sys.argv[1])
 wrap = Wrapper()

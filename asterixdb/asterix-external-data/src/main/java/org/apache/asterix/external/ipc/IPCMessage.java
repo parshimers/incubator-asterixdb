@@ -6,6 +6,8 @@ import java.util.Arrays;
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 
+import static org.msgpack.core.MessagePack.Code.isFixInt;
+
 public class IPCMessage {
     /*
         HEADER FORMAT
@@ -20,17 +22,26 @@ public class IPCMessage {
     public static int HEADER_LENGTH_MAX = 11;
     public static int VERSION_HLEN_IDX = 0;
     public static int TYPE_IDX = 1;
+    private static final int MAX_BUF_SIZE = 10 * 1024 * 1024; //python msgpack uses this limit by default
     MessageType type;
+    byte headerLength;
     long dataLength;
     ByteBuffer buf;
-    ByteBuffer otherBuf;
     String[] initAry = new String[3];
 
     public IPCMessage() {
         this.type = null;
         dataLength = -1;
         this.buf = ByteBuffer.wrap(new byte[4096]);
-        this.otherBuf = ByteBuffer.wrap(new byte[4096]);
+    }
+
+    public void doubleBuffer(){
+        if(buf.array().length >  MAX_BUF_SIZE){
+            throw new UnsupportedOperationException("Maximum buffer size reached.");
+        }
+        byte[] newBuf = new byte[buf.array().length*2];
+        System.arraycopy(buf.array(),0,newBuf,0,buf.array().length-1);
+        this.buf = ByteBuffer.wrap(newBuf);
     }
 
     public ByteBuffer toBytes() {
@@ -55,23 +66,25 @@ public class IPCMessage {
         buf.position(currPos);
     }
 
-    public void readFully(ByteBuffer buf) {
-        readBody(type);
-    }
-
     //TODO: THIS IS WRONG UNLESS YOU LIVE IN 1972
     private int getStringLength(String s) {
         return s.length();
     }
 
-    public void readHead(ByteBuffer buf) {
+    public void readVerHlen(ByteBuffer buf){
         byte ver_hlen = buf.get();
-        byte ver = (byte) (ver_hlen << 4);
+        if(!isFixInt(ver_hlen)){
+            //die
+        }
+        byte ver = (byte)( (ver_hlen << 4) >> 4) ;
+        // ver is high 3 bytes. byte 0 is the fixed positive integer mask.
         if (ver != PythonIPCProto.VERSION) {
             //die
         }
-        byte hlen = (byte) (0x0f & ver_hlen);
-        //todo: respect hlen
+        headerLength = (byte) (0x0f & ver_hlen);
+    }
+
+    public void readHead(ByteBuffer buf) {
         byte typ = buf.get();
         type = MessageType.fromByte(typ);
         dataLength = MessageUnpacker.unpackNextInt(buf);
@@ -84,11 +97,11 @@ public class IPCMessage {
         MessagePacker.packFixStr(buf, "HELO");
     }
 
-    public void quit(String lib) {
+    public void quit() {
         this.type = MessageType.QUIT;
-        dataLength = getStringLength(lib + 1);
+        dataLength = getStringLength("QUIT");
         packHeader();
-        MessagePacker.packFixStr(buf, lib);
+        MessagePacker.packFixStr(buf, "QUIT");
     }
 
     public void init(String module, String clazz, String fn) {
@@ -104,47 +117,25 @@ public class IPCMessage {
         }
     }
 
-    public void call(String module, String clazz, String fn, byte[] args, int lim, int numArgs) {
+    public void call(int ipcId, byte[] args, int lim, int numArgs) {
+        buf.clear();
+        Arrays.fill(buf.array(),buf.arrayOffset(),buf.arrayOffset()+buf.limit(),(byte)0);
         this.type = MessageType.CALL;
-        initAry[0] = module;
-        initAry[1] = clazz;
-        initAry[2] = fn;
-        dataLength = Arrays.stream(initAry).mapToInt(s -> getStringLength(s)).sum() + 3 + lim;
+        dataLength = 5 + 1 + lim;
         //FIX THIS - 15 PARAM LIMIT
         packHeader();
-        MessagePacker.packFixArrayHeader(buf, (byte) initAry.length);
-        for (String s : initAry) {
-            MessagePacker.packStr(buf, s);
-        }
+        MessagePacker.packInt(buf,ipcId);
         MessagePacker.packFixArrayHeader(buf, (byte) numArgs);
         buf.put(args,0,lim);
     }
 
-    private void readBody(MessageType type) {
-        switch (type) {
-            case CALL_RSP:
-                callResp();
-                break;
-            case INIT_RSP:
-                initResp();
-                break;
-            case HELO:
-                heloResp();
-                break;
-            case QUIT:
-                quitResp();
-                break;
-            default:
-        }
-    }
 
     public ByteBuffer callResp() {
-        //caller needs to decide how to unpack...?
-        return buf.slice();
+        return buf;
     }
 
-    public boolean initResp() {
-        return true;
+    public int initResp() {
+        return (int)MessageUnpacker.unpackNextInt(buf);
     }
 
     public boolean heloResp() {

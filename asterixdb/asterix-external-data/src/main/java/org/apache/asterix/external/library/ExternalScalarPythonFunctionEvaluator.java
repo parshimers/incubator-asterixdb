@@ -73,10 +73,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final PythonLibraryEvaluator libraryEvaluator;
 
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
-    private final PointableAllocator pointableAllocator;
-    private final JObjectPointableVisitor pointableVisitor;
     private final ByteBuffer argHolder;
-    private final ByteBuffer resultWrapper;
     private final ByteBuffer outputWrapper;
     private final IObjectPool<IJObject, IAType> reflectingPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
     private final Map<IAType, TypeInfo> infoPool = new HashMap<>();
@@ -91,9 +88,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         super(finfo, args, argTypes, ctx);
 
         File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
-        this.pointableAllocator = new PointableAllocator();
-        this.pointableVisitor = new JObjectPointableVisitor();
-
         DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
             libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, pythonPath,
@@ -105,8 +99,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         for (int i = 0; i < argValues.length; i++) {
             argValues[i] = VoidPointable.FACTORY.createPointable();
         }
+        //TODO: these should be dynamic
         this.argHolder = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
-        this.resultWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
         this.outputWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
     }
 
@@ -140,6 +134,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         String module;
         String clazz;
         String fn;
+        int ipcId;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
                 ILibraryManager libMgr, File pythonHome) {
@@ -183,7 +178,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
                     PY_NO_USER_PKGS_OPT, ENTRYPOINT, sockPath, packageModule, clazz, fn);
             pb.directory(new File(wd));
-            //            pb.environment().clear();
+            pb.environment().clear();
             File sockFile = new File(sockPath);
             proto = new PythonIPCProto();
             proto.start(sockFile);
@@ -192,19 +187,21 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             inheritIO(p.getErrorStream(), System.err);
             proto.waitForStarted();
             proto.helo();
-            proto.init(packageModule, clazz, fn);
+            ipcId = proto.init(packageModule, clazz, fn);
         }
 
         ByteBuffer callPython(ByteBuffer arguments, int numArgs) throws IOException {
-            //            Object ret = remoteObj.call("nextTuple", arguments.array(), arguments.position());
-            //FIX!
-            return proto.call(module, clazz, fn, arguments, numArgs);
-            //            return (byte[]) ret;
+            return proto.call(ipcId, arguments, numArgs);
 
         }
 
         @Override
         public void deallocate() {
+            try {
+                proto.quit();
+            } catch (IOException e){
+                //we're killing it anyway
+            }
             p.destroyForcibly();
         }
 
@@ -221,26 +218,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 ctx.setStateObject(evaluator);
             }
             return evaluator;
-        }
-
-        //        private int getFreeHighPort() throws IOException {
-        //            int port;
-        //            try (ServerSocket socket = new ServerSocket(0)) {
-        //                socket.setReuseAddress(true);
-        //                port = socket.getLocalPort();
-        //            }
-        //            return port;
-        //        }
-
-        private void waitForPython() throws IOException, InterruptedException {
-            for (int i = 0; i < 100; i++) {
-                //                try {
-                ////                    remoteObj.call("ping");
-                //                    break;
-                //                } catch (ConnectException e) {
-                //                    sleep(100);
-                //                }
-            }
         }
     }
 
@@ -280,7 +257,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 pointy.set(valueReference);
                 ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-                MessagePacker.pack(valueReference, rtTypeTag, argHolder);
+                MessagePacker.pack(valueReference, rtType, argHolder);
                 break;
             default:
                 throw new IllegalArgumentException("NYI");
@@ -297,16 +274,12 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     }
 
     private void wrap(ByteBuffer resultWrapper, DataOutput out) throws HyracksDataException {
+        //TODO: output wrapper needs to grow with result wrapper
         outputWrapper.clear();
-        resultWrapper.position(0);
-        MessageUnpacker.unpack(resultWrapper, outputWrapper, true);
-        //NO.
-        int pos = outputWrapper.position()+outputWrapper.arrayOffset();
         outputWrapper.position(0);
-        outputWrapper.limit(pos);
-        byte[] outsnip = Arrays.copyOfRange(outputWrapper.array(), outputWrapper.position()+outputWrapper.arrayOffset(), outputWrapper.limit());
+        MessageUnpacker.unpack(resultWrapper, outputWrapper, true);
         try {
-            out.write(outsnip);
+            out.write(outputWrapper.array(),0,outputWrapper.position()+outputWrapper.arrayOffset());
         } catch (IOException e) {
             throw new HyracksDataException(e.getMessage());
         }

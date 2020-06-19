@@ -7,6 +7,7 @@ import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
+import com.google.common.primitives.UnsignedBytes;
 import org.apache.asterix.builders.RecordBuilder;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.util.encoding.VarLenIntEncoderDecoder;
@@ -39,11 +40,14 @@ public class MessageUnpacker {
                 case TRUE:
                     out.put(ATypeTag.SERIALIZED_BOOLEAN_TYPE_TAG);
                     out.put((byte)1);
+                    break;
                 case FALSE:
                     out.put(ATypeTag.SERIALIZED_BOOLEAN_TYPE_TAG);
                     out.put((byte)0);
+                    break;
                 case NIL:
                     out.put(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
+                    break;
                 case UINT8:
                     unpackUByte(in,out,tagged);
                     break;
@@ -69,22 +73,22 @@ public class MessageUnpacker {
                     unpackDouble(in,out,tagged);
                     break;
                 case STR16:
-                    unpackStr(in, out,  in.getShort() & 0xffff, tagged);
+                    unpackStr(in, out,  Short.toUnsignedInt(in.getShort()), tagged);
                     break;
                 case STR32:
-                    unpackStr(in, out,  in.getInt() & 0xffffffff, tagged);
+                    unpackStr(in, out,  Integer.toUnsignedLong(in.getInt()), tagged);
                     break;
                 case ARRAY16:
-                    unpackArray(in,out, in.getShort() & 0xffff);
+                    unpackArray(in,out, Short.toUnsignedInt(in.getShort()));
                     break;
                 case ARRAY32:
-                    unpackArray(in,out, in.getInt() & 0xffffffff);
+                    unpackArray(in,out, Integer.toUnsignedLong(in.getInt()));
                     break;
                 case MAP16:
-                    unpackMap(in,out, in.getShort() & 0xffff);
+                    unpackMap(in,out, Short.toUnsignedInt(in.getShort()));
                     break;
                 case MAP32:
-                    unpackMap(in,out, in.getInt() & 0xffff);
+                    unpackMap(in,out, (int)Integer.toUnsignedLong(in.getInt()));
                     break;
 
                 default:
@@ -105,10 +109,16 @@ public class MessageUnpacker {
             switch (tag) {
                 case INT8:
                     return in.get();
+                case UINT8:
+                    return Byte.toUnsignedInt(in.get());
                 case INT16:
                     return in.getShort();
+                case UINT16:
+                    return Short.toUnsignedInt(in.getShort());
                 case INT32:
                     return in.getInt();
+                case UINT32:
+                    return Integer.toUnsignedLong(in.getInt());
                 case INT64:
                     return in.getLong();
                 default:
@@ -170,7 +180,11 @@ public class MessageUnpacker {
         out.putDouble(in.getDouble());
     }
 
-    public static void unpackArray(ByteBuffer in, ByteBuffer out, int count){
+    public static void unpackArray(ByteBuffer in, ByteBuffer out, long uLen){
+        if(uLen > Integer.MAX_VALUE){
+            throw new UnsupportedOperationException("String is too long");
+        }
+        int count = (int) uLen;
         int offs = out.position();
         out.put(ATypeTag.SERIALIZED_ORDEREDLIST_TYPE_TAG);
         out.put(ATypeTag.ANY.serialize());
@@ -201,7 +215,7 @@ public class MessageUnpacker {
         int openPartOffs = out.position();
         out.putInt(-1);
         //isExpanded, so num of open fields
-        out.putInt(openPartOffs,out.position());
+        out.putInt(openPartOffs,out.position()-startOffs);
         out.putInt(count);
         int offsetAryPos = out.position();
         int offsetArySz = count * 2;
@@ -213,7 +227,7 @@ public class MessageUnpacker {
             int offs = out.position();
             int relOffs = offs - startOffs;
             unpack(in,out, false);
-            int hash = UTF8StringUtil.hash(out.array(), relOffs);
+            int hash = UTF8StringUtil.hash(out.array(), offs);
             out.putInt(offsetAryPos, hash);
             offsetAryPos += 4;
             out.putInt(offsetAryPos, relOffs);
@@ -227,11 +241,15 @@ public class MessageUnpacker {
         return in.getInt();
     }
 
-    public static void unpackStr(ByteBuffer in, ByteBuffer out, int len, boolean tag) {
+    public static void unpackStr(ByteBuffer in, ByteBuffer out, long uLen, boolean tag) {
         //TODO (ian): this probably breaks for 3 and 4 byte UTF-8
         if(tag) {
             out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
         }
+        if(uLen > Integer.MAX_VALUE){
+            throw new UnsupportedOperationException("String is too long");
+        }
+        int len = (int) uLen;
         int strLen = UTF8StringUtil.getStringLength(in.array(),in.position()+in.arrayOffset(),len);
         int adv = VarLenIntEncoderDecoder.encode(strLen, out.array(), out.position()+out.arrayOffset());
         out.position(out.position()+adv);
