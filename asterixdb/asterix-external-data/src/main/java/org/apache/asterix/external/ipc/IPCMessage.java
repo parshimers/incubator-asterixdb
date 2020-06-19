@@ -1,12 +1,28 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.asterix.external.ipc;
+
+import static org.msgpack.core.MessagePack.Code.isFixInt;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
-
-import static org.msgpack.core.MessagePack.Code.isFixInt;
 
 public class IPCMessage {
     /*
@@ -35,12 +51,12 @@ public class IPCMessage {
         this.buf = ByteBuffer.wrap(new byte[4096]);
     }
 
-    public void doubleBuffer(){
-        if(buf.array().length >  MAX_BUF_SIZE){
+    public void doubleBuffer() {
+        if (buf.array().length > MAX_BUF_SIZE) {
             throw new UnsupportedOperationException("Maximum buffer size reached.");
         }
-        byte[] newBuf = new byte[buf.array().length*2];
-        System.arraycopy(buf.array(),0,newBuf,0,buf.array().length-1);
+        byte[] newBuf = new byte[buf.array().length * 2];
+        System.arraycopy(buf.array(), 0, newBuf, 0, buf.array().length - 1);
         this.buf = ByteBuffer.wrap(newBuf);
     }
 
@@ -62,7 +78,7 @@ public class IPCMessage {
         byte dataSizeSize = MessagePacker.minPackPosLong(buf, dataLength);
         int currPos = buf.position();
         buf.position(headerPos);
-        buf.put(((byte)((PythonIPCProto.VERSION<<4)+(dataSizeSize+2 & 0xF))));
+        buf.put(((byte) ((PythonIPCProto.VERSION << 4) + (dataSizeSize + 2 & 0xF))));
         buf.position(currPos);
     }
 
@@ -71,12 +87,12 @@ public class IPCMessage {
         return s.length();
     }
 
-    public void readVerHlen(ByteBuffer buf){
+    public void readVerHlen(ByteBuffer buf) {
         byte ver_hlen = buf.get();
-        if(!isFixInt(ver_hlen)){
+        if (!isFixInt(ver_hlen)) {
             //die
         }
-        byte ver = (byte)( (ver_hlen << 4) >> 4) ;
+        byte ver = (byte) ((ver_hlen << 4) >> 4);
         // ver is high 3 bytes. byte 0 is the fixed positive integer mask.
         if (ver != PythonIPCProto.VERSION) {
             //die
@@ -119,23 +135,22 @@ public class IPCMessage {
 
     public void call(int ipcId, byte[] args, int lim, int numArgs) {
         buf.clear();
-        Arrays.fill(buf.array(),buf.arrayOffset(),buf.arrayOffset()+buf.limit(),(byte)0);
+        Arrays.fill(buf.array(), buf.arrayOffset(), buf.arrayOffset() + buf.limit(), (byte) 0);
         this.type = MessageType.CALL;
         dataLength = 5 + 1 + lim;
         //FIX THIS - 15 PARAM LIMIT
         packHeader();
-        MessagePacker.packInt(buf,ipcId);
+        MessagePacker.packInt(buf, ipcId);
         MessagePacker.packFixArrayHeader(buf, (byte) numArgs);
-        buf.put(args,0,lim);
+        buf.put(args, 0, lim);
     }
-
 
     public ByteBuffer callResp() {
         return buf;
     }
 
     public int initResp() {
-        return (int)MessageUnpacker.unpackNextInt(buf);
+        return (int) MessageUnpacker.unpackNextInt(buf);
     }
 
     public boolean heloResp() {

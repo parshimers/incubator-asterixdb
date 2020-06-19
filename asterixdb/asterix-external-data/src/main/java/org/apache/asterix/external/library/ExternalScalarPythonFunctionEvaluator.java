@@ -25,27 +25,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.UUID;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
-import org.apache.asterix.external.ipc.MessageType;
 import org.apache.asterix.external.ipc.PythonIPCProto;
-import org.apache.asterix.external.library.java.JObjectPointableVisitor;
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
-import org.apache.asterix.om.pointables.PointableAllocator;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
@@ -199,7 +193,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         public void deallocate() {
             try {
                 proto.quit();
-            } catch (IOException e){
+            } catch (IOException e) {
                 //we're killing it anyway
             }
             p.destroyForcibly();
@@ -279,7 +273,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         outputWrapper.position(0);
         MessageUnpacker.unpack(resultWrapper, outputWrapper, true);
         try {
-            out.write(outputWrapper.array(),0,outputWrapper.position()+outputWrapper.arrayOffset());
+            out.write(outputWrapper.array(), 0, outputWrapper.position() + outputWrapper.arrayOffset());
         } catch (IOException e) {
             throw new HyracksDataException(e.getMessage());
         }

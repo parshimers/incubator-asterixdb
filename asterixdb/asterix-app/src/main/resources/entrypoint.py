@@ -165,10 +165,9 @@ class Wrapper(object):
             if not header_read:
                 self.read_header()
                 header_read = True
-           # print(len(readbuf))
-           # if len(readbuf) < self.dlen-self.get_hlen():
-           #     readbuf = readbuf + self.sock.recv(self.dlen-len(readbuf))
-           #     self.unpacker.feed(readbuf)
+            if len(readbuf) < self.dlen+self.get_hlen():
+                readbuf = readbuf + self.sock.recv(self.dlen-len(readbuf))
+                self.unpacker.feed(readbuf)
 
             completed = self.type_handler[self.type](self)
 

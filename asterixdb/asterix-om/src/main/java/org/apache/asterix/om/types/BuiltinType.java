@@ -20,12 +20,9 @@ package org.apache.asterix.om.types;
 
 import static org.apache.asterix.om.pointables.base.DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE;
 import static org.apache.asterix.om.pointables.base.DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE;
-import static org.apache.asterix.om.types.AOrderedListType.FULL_OPEN_ORDEREDLIST_TYPE;
 import static org.apache.asterix.om.types.ATypeTag.VALUE_TYPE_MAPPING;
-import static org.apache.asterix.om.utils.RecordUtil.FULLY_OPEN_RECORD_TYPE;
 
 import org.apache.asterix.om.base.IAObject;
-import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.api.io.IJsonSerializable;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 

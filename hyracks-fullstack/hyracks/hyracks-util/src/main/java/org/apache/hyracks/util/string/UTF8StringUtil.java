@@ -149,7 +149,7 @@ public class UTF8StringUtil {
         return charCount;
     }
 
-    public static int getStringLength(byte[] b, int offs, int len){
+    public static int getStringLength(byte[] b, int offs, int len) {
         int pos = offs;
         int end = pos + len;
         int charCount = 0;

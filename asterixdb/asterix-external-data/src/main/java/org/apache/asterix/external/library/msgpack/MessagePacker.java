@@ -1,7 +1,38 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.asterix.external.library.msgpack;
 
-import static org.apache.asterix.om.utils.RecordUtil.FULLY_OPEN_RECORD_TYPE;
-import static org.msgpack.core.MessagePack.Code.*;
+import static org.msgpack.core.MessagePack.Code.ARRAY32;
+import static org.msgpack.core.MessagePack.Code.FALSE;
+import static org.msgpack.core.MessagePack.Code.FIXARRAY_PREFIX;
+import static org.msgpack.core.MessagePack.Code.FIXSTR_PREFIX;
+import static org.msgpack.core.MessagePack.Code.FLOAT32;
+import static org.msgpack.core.MessagePack.Code.FLOAT64;
+import static org.msgpack.core.MessagePack.Code.INT16;
+import static org.msgpack.core.MessagePack.Code.INT32;
+import static org.msgpack.core.MessagePack.Code.INT64;
+import static org.msgpack.core.MessagePack.Code.INT8;
+import static org.msgpack.core.MessagePack.Code.MAP32;
+import static org.msgpack.core.MessagePack.Code.STR32;
+import static org.msgpack.core.MessagePack.Code.TRUE;
+import static org.msgpack.core.MessagePack.Code.UINT16;
+import static org.msgpack.core.MessagePack.Code.UINT32;
+import static org.msgpack.core.MessagePack.Code.UINT64;
+import static org.msgpack.core.MessagePack.Code.UINT8;
 
 import java.io.DataOutput;
 import java.io.IOException;
@@ -20,7 +51,13 @@ import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.api.IValueReference;
-import org.apache.hyracks.data.std.primitive.*;
+import org.apache.hyracks.data.std.primitive.BooleanPointable;
+import org.apache.hyracks.data.std.primitive.BytePointable;
+import org.apache.hyracks.data.std.primitive.DoublePointable;
+import org.apache.hyracks.data.std.primitive.FloatPointable;
+import org.apache.hyracks.data.std.primitive.IntegerPointable;
+import org.apache.hyracks.data.std.primitive.LongPointable;
+import org.apache.hyracks.data.std.primitive.ShortPointable;
 import org.apache.hyracks.util.string.UTF8StringUtil;
 
 public class MessagePacker {
@@ -32,16 +69,16 @@ public class MessagePacker {
     private static final int ITEM_OFFSET_SIZE = 4;
 
     public static void pack(IValueReference ptr, IAType type, ByteBuffer out) throws HyracksDataException {
-        pack(ptr.getByteArray(),ptr.getStartOffset(),type,true,out);
+        pack(ptr.getByteArray(), ptr.getStartOffset(), type, true, out);
     }
 
-
-    public static void pack(byte[] ptr, int offs, IAType type, boolean tagged, ByteBuffer out) throws HyracksDataException {
-        int relOffs = tagged ? offs+1 : offs;
+    public static void pack(byte[] ptr, int offs, IAType type, boolean tagged, ByteBuffer out)
+            throws HyracksDataException {
+        int relOffs = tagged ? offs + 1 : offs;
         ATypeTag tag = type.getTypeTag();
         switch (tag) {
             case STRING:
-                packStr(ptr,relOffs, out);
+                packStr(ptr, relOffs, out);
                 break;
             case BOOLEAN:
                 if (BooleanPointable.getBoolean(ptr, relOffs)) {
@@ -51,22 +88,22 @@ public class MessagePacker {
                 }
                 break;
             case TINYINT:
-                packByte(out,BytePointable.getByte(ptr,relOffs));
+                packByte(out, BytePointable.getByte(ptr, relOffs));
                 break;
             case SMALLINT:
-                packShort(out,ShortPointable.getShort(ptr,relOffs));
+                packShort(out, ShortPointable.getShort(ptr, relOffs));
                 break;
             case INTEGER:
-                packInt(out,IntegerPointable.getInteger(ptr,relOffs));
+                packInt(out, IntegerPointable.getInteger(ptr, relOffs));
                 break;
             case BIGINT:
-                packLong(out,LongPointable.getLong(ptr,relOffs));
+                packLong(out, LongPointable.getLong(ptr, relOffs));
                 break;
             case FLOAT:
-                packFloat(out,FloatPointable.getFloat(ptr,relOffs));
+                packFloat(out, FloatPointable.getFloat(ptr, relOffs));
                 break;
             case DOUBLE:
-                packDouble(out,DoublePointable.getDouble(ptr,relOffs));
+                packDouble(out, DoublePointable.getDouble(ptr, relOffs));
                 break;
             case ARRAY:
                 packArray(ptr, offs, type, out);
@@ -79,33 +116,28 @@ public class MessagePacker {
         }
     }
 
-    public static byte minPackPosLong(ByteBuffer out, long in){
-        if(in < 127){
-            packFixPos(out,(byte)in);
+    public static byte minPackPosLong(ByteBuffer out, long in) {
+        if (in < 127) {
+            packFixPos(out, (byte) in);
             return 1;
-        }
-        else if(in < Byte.MAX_VALUE){
+        } else if (in < Byte.MAX_VALUE) {
             out.put(UINT8);
-            out.put((byte)in);
+            out.put((byte) in);
             return 2;
-        }
-        else if(in < Short.MAX_VALUE){
+        } else if (in < Short.MAX_VALUE) {
             out.put(UINT16);
-            out.putShort((short)in);
+            out.putShort((short) in);
             return 3;
-        }
-        else if(in < Integer.MAX_VALUE){
+        } else if (in < Integer.MAX_VALUE) {
             out.put(UINT32);
-            out.putInt((int)in);
+            out.putInt((int) in);
             return 5;
-        }
-        else{
+        } else {
             out.put(UINT64);
             out.putLong(in);
             return 9;
         }
     }
-
 
     public static void packByte(ByteBuffer out, byte in) {
         out.put(INT8);
@@ -122,17 +154,18 @@ public class MessagePacker {
         out.putInt(in);
 
     }
+
     public static void packLong(ByteBuffer out, long in) {
         out.put(INT64);
         out.putLong(in);
     }
 
-    public static void packFloat(ByteBuffer out, float in){
+    public static void packFloat(ByteBuffer out, float in) {
         out.put(FLOAT32);
         out.putFloat(in);
     }
 
-    public static void packDouble(ByteBuffer out, double in){
+    public static void packDouble(ByteBuffer out, double in) {
         out.put(FLOAT64);
         out.putDouble(in);
     }
@@ -170,7 +203,7 @@ public class MessagePacker {
         out.put(strBytes);
     }
 
-    public static void packStr(String str, ByteBuffer out){
+    public static void packStr(String str, ByteBuffer out) {
         out.put(STR32);
         byte[] strBytes = str.getBytes(Charset.forName("UTF-8"));
         out.putInt(strBytes.length);
@@ -184,38 +217,40 @@ public class MessagePacker {
         out.put(ARRAY32);
         int lenOffs = offs + TYPE_TAG_SIZE + TYPE_SIZE;
         int itemCtOffs = LENGTH_SIZE + lenOffs;
-        int itemCt = IntegerPointable.getInteger(in,itemCtOffs);
+        int itemCt = IntegerPointable.getInteger(in, itemCtOffs);
         boolean fixType = NonTaggedFormatUtil.isFixedSizedCollection(type);
         out.putInt(itemCt);
-        for(int i=0;i<itemCt;i++){
-            if(fixType){
-                int itemOffs = itemCtOffs + ITEM_COUNT_SIZE + (i* NonTaggedFormatUtil.getFieldValueLength(in,0,collType.getItemType().getTypeTag(),false));
-                pack(in,itemOffs,collType.getItemType(),false,out);
-            }
-            else{
-                int itemOffs = offs + IntegerPointable.getInteger(in,itemCtOffs + ITEM_COUNT_SIZE + (i*ITEM_OFFSET_SIZE));
-                ATypeTag tag = ATypeTag.VALUE_TYPE_MAPPING[BytePointable.getByte(in,itemOffs)];
-                pack(in,itemOffs,BuiltinType.fromTypeTag(tag),true,out);
+        for (int i = 0; i < itemCt; i++) {
+            if (fixType) {
+                int itemOffs = itemCtOffs + ITEM_COUNT_SIZE + (i
+                        * NonTaggedFormatUtil.getFieldValueLength(in, 0, collType.getItemType().getTypeTag(), false));
+                pack(in, itemOffs, collType.getItemType(), false, out);
+            } else {
+                int itemOffs =
+                        offs + IntegerPointable.getInteger(in, itemCtOffs + ITEM_COUNT_SIZE + (i * ITEM_OFFSET_SIZE));
+                ATypeTag tag = ATypeTag.VALUE_TYPE_MAPPING[BytePointable.getByte(in, itemOffs)];
+                pack(in, itemOffs, BuiltinType.fromTypeTag(tag), true, out);
             }
         }
     }
 
     private static void packObject(byte[] in, int offs, IAType type, ByteBuffer out) throws HyracksDataException {
-        ARecordType recType = (ARecordType)type;
+        ARecordType recType = (ARecordType) type;
         out.put(MAP32);
-        int fieldCt = recType.getFieldNames().length + RecordUtils.getOpenFieldCount(in,offs,recType);
+        int fieldCt = recType.getFieldNames().length + RecordUtils.getOpenFieldCount(in, offs, recType);
         out.putInt(fieldCt);
-        for(int i =0; i < recType.getFieldNames().length; i++){
+        for (int i = 0; i < recType.getFieldNames().length; i++) {
             String field = recType.getFieldNames()[i];
-            IAType fieldType = RecordUtils.getClosedFieldType(recType,i);
-            packStr(field,out);
-            pack(in,RecordUtils.getClosedFieldOffset(in,offs,recType,i),fieldType,false,out);
+            IAType fieldType = RecordUtils.getClosedFieldType(recType, i);
+            packStr(field, out);
+            pack(in, RecordUtils.getClosedFieldOffset(in, offs, recType, i), fieldType, false, out);
         }
-        if(RecordUtils.isExpanded(in,offs,recType)) {
+        if (RecordUtils.isExpanded(in, offs, recType)) {
             for (int i = 0; i < RecordUtils.getOpenFieldCount(in, offs, recType); i++) {
                 packStr(in, RecordUtils.getOpenFieldNameOffset(in, offs, recType, i), out);
-                ATypeTag tag = ATypeTag.VALUE_TYPE_MAPPING[RecordUtils.getOpenFieldTag(in,offs,recType,i)];
-                pack(in, RecordUtils.getOpenFieldValueOffset(in, offs, recType, i), BuiltinType.fromTypeTag(tag), true, out);
+                ATypeTag tag = ATypeTag.VALUE_TYPE_MAPPING[RecordUtils.getOpenFieldTag(in, offs, recType, i)];
+                pack(in, RecordUtils.getOpenFieldValueOffset(in, offs, recType, i), BuiltinType.fromTypeTag(tag), true,
+                        out);
             }
         }
 
@@ -246,11 +281,11 @@ public class MessagePacker {
             return recordType.getFieldNames().length;
         }
 
-        public static int getLength(byte [] bytes, int start) {
+        public static int getLength(byte[] bytes, int start) {
             return IntegerPointable.getInteger(bytes, start + TAG_SIZE);
         }
 
-        public static boolean isExpanded(byte[] bytes, int start,ARecordType recordType) {
+        public static boolean isExpanded(byte[] bytes, int start, ARecordType recordType) {
             return isOpen(recordType) && BooleanPointable.getBoolean(bytes, start + TAG_SIZE + RECORD_LENGTH_SIZE);
         }
 
@@ -259,7 +294,8 @@ public class MessagePacker {
         }
 
         public static int getNullBitmapOffset(byte[] bytes, int start, ARecordType recordType) {
-            return getOpenPartOffset(start,recordType) + (isExpanded(bytes,start,recordType) ? OPEN_OFFSET_SIZE : 0) + CLOSED_COUNT_SIZE;
+            return getOpenPartOffset(start, recordType) + (isExpanded(bytes, start, recordType) ? OPEN_OFFSET_SIZE : 0)
+                    + CLOSED_COUNT_SIZE;
         }
 
         public static int getNullBitmapSize(ARecordType recordType) {
@@ -268,28 +304,28 @@ public class MessagePacker {
 
         public static boolean isClosedFieldNull(byte[] bytes, int start, ARecordType recordType, int fieldId) {
             return getNullBitmapSize(recordType) > 0
-                    && RecordUtil.isNull(bytes[getNullBitmapOffset(bytes,start,recordType) + fieldId / 4], fieldId);
+                    && RecordUtil.isNull(bytes[getNullBitmapOffset(bytes, start, recordType) + fieldId / 4], fieldId);
         }
 
         public static boolean isClosedFieldMissing(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            return getNullBitmapSize(recordType) > 0
-                    && RecordUtil.isMissing(bytes[getNullBitmapOffset(bytes,start, recordType) + fieldId / 4], fieldId);
+            return getNullBitmapSize(recordType) > 0 && RecordUtil
+                    .isMissing(bytes[getNullBitmapOffset(bytes, start, recordType) + fieldId / 4], fieldId);
         }
 
         // -----------------------
         // Closed field accessors.
         // -----------------------
 
-//        public static final void getClosedFieldValue(ARecordType recordType, int fieldId, DataOutput dOut) throws IOException {
-//            if (isClosedFieldNull(recordType, fieldId)) {
-//                dOut.writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
-//            } else if (isClosedFieldMissing(recordType, fieldId)) {
-//                dOut.writeByte(ATypeTag.SERIALIZED_MISSING_TYPE_TAG);
-//            } else {
-//                dOut.write(getClosedFieldTag(recordType, fieldId));
-//                dOut.write(bytes, getClosedFieldOffset(recordType, fieldId), getClosedFieldSize(recordType, fieldId));
-//            }
-//        }
+        //        public static final void getClosedFieldValue(ARecordType recordType, int fieldId, DataOutput dOut) throws IOException {
+        //            if (isClosedFieldNull(recordType, fieldId)) {
+        //                dOut.writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
+        //            } else if (isClosedFieldMissing(recordType, fieldId)) {
+        //                dOut.writeByte(ATypeTag.SERIALIZED_MISSING_TYPE_TAG);
+        //            } else {
+        //                dOut.write(getClosedFieldTag(recordType, fieldId));
+        //                dOut.write(bytes, getClosedFieldOffset(recordType, fieldId), getClosedFieldSize(recordType, fieldId));
+        //            }
+        //        }
 
         /**
          * This is always untagged
@@ -299,12 +335,14 @@ public class MessagePacker {
          * @param pointable
          * @throws IOException
          */
-        public static final void getClosedFieldValue(byte[] bytes, int start, ARecordType recordType, int fieldId, IPointable pointable)
-                throws IOException {
-            if (isClosedFieldNull(bytes,start,recordType, fieldId) || isClosedFieldMissing(bytes,start,recordType, fieldId)) {
+        public static final void getClosedFieldValue(byte[] bytes, int start, ARecordType recordType, int fieldId,
+                IPointable pointable) throws IOException {
+            if (isClosedFieldNull(bytes, start, recordType, fieldId)
+                    || isClosedFieldMissing(bytes, start, recordType, fieldId)) {
                 throw new IllegalStateException("Can't read a null or missing field");
             }
-            pointable.set(bytes, getClosedFieldOffset(bytes,start,recordType, fieldId), getClosedFieldSize(bytes,start,recordType, fieldId));
+            pointable.set(bytes, getClosedFieldOffset(bytes, start, recordType, fieldId),
+                    getClosedFieldSize(bytes, start, recordType, fieldId));
         }
 
         public static String getClosedFieldName(ARecordType recordType, int fieldId) {
@@ -324,16 +362,19 @@ public class MessagePacker {
             return aType;
         }
 
-        public static final int getClosedFieldSize(byte[] bytes, int start, ARecordType recordType, int fieldId) throws HyracksDataException {
-            if (isClosedFieldNull(bytes,start,recordType, fieldId)) {
+        public static final int getClosedFieldSize(byte[] bytes, int start, ARecordType recordType, int fieldId)
+                throws HyracksDataException {
+            if (isClosedFieldNull(bytes, start, recordType, fieldId)) {
                 return 0;
             }
-            return NonTaggedFormatUtil.getFieldValueLength(bytes, getClosedFieldOffset(bytes,start,recordType, fieldId),
+            return NonTaggedFormatUtil.getFieldValueLength(bytes,
+                    getClosedFieldOffset(bytes, start, recordType, fieldId),
                     getClosedFieldType(recordType, fieldId).getTypeTag(), false);
         }
 
         public static final int getClosedFieldOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            int offset = getNullBitmapOffset(bytes,start,recordType) + getNullBitmapSize(recordType) + fieldId * FIELD_OFFSET_SIZE;
+            int offset = getNullBitmapOffset(bytes, start, recordType) + getNullBitmapSize(recordType)
+                    + fieldId * FIELD_OFFSET_SIZE;
             return start + IntegerPointable.getInteger(bytes, offset);
         }
 
@@ -342,71 +383,80 @@ public class MessagePacker {
         // -----------------------
 
         public static final int getOpenFieldCount(byte[] bytes, int start, ARecordType recordType) {
-            return isExpanded(bytes,start,recordType) ? IntegerPointable.getInteger(bytes, getOpenFieldCountOffset(bytes,start,recordType)) : 0;
+            return isExpanded(bytes, start, recordType)
+                    ? IntegerPointable.getInteger(bytes, getOpenFieldCountOffset(bytes, start, recordType)) : 0;
         }
 
         public static int getOpenFieldCountSize(byte[] bytes, int start, ARecordType recordType) {
-            return isExpanded(bytes,start,recordType) ? OPEN_COUNT_SIZE : 0;
+            return isExpanded(bytes, start, recordType) ? OPEN_COUNT_SIZE : 0;
         }
 
         public static int getOpenFieldCountOffset(byte[] bytes, int start, ARecordType recordType) {
-            return start + IntegerPointable.getInteger(bytes, getOpenPartOffset(start,recordType));
+            return start + IntegerPointable.getInteger(bytes, getOpenPartOffset(start, recordType));
         }
 
         // -----------------------
         // Open field accessors.
         // -----------------------
 
-        public static final void getOpenFieldValue(byte[] bytes, int start, ARecordType recordType, int fieldId, DataOutput dOut) throws IOException {
-            dOut.write(bytes, getOpenFieldValueOffset(bytes,start,recordType, fieldId), getOpenFieldValueSize(bytes,start,recordType, fieldId));
+        public static final void getOpenFieldValue(byte[] bytes, int start, ARecordType recordType, int fieldId,
+                DataOutput dOut) throws IOException {
+            dOut.write(bytes, getOpenFieldValueOffset(bytes, start, recordType, fieldId),
+                    getOpenFieldValueSize(bytes, start, recordType, fieldId));
         }
 
-        public static final int getOpenFieldValueOffset(byte[] bytes, int start,ARecordType recordType, int fieldId) {
-            return getOpenFieldNameOffset(bytes,start,recordType, fieldId) + getOpenFieldNameSize(bytes,start,recordType, fieldId);
+        public static final int getOpenFieldValueOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
+            return getOpenFieldNameOffset(bytes, start, recordType, fieldId)
+                    + getOpenFieldNameSize(bytes, start, recordType, fieldId);
         }
 
-        public static final int getOpenFieldValueSize(byte[] bytes, int start, ARecordType recordType, int fieldId) throws HyracksDataException {
-            int offset = getOpenFieldValueOffset(bytes,start,recordType, fieldId);
-            ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(getOpenFieldTag(bytes,start,recordType, fieldId));
+        public static final int getOpenFieldValueSize(byte[] bytes, int start, ARecordType recordType, int fieldId)
+                throws HyracksDataException {
+            int offset = getOpenFieldValueOffset(bytes, start, recordType, fieldId);
+            ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER
+                    .deserialize(getOpenFieldTag(bytes, start, recordType, fieldId));
             return NonTaggedFormatUtil.getFieldValueLength(bytes, offset, tag, true);
         }
 
-        public static final void getOpenFieldName(byte[] bytes, int start, ARecordType recordType, int fieldId, DataOutput dOut) throws IOException {
+        public static final void getOpenFieldName(byte[] bytes, int start, ARecordType recordType, int fieldId,
+                DataOutput dOut) throws IOException {
             dOut.writeByte(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
-            dOut.write(bytes, getOpenFieldNameOffset(bytes,start,recordType, fieldId), getOpenFieldNameSize(bytes,start,recordType, fieldId));
+            dOut.write(bytes, getOpenFieldNameOffset(bytes, start, recordType, fieldId),
+                    getOpenFieldNameSize(bytes, start, recordType, fieldId));
         }
 
         public static final String getOpenFieldName(byte[] bytes, int start, ARecordType recordType, int fieldId) {
             StringBuilder str = new StringBuilder();
-            int offset = getOpenFieldNameOffset(bytes,start,recordType, fieldId);
+            int offset = getOpenFieldNameOffset(bytes, start, recordType, fieldId);
             return UTF8StringUtil.toString(str, bytes, offset).toString();
         }
 
         public static int getOpenFieldNameSize(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            int utfleng = UTF8StringUtil.getUTFLength(bytes, getOpenFieldNameOffset(bytes,start,recordType, fieldId));
+            int utfleng = UTF8StringUtil.getUTFLength(bytes, getOpenFieldNameOffset(bytes, start, recordType, fieldId));
             return utfleng + UTF8StringUtil.getNumBytesToStoreLength(utfleng);
         }
 
         public static int getOpenFieldNameOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            return getOpenFieldOffset(bytes,start,recordType, fieldId);
+            return getOpenFieldOffset(bytes, start, recordType, fieldId);
         }
 
-        public static final byte getOpenFieldTag(byte[] bytes, int start,ARecordType recordType, int fieldId) {
-            return bytes[getOpenFieldValueOffset(bytes,start,recordType, fieldId)];
+        public static final byte getOpenFieldTag(byte[] bytes, int start, ARecordType recordType, int fieldId) {
+            return bytes[getOpenFieldValueOffset(bytes, start, recordType, fieldId)];
         }
 
-        public static int getOpenFieldHashOffset(byte[] bytes, int start,ARecordType recordType, int fieldId) {
-            return getOpenFieldCountOffset(bytes,start,recordType) + getOpenFieldCountSize(bytes,start,recordType) + fieldId * OPEN_FIELD_HEADER;
+        public static int getOpenFieldHashOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
+            return getOpenFieldCountOffset(bytes, start, recordType) + getOpenFieldCountSize(bytes, start, recordType)
+                    + fieldId * OPEN_FIELD_HEADER;
         }
 
         public static int getOpenFieldOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            return start + IntegerPointable.getInteger(bytes, getOpenFieldOffsetOffset(bytes,start,recordType, fieldId));
+            return start
+                    + IntegerPointable.getInteger(bytes, getOpenFieldOffsetOffset(bytes, start, recordType, fieldId));
         }
 
         public static int getOpenFieldOffsetOffset(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            return getOpenFieldHashOffset(bytes,start,recordType, fieldId) + OPEN_FIELD_HASH_SIZE;
+            return getOpenFieldHashOffset(bytes, start, recordType, fieldId) + OPEN_FIELD_HASH_SIZE;
         }
     }
-
 
 }
