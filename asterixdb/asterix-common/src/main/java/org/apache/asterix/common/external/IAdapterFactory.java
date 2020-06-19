@@ -23,7 +23,7 @@ import java.util.Map;
 
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.api.application.IServiceContext;
+import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
@@ -74,6 +74,6 @@ public interface IAdapterFactory extends Serializable {
      * @throws AlgebricksException
      * @throws HyracksDataException
      */
-    void configure(IServiceContext serviceContext, Map<String, String> configuration)
+    void configure(ICCServiceContext serviceContext, Map<String, String> configuration)
             throws HyracksDataException, AlgebricksException;
 }

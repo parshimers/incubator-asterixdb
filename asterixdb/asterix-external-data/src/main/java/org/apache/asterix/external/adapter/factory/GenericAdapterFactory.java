@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -51,6 +50,7 @@ import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.application.IServiceContext;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -123,7 +123,7 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, ITypedAda
     private void restoreExternalObjects(IServiceContext serviceContext, ILibraryManager libraryManager)
             throws HyracksDataException, AlgebricksException {
         if (dataSourceFactory == null) {
-            dataSourceFactory = createExternalDataSourceFactory(configuration, libraryManager);
+            dataSourceFactory = createExternalDataSourceFactory(configuration);
             // create and configure parser factory
             if (dataSourceFactory.isIndexible() && (files != null)) {
                 ((IIndexibleExternalDataSource) dataSourceFactory).setSnapshot(files, indexingOp);
@@ -132,7 +132,7 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, ITypedAda
         }
         if (dataParserFactory == null) {
             // create and configure parser factory
-            dataParserFactory = createDataParserFactory(configuration, libraryManager);
+            dataParserFactory = createDataParserFactory(configuration);
             dataParserFactory.setRecordType(recordType);
             dataParserFactory.setMetaType(metaType);
             dataParserFactory.configure(configuration);
@@ -140,18 +140,18 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, ITypedAda
     }
 
     @Override
-    public void configure(IServiceContext serviceContext, Map<String, String> configuration)
+    public void configure(ICCServiceContext serviceContext, Map<String, String> configuration)
             throws HyracksDataException, AlgebricksException {
         this.configuration = configuration;
-        IApplicationContext appCtx = (IApplicationContext) serviceContext.getApplicationContext();
+        ICcApplicationContext appCtx = (ICcApplicationContext) serviceContext.getApplicationContext();
         ExternalDataUtils.validateDataSourceParameters(configuration);
-        dataSourceFactory = createExternalDataSourceFactory(configuration, appCtx.getLibraryManager());
+        dataSourceFactory = createExternalDataSourceFactory(configuration);
         if (dataSourceFactory.isIndexible() && (files != null)) {
             ((IIndexibleExternalDataSource) dataSourceFactory).setSnapshot(files, indexingOp);
         }
         dataSourceFactory.configure(serviceContext, configuration);
         ExternalDataUtils.validateDataParserParameters(configuration);
-        dataParserFactory = createDataParserFactory(configuration, appCtx.getLibraryManager());
+        dataParserFactory = createDataParserFactory(configuration);
         dataParserFactory.setRecordType(recordType);
         dataParserFactory.setMetaType(metaType);
         dataParserFactory.configure(configuration);
@@ -160,12 +160,12 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, ITypedAda
         nullifyExternalObjects();
     }
 
-    private void configureFeedLogManager(IApplicationContext appCtx) throws HyracksDataException, AlgebricksException {
+    private void configureFeedLogManager(ICcApplicationContext appCtx)
+            throws HyracksDataException, AlgebricksException {
         this.isFeed = ExternalDataUtils.isFeed(configuration);
         if (isFeed) {
-            feedLogFileSplits = FeedUtils.splitsForAdapter((ICcApplicationContext) appCtx,
-                    ExternalDataUtils.getDataverse(configuration), ExternalDataUtils.getFeedName(configuration),
-                    dataSourceFactory.getPartitionConstraint());
+            feedLogFileSplits = FeedUtils.splitsForAdapter(appCtx, ExternalDataUtils.getDataverse(configuration),
+                    ExternalDataUtils.getFeedName(configuration), dataSourceFactory.getPartitionConstraint());
         }
     }
 
@@ -223,13 +223,12 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, ITypedAda
         configuration = Collections.emptyMap();
     }
 
-    protected IExternalDataSourceFactory createExternalDataSourceFactory(Map<String, String> configuration,
-            ILibraryManager libraryManager) throws HyracksDataException, AsterixException {
-        return DatasourceFactoryProvider.getExternalDataSourceFactory(libraryManager, configuration);
+    protected IExternalDataSourceFactory createExternalDataSourceFactory(Map<String, String> configuration)
+            throws HyracksDataException, AsterixException {
+        return DatasourceFactoryProvider.getExternalDataSourceFactory(configuration);
     }
 
-    protected IDataParserFactory createDataParserFactory(Map<String, String> configuration,
-            ILibraryManager libraryManager) throws AsterixException {
-        return ParserFactoryProvider.getDataParserFactory(libraryManager, configuration);
+    protected IDataParserFactory createDataParserFactory(Map<String, String> configuration) throws AsterixException {
+        return ParserFactoryProvider.getDataParserFactory(configuration);
     }
 }

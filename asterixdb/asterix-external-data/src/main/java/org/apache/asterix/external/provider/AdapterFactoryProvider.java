@@ -30,7 +30,7 @@ import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.external.util.ExternalDataUtils;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.api.application.IServiceContext;
+import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.dataflow.value.IMissingWriterFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
@@ -43,7 +43,7 @@ public class AdapterFactoryProvider {
     }
 
     // get adapter factory. this method has the side effect of modifying the configuration as necessary
-    public static ITypedAdapterFactory getAdapterFactory(IServiceContext serviceCtx, String adapterName,
+    public static ITypedAdapterFactory getAdapterFactory(ICCServiceContext serviceCtx, String adapterName,
             Map<String, String> configuration, ARecordType itemType, ARecordType metaType)
             throws HyracksDataException, AlgebricksException {
         ExternalDataUtils.defaultConfiguration(configuration);
@@ -58,7 +58,7 @@ public class AdapterFactoryProvider {
     }
 
     // get indexing adapter factory. this method has the side effect of modifying the configuration as necessary
-    public static IIndexingAdapterFactory getIndexingAdapterFactory(IServiceContext serviceCtx, String adapterName,
+    public static IIndexingAdapterFactory getIndexingAdapterFactory(ICCServiceContext serviceCtx, String adapterName,
             Map<String, String> configuration, ARecordType itemType, List<ExternalFile> snapshot, boolean indexingOp,
             ARecordType metaType) throws HyracksDataException, AlgebricksException {
         ExternalDataUtils.defaultConfiguration(configuration);
@@ -72,7 +72,7 @@ public class AdapterFactoryProvider {
     }
 
     // Lookup Adapters
-    public static LookupAdapterFactory<?> getLookupAdapterFactory(IServiceContext serviceCtx,
+    public static LookupAdapterFactory<?> getLookupAdapterFactory(ICCServiceContext serviceCtx,
             Map<String, String> configuration, ARecordType recordType, int[] ridFields, boolean retainInput,
             boolean retainMissing, IMissingWriterFactory missingWriterFactory)
             throws HyracksDataException, AlgebricksException {
