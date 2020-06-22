@@ -742,7 +742,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
   Token beginPos;
   Token endPos;
   FunctionName fctName = null;
-  List<Pair<VarIdentifier,IndexedTypeExpression>> bodge = new ArrayList<Pair<VarIdentifier,IndexedTypeExpression>>();
+  List<Pair<VarIdentifier,TypeExpression>> bodge = new ArrayList<Pair<VarIdentifier,TypeExpression>>();
   createNewScope();
 }
 {
@@ -762,9 +762,9 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
       getCurrentScope().addFunctionDescriptor(signature, false);
       removeCurrentScope();
       for(VarIdentifier v: paramList){
-          bodge.add(new Pair<VarIdentifier,IndexedTypeExpression>(v,null));
+          bodge.add(new Pair<VarIdentifier,TypeExpression>(v,null));
       }
-      return new CreateFunctionStatement(signature, bodge, null, functionBody, functionBodyExpr, ifNotExists);
+      return new CreateFunctionStatement(signature, bodge, functionBody, functionBodyExpr, ifNotExists);
     }
 }
 
@@ -1281,7 +1281,9 @@ Pair<String, String> KeyValuePair() throws ParseException:
   String value;
 }
 {
-  <LEFTPAREN> key = StringLiteral() <EQ> value = StringLiteral() <RIGHTPAREN>
+  <LEFTPAREN> key = StringLiteral()
+  <EQ>( value = StringLiteral() | (<TRUE> | <FALSE>) {value = token.image.toLowerCase();} )
+  <RIGHTPAREN>
     {
       return new Pair<String, String>(key, value);
     }
@@ -1405,7 +1407,7 @@ void RecordField(RecordTypeDefinition recType) throws ParseException:
 {
   String fieldName;
   TypeExpression type = null;
-  boolean nullable = false;
+  boolean nullable = false, missable = false;
 }
 {
   fieldName = Identifier()
@@ -1413,9 +1415,9 @@ void RecordField(RecordTypeDefinition recType) throws ParseException:
       String hint = getHint(token);
       IRecordFieldDataGen rfdg = hint != null ? parseFieldDataGen(hint) : null;
     }
-  <COLON> type =  TypeExpr() (<QUES> { nullable = true; } )?
+  <COLON> type =  TypeExpr() (<QUES> { nullable = true; missable = true; } )?
     {
-      recType.addField(fieldName, type, nullable, rfdg);
+      recType.addField(fieldName, type, nullable, missable, rfdg);
     }
 }
 

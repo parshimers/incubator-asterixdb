@@ -171,6 +171,10 @@ public class ResultExtractor {
         return extract(resultStream, EnumSet.of(ResultField.PLANS), resultCharset, OutputFormat.ADM, plans).getResult();
     }
 
+    public static InputStream extractStatus(InputStream resultStream, Charset resultCharset) throws Exception {
+        return extract(resultStream, EnumSet.of(ResultField.STATUS), resultCharset).getResult();
+    }
+
     public static String extractHandle(InputStream resultStream, Charset responseCharset) throws Exception {
         String result = IOUtils.toString(resultStream, responseCharset);
         ObjectNode resultJson = OBJECT_READER.readValue(result);
@@ -196,10 +200,12 @@ public class ResultExtractor {
             Charset resultCharset, OutputFormat fmt, String[] plans) throws Exception {
         ExtractedResult extractedResult = new ExtractedResult();
         final String resultStr = IOUtils.toString(resultStream, resultCharset);
+
+        LOGGER.debug("+++++++\n" + resultStr + "\n+++++++\n");
+
         final ObjectNode result = OBJECT_READER.readValue(resultStr);
         final boolean isJsonFormat = isJsonFormat(fmt);
 
-        LOGGER.debug("+++++++\n" + result + "\n+++++++\n");
         // if we have errors field in the results, we will always return it
         checkForErrors(result);
         final StringBuilder resultBuilder = new StringBuilder();

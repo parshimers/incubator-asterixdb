@@ -33,6 +33,7 @@ import java.util.Objects;
 
 import javax.net.ssl.SSLEngine;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpHost;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.conn.util.InetAddressUtils;
@@ -113,6 +114,34 @@ public class NetworkUtil {
             hosts.add(parseInetSocketAddress(node));
         }
         return hosts;
+    }
+
+    public static String defaultPort(String maybeHostPort, int defaultPort) {
+        Pair<String, Integer> decoded = extractHostPort(maybeHostPort, defaultPort);
+        return encodeIPv6LiteralHost(decoded.getLeft()) + ":" + decoded.getRight();
+    }
+
+    public static Pair<String, Integer> extractHostPort(String maybeHostPort, int defaultPort) {
+        try {
+            int lastColon = maybeHostPort.lastIndexOf(':');
+            if (lastColon == -1) {
+                return Pair.of(maybeHostPort, defaultPort);
+            }
+            int closeBracket = maybeHostPort.lastIndexOf(']');
+            if (closeBracket == -1) {
+                if (InetAddressUtils.isIPv6Address(maybeHostPort)) {
+                    return Pair.of(maybeHostPort, defaultPort);
+                }
+                return Pair.of(maybeHostPort.substring(0, lastColon),
+                        Integer.parseInt(maybeHostPort.substring(lastColon + 1)));
+            } else if (closeBracket < lastColon) {
+                return Pair.of(decodeIPv6LiteralHost(maybeHostPort.substring(0, lastColon)),
+                        Integer.parseInt(maybeHostPort.substring(lastColon + 1)));
+            }
+            return Pair.of(decodeIPv6LiteralHost(maybeHostPort), defaultPort);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     public static String encodeIPv6LiteralHost(String hostname) {

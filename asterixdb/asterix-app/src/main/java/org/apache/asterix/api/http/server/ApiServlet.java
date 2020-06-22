@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
@@ -154,7 +155,7 @@ public class ApiServlet extends AbstractServlet {
             long startTime = System.currentTimeMillis();
             final IRequestParameters requestParameters = new RequestParameters(requestReference, query, resultSet,
                     new ResultProperties(IStatementExecutor.ResultDelivery.IMMEDIATE), new IStatementExecutor.Stats(),
-                    null, null, null, null, true);
+                    new IStatementExecutor.StatementProperties(), null, null, null, null, true);
             translator.compileAndExecute(hcc, requestParameters);
             long endTime = System.currentTimeMillis();
             duration = (endTime - startTime) / 1000.00;
@@ -204,7 +205,7 @@ public class ApiServlet extends AbstractServlet {
             }
             String type = HttpUtil.mime(StaticResourceServlet.extension(resourcePath));
             HttpUtil.setContentType(response, "".equals(type) ? HttpUtil.ContentType.TEXT_PLAIN : type,
-                    HttpUtil.Encoding.UTF8);
+                    StandardCharsets.UTF_8);
             writeOutput(response, is, resourcePath);
         } catch (IOException e) {
             LOGGER.log(Level.WARN, "Failure handling request", e);

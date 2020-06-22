@@ -22,6 +22,7 @@ import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHA
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
 
@@ -52,7 +53,7 @@ public abstract class AbstractServlet implements IServlet {
 
     protected final String[] paths;
     protected final ConcurrentMap<String, Object> ctx;
-    private final int[] trims;
+    protected final int[] trims;
 
     public AbstractServlet(ConcurrentMap<String, Object> ctx, String... paths) {
         this.paths = paths;
@@ -113,7 +114,7 @@ public abstract class AbstractServlet implements IServlet {
 
     protected void sendError(IServletResponse response, HttpResponseStatus status, String message) throws IOException {
         response.setStatus(status);
-        HttpUtil.setContentType(response, HttpUtil.ContentType.TEXT_PLAIN, HttpUtil.Encoding.UTF8);
+        HttpUtil.setContentType(response, HttpUtil.ContentType.TEXT_PLAIN, StandardCharsets.UTF_8);
         if (message != null) {
             response.writer().println(message);
         }

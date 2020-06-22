@@ -81,7 +81,9 @@ public class ErrorCode {
     public static final int INVALID_LIKE_PATTERN = 46;
     public static final int INVALID_REQ_PARAM_VAL = 47;
     public static final int INVALID_REQ_JSON_VAL = 48;
-    public static final int INCOMPARABLE_TYPES = 49;
+    public static final int PARAMETERS_REQUIRED = 49;
+    public static final int INVALID_PARAM = 50;
+    public static final int INCOMPARABLE_TYPES = 51;
 
     public static final int UNSUPPORTED_JRE = 100;
 
@@ -195,12 +197,19 @@ public class ErrorCode {
     public static final int OPERATION_NOT_SUPPORTED_ON_PRIMARY_INDEX = 1105;
     public static final int EXPECTED_CONSTANT_VALUE = 1106;
     public static final int UNEXPECTED_HINT = 1107;
-    public static final int SYNONYM_EXISTS = 1108;
-    public static final int UNKNOWN_SYNONYM = 1109;
-    public static final int UNKNOWN_LIBRARY = 1110;
-    public static final int COMPILATION_GROUPING_SETS_OVERFLOW = 1111;
-    public static final int COMPILATION_GROUPING_OPERATION_INVALID_ARG = 1112;
-    public static final int COMPILATION_UNEXPECTED_ALIAS = 1113;
+    public static final int EXTERNAL_SOURCE_ERROR = 1108;
+    public static final int EXTERNAL_SOURCE_CONTAINER_NOT_FOUND = 1109;
+    public static final int PARAMETERS_NOT_ALLOWED_AT_SAME_TIME = 1110;
+    public static final int PROPERTY_INVALID_VALUE_TYPE = 1111;
+    public static final int INVALID_PROPERTY_FORMAT = 1112;
+    public static final int INVALID_REGEX_PATTERN = 1113;
+    public static final int SYNONYM_EXISTS = 1114;
+    public static final int UNKNOWN_SYNONYM = 1115;
+    public static final int UNKNOWN_LIBRARY = 1116;
+    public static final int COMPILATION_GROUPING_SETS_OVERFLOW = 1117;
+    public static final int COMPILATION_GROUPING_OPERATION_INVALID_ARG = 1118;
+    public static final int COMPILATION_UNEXPECTED_ALIAS = 1119;
+    public static final int COMPILATION_ILLEGAL_USE_OF_FILTER_CLAUSE = 1120;
 
     // Feed errors
     public static final int DATAFLOW_ILLEGAL_STATE = 3001;
@@ -247,9 +256,9 @@ public class ErrorCode {
     public static final int LIBRARY_JAVA_FUNCTION_HELPER_OBJ_TYPE_NOT_SUPPORTED = 3046;
     public static final int LIBRARY_EXTERNAL_FUNCTION_UNSUPPORTED_NAME = 3047;
     public static final int OPERATORS_FEED_META_OPERATOR_DESCRIPTOR_INVALID_RUNTIME = 3048;
-    public static final int PARSER_FACTORY_DELIMITED_DATA_PARSER_FACTORY_NOT_VALID_DELIMITER = 3049;
-    public static final int PARSER_FACTORY_DELIMITED_DATA_PARSER_FACTORY_NOT_VALID_QUOTE = 3050;
-    public static final int PARSER_FACTORY_DELIMITED_DATA_PARSER_FACTORY_QUOTE_DELIMITER_MISMATCH = 3051;
+    public static final int INVALID_DELIMITER = 3049;
+    public static final int INVALID_CHAR_LENGTH = 3050;
+    public static final int QUOTE_DELIMITER_MISMATCH = 3051;
     public static final int INDEXING_EXTERNAL_FILE_INDEX_ACCESSOR_UNABLE_TO_FIND_FILE_INDEX = 3052;
     public static final int PARSER_ADM_DATA_PARSER_FIELD_NOT_NULL = 3053;
     public static final int PARSER_ADM_DATA_PARSER_TYPE_MISMATCH = 3054;
@@ -314,7 +323,6 @@ public class ErrorCode {
     public static final int FAILED_TO_PARSE_METADATA = 3115;
     public static final int INPUT_DECODE_FAILURE = 3116;
     public static final int FAILED_TO_PARSE_MALFORMED_LOG_RECORD = 3117;
-    public static final int METADATA_DROP_LIBRARY_IN_USE = 3118;
 
     // Lifecycle management errors
     public static final int DUPLICATE_PARTITION_ID = 4000;

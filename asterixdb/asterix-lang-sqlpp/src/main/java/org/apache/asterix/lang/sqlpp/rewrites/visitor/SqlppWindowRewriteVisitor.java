@@ -53,6 +53,16 @@ public final class SqlppWindowRewriteVisitor extends AbstractSqlppExpressionExtr
     }
 
     @Override
+    protected void visitFromClause(FromClause clause, ILangExpression arg, StackElement stackElement)
+            throws CompilationException {
+        clause.accept(this, arg);
+        if (!stackElement.extractionList.isEmpty()) {
+            throw new CompilationException(ErrorCode.COMPILATION_UNEXPECTED_WINDOW_EXPRESSION,
+                    clause.getSourceLocation());
+        }
+    }
+
+    @Override
     public Expression visit(WindowExpression winExpr, ILangExpression arg) throws CompilationException {
         super.visit(winExpr, arg);
 
@@ -65,22 +75,37 @@ public final class SqlppWindowRewriteVisitor extends AbstractSqlppExpressionExtr
         FunctionSignature signature = winExpr.getFunctionSignature();
         FunctionIdentifier winfi = FunctionMapUtil.getInternalWindowFunction(signature);
         if (winfi != null) {
+            if (winExpr.hasAggregateFilterExpr()) {
+                throw new CompilationException(ErrorCode.COMPILATION_ILLEGAL_USE_OF_FILTER_CLAUSE,
+                        winExpr.getSourceLocation());
+            }
             rewriteSpecificWindowFunctions(winfi, winExpr);
             if (BuiltinFunctions.builtinFunctionHasProperty(winfi,
                     BuiltinFunctions.WindowFunctionProperty.HAS_LIST_ARG)) {
-                List<Expression> newExprList = extractExpressions(winExpr.getExprList(), 1);
-                if (newExprList == null) {
-                    throw new CompilationException(ErrorCode.COMPILATION_ERROR, winExpr.getSourceLocation(), "");
-                }
-                winExpr.setExprList(newExprList);
+                extractListArgument(winExpr);
             }
         } else if (FunctionMapUtil.isSql92AggregateFunction(signature)) {
-            List<Expression> newExprList = extractExpressions(winExpr.getExprList(), winExpr.getExprList().size());
-            if (newExprList == null) {
+            if (winExpr.hasAggregateFilterExpr()) {
+                Expression aggFilterExpr = winExpr.getAggregateFilterExpr();
+                if (isExtractableArgument(aggFilterExpr)) {
+                    VariableExpr newAggFilterExpr = extractExpression(aggFilterExpr);
+                    if (newAggFilterExpr == null) {
+                        throw new CompilationException(ErrorCode.COMPILATION_ERROR, winExpr.getSourceLocation(), "");
+                    }
+                    winExpr.setAggregateFilterExpr(newAggFilterExpr);
+                }
+            }
+            if (winExpr.getExprList().size() != 1) {
+                // binary SQL-92 aggregates are not yet supported
                 throw new CompilationException(ErrorCode.COMPILATION_ERROR, winExpr.getSourceLocation(), "");
             }
-            winExpr.setExprList(newExprList);
-        } else if (!FunctionMapUtil.isCoreAggregateFunction(signature)) {
+            extractListArgument(winExpr);
+        } else if (FunctionMapUtil.isCoreAggregateFunction(signature)) {
+            if (winExpr.hasAggregateFilterExpr()) {
+                throw new CompilationException(ErrorCode.COMPILATION_ILLEGAL_USE_OF_FILTER_CLAUSE,
+                        winExpr.getSourceLocation());
+            }
+        } else {
             throw new CompilationException(ErrorCode.COMPILATION_EXPECTED_WINDOW_FUNCTION, winExpr.getSourceLocation(),
                     signature.getName());
         }
@@ -88,30 +113,32 @@ public final class SqlppWindowRewriteVisitor extends AbstractSqlppExpressionExtr
         return winExpr;
     }
 
-    private List<Expression> extractExpressions(List<Expression> exprList, int limit) {
+    private void extractListArgument(WindowExpression winExpr) throws CompilationException {
+        List<Expression> argExprList = winExpr.getExprList();
+        Expression argExpr0 = argExprList.get(0);
+        if (isExtractableArgument(argExpr0)) {
+            VariableExpr newArgExpr0 = extractExpression(argExpr0);
+            if (newArgExpr0 == null) {
+                throw new CompilationException(ErrorCode.COMPILATION_ERROR, winExpr.getSourceLocation(), "");
+            }
+            List<Expression> newArgExprList = new ArrayList<>(argExprList);
+            newArgExprList.set(0, newArgExpr0);
+            winExpr.setExprList(newArgExprList);
+        }
+    }
+
+    private VariableExpr extractExpression(Expression expr) {
         StackElement stackElement = stack.peek();
         if (stackElement == null) {
             return null;
         }
-        int n = exprList.size();
-        List<Expression> newExprList = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) {
-            Expression expr = exprList.get(i);
-            Expression newExpr;
-            if (i < limit && isExtractableExpression(expr)) {
-                VarIdentifier v = stackElement.addPendingLetClause(expr);
-                VariableExpr vExpr = new VariableExpr(v);
-                vExpr.setSourceLocation(expr.getSourceLocation());
-                newExpr = vExpr;
-            } else {
-                newExpr = expr;
-            }
-            newExprList.add(newExpr);
-        }
-        return newExprList;
+        VarIdentifier v = stackElement.addPendingLetClause(expr);
+        VariableExpr vExpr = new VariableExpr(v);
+        vExpr.setSourceLocation(expr.getSourceLocation());
+        return vExpr;
     }
 
-    private boolean isExtractableExpression(Expression expr) {
+    private boolean isExtractableArgument(Expression expr) {
         switch (expr.getKind()) {
             case LITERAL_EXPRESSION:
             case VARIABLE_EXPRESSION:
@@ -133,7 +160,7 @@ public final class SqlppWindowRewriteVisitor extends AbstractSqlppExpressionExtr
      * Add a copy of the first argument as the last argument for all functions
      * that have {@link BuiltinFunctions.WindowFunctionProperty#HAS_LIST_ARG} modifier.
      * The first argument will then be rewritten by
-     * {@link SqlppWindowAggregationSugarVisitor#wrapAggregationArguments(WindowExpression, int)}.
+     * {@link SqlppWindowAggregationSugarVisitor#wrapAggregationArgument(WindowExpression, int, Expression)}.
      * The new last argument will be handled by expression to plan translator
      * </li>
      * </ul>

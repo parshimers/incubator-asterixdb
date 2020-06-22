@@ -19,6 +19,7 @@
 package org.apache.asterix.test.common;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hyracks.util.NetworkUtil.toHostPort;
 import static org.apache.hyracks.util.file.FileUtil.canonicalize;
 
 import java.io.BufferedReader;
@@ -45,6 +46,7 @@ import java.text.MessageFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,6 +55,7 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -169,6 +172,7 @@ public class TestExecutor {
             Pattern.compile("maxresultreads=(\\d+)(\\D|$)", Pattern.MULTILINE);
     private static final Pattern HTTP_REQUEST_TYPE = Pattern.compile("requesttype=(.*)", Pattern.MULTILINE);
     private static final Pattern EXTRACT_RESULT_TYPE = Pattern.compile("extractresult=(.*)", Pattern.MULTILINE);
+    private static final Pattern EXTRACT_STATUS_PATTERN = Pattern.compile("extractstatus", Pattern.MULTILINE);
     private static final String NC_ENDPOINT_PREFIX = "nc:";
     public static final int TRUNCATE_THRESHOLD = 16384;
     public static final Set<String> NON_CANCELLABLE =
@@ -177,9 +181,9 @@ public class TestExecutor {
     private static final ContentType TEXT_PLAIN_UTF8 = ContentType.create(HttpUtil.ContentType.APPLICATION_JSON, UTF_8);
 
     private final IPollTask plainExecutor = (testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit,
-            queryCount, expectedResultFileCtxs, testFile, actualPath, actualWarnCount) -> executeTestFile(testCaseCtx,
+            queryCount, expectedResultFileCtxs, testFile, actualPath, expectedWarnings) -> executeTestFile(testCaseCtx,
                     ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount, expectedResultFileCtxs,
-                    testFile, actualPath, actualWarnCount);
+                    testFile, actualPath, expectedWarnings);
 
     public static final String DELIVERY_ASYNC = "async";
     public static final String DELIVERY_DEFERRED = "deferred";
@@ -994,7 +998,7 @@ public class TestExecutor {
     public void executeTestFile(TestCaseContext testCaseCtx, TestFileContext ctx, Map<String, Object> variableCtx,
             String statement, boolean isDmlRecoveryTest, ProcessBuilder pb, CompilationUnit cUnit,
             MutableInt queryCount, List<TestFileContext> expectedResultFileCtxs, File testFile, String actualPath,
-            MutableInt actualWarnCount) throws Exception {
+            BitSet expectedWarnings) throws Exception {
         InputStream resultStream;
         File qbcFile;
         boolean failed = false;
@@ -1022,11 +1026,11 @@ public class TestExecutor {
             case "pollquery":
                 poll(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
                         expectedResultFileCtxs, testFile, actualPath, ctx.getType().substring("poll".length()),
-                        actualWarnCount, plainExecutor);
+                        expectedWarnings, plainExecutor);
                 break;
             case "polldynamic":
                 polldynamic(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
-                        expectedResultFileCtxs, testFile, actualPath, actualWarnCount);
+                        expectedResultFileCtxs, testFile, actualPath, expectedWarnings);
                 break;
             case "query":
             case "async":
@@ -1053,7 +1057,7 @@ public class TestExecutor {
 
                 if (testCaseCtx.getTestCase().isCheckWarnings()) {
                     boolean expectedSourceLoc = testCaseCtx.isSourceLocationExpected(cUnit);
-                    validateWarnings(extractedResult.getWarnings(), cUnit.getExpectedWarn(), actualWarnCount,
+                    validateWarnings(extractedResult.getWarnings(), cUnit.getExpectedWarn(), expectedWarnings,
                             expectedSourceLoc);
                 }
                 break;
@@ -1193,36 +1197,37 @@ public class TestExecutor {
                             // <library-directory>
                         // TODO: make this case work well with entity names containing spaces by
                         // looking for \"
-                lines = statement.split("\n");
-                String lastLine = lines[lines.length - 1];
-                String[] command = lastLine.trim().split(" ");
-                if (command.length < 2) {
-                    throw new Exception("invalid library format");
-                }
-                String dataverse = command[1];
-                String library = command[2];
-                String username = command[3];
-                String pw = command[4];
-                switch (command[0]) {
-                    case "install":
-                        if (command.length != 6) {
+                lines = stripAllComments(statement).trim().split("\n");
+                for (String line : lines) {
+                    String[] command = line.trim().split(" ");
+                    if (command.length < 2) {
+                        throw new Exception("invalid library command: " + line);
+                    }
+                    String dataverse = command[1];
+                    String library = command[2];
+                    String username = command[3];
+                    String pw = command[4];
+                    switch (command[0]) {
+                        case "install":
+                            if (command.length != 6) {
+                                throw new Exception("invalid library format");
+                            }
+                            String libPath = command[5];
+                            librarian.install(dataverse, library, libPath, new Pair<>(username, pw));
+                            break;
+                        case "uninstall":
+                            if (command.length != 5) {
+                                throw new Exception("invalid library format");
+                            }
+                            librarian.uninstall(dataverse, library, new Pair<>(username, pw));
+                            break;
+                        default:
                             throw new Exception("invalid library format");
-                        }
-                        String libPath = command[5];
-                        librarian.install(dataverse, library, libPath, new Pair(username, pw));
-                        break;
-                    case "uninstall":
-                        if (command.length != 5) {
-                            throw new Exception("invalid library format");
-                        }
-                        librarian.uninstall(dataverse, library, new Pair(username, pw));
-                        break;
-                    default:
-                        throw new Exception("invalid library format");
+                    }
                 }
                 break;
             case "node":
-                command = stripJavaComments(statement).trim().split(" ");
+                String[] command = stripJavaComments(statement).trim().split(" ");
                 String commandType = command[0];
                 String nodeId = command[1];
                 switch (commandType) {
@@ -1324,6 +1329,7 @@ public class TestExecutor {
         final Optional<String> body = extractBody(statement);
         final Predicate<Integer> statusCodePredicate = extractStatusCodePredicate(statement);
         final boolean extracResult = isExtracResult(statement);
+        final boolean extractStatus = isExtractStatus(statement);
         final String mimeReqType = extractHttpRequestType(statement);
         ContentType contentType = mimeReqType != null ? ContentType.create(mimeReqType, UTF_8) : TEXT_PLAIN_UTF8;
         InputStream resultStream;
@@ -1332,11 +1338,13 @@ public class TestExecutor {
         } else if ("uri".equals(extension)) {
             resultStream = executeURI(reqType, URI.create(variablesReplaced), fmt, params, statusCodePredicate, body,
                     contentType);
-            if (extracResult) {
-                resultStream = ResultExtractor.extract(resultStream, UTF_8).getResult();
-            }
         } else {
             throw new IllegalArgumentException("Unexpected format for method " + reqType + ": " + extension);
+        }
+        if (extracResult) {
+            resultStream = ResultExtractor.extract(resultStream, UTF_8).getResult();
+        } else if (extractStatus) {
+            resultStream = ResultExtractor.extractStatus(resultStream, UTF_8);
         }
         if (handleVar != null) {
             String handle = ResultExtractor.extractHandle(resultStream, UTF_8);
@@ -1453,23 +1461,22 @@ public class TestExecutor {
                 FilenameUtils.getExtension(ctx.getFile().getName()));
         return executeQuery(fmt, statement, variableCtx, ctx, expectedResultFile, actualResultFile, queryCount,
                 numResultFiles, params, compare, uri);
-
     }
 
     private void polldynamic(TestCaseContext testCaseCtx, TestFileContext ctx, Map<String, Object> variableCtx,
             String statement, boolean isDmlRecoveryTest, ProcessBuilder pb, CompilationUnit cUnit,
             MutableInt queryCount, List<TestFileContext> expectedResultFileCtxs, File testFile, String actualPath,
-            MutableInt actualWarnCount) throws Exception {
+            BitSet expectedWarnings) throws Exception {
         IExpectedResultPoller poller = getExpectedResultPoller(statement);
         final String key = getKey(statement);
         poll(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount, expectedResultFileCtxs,
-                testFile, actualPath, "validate", actualWarnCount, new IPollTask() {
+                testFile, actualPath, "validate", expectedWarnings, new IPollTask() {
                     @Override
                     public void execute(TestCaseContext testCaseCtx, TestFileContext ctx,
                             Map<String, Object> variableCtx, String statement, boolean isDmlRecoveryTest,
                             ProcessBuilder pb, CompilationUnit cUnit, MutableInt queryCount,
                             List<TestFileContext> expectedResultFileCtxs, File testFile, String actualPath,
-                            MutableInt actualWarnCount) throws Exception {
+                            BitSet expectedWarnings) throws Exception {
                         File actualResultFile = new File(actualPath, testCaseCtx.getTestCase().getFilePath()
                                 + File.separatorChar + cUnit.getName() + '.' + ctx.getSeqNum() + ".polled.adm");
                         if (actualResultFile.exists() && !actualResultFile.delete()) {
@@ -1507,7 +1514,7 @@ public class TestExecutor {
     private void poll(TestCaseContext testCaseCtx, TestFileContext ctx, Map<String, Object> variableCtx,
             String statement, boolean isDmlRecoveryTest, ProcessBuilder pb, CompilationUnit cUnit,
             MutableInt queryCount, List<TestFileContext> expectedResultFileCtxs, File testFile, String actualPath,
-            String newType, MutableInt actualWarnCount, IPollTask pollTask) throws Exception {
+            String newType, BitSet expectedWarnings, IPollTask pollTask) throws Exception {
         // polltimeoutsecs=nnn, polldelaysecs=nnn
         int timeoutSecs = getTimeoutSecs(statement);
         int retryDelaySecs = getRetryDelaySecs(statement);
@@ -1530,7 +1537,7 @@ public class TestExecutor {
                         try {
                             startSemaphore.release();
                             pollTask.execute(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit,
-                                    queryCount, expectedResultFileCtxs, testFile, actualPath, actualWarnCount);
+                                    queryCount, expectedResultFileCtxs, testFile, actualPath, expectedWarnings);
                         } finally {
                             endSemaphore.release();
                         }
@@ -1757,6 +1764,11 @@ public class TestExecutor {
         return m.find() ? Boolean.valueOf(m.group(1)) : false;
     }
 
+    private static boolean isExtractStatus(String statement) {
+        Matcher m = EXTRACT_STATUS_PATTERN.matcher(statement);
+        return m.find();
+    }
+
     private static boolean isJsonEncoded(String httpRequestType) throws Exception {
         if (httpRequestType == null || httpRequestType.isEmpty()) {
             return true;
@@ -1787,8 +1799,7 @@ public class TestExecutor {
 
     protected InputStream executeHttp(String ctxType, String endpoint, OutputFormat fmt, List<Parameter> params,
             Predicate<Integer> statusCodePredicate, Optional<String> body, ContentType contentType) throws Exception {
-        String[] split = endpoint.split("\\?");
-        URI uri = createEndpointURI(split[0], split.length > 1 ? split[1] : null);
+        URI uri = createEndpointURI(endpoint);
         return executeURI(ctxType, uri, fmt, params, statusCodePredicate, body, contentType);
     }
 
@@ -1805,7 +1816,7 @@ public class TestExecutor {
         //get node process id
         OutputFormat fmt = OutputFormat.CLEAN_JSON;
         String endpoint = "/admin/cluster/node/" + nodeId + "/config";
-        InputStream executeJSONGet = executeJSONGet(fmt, createEndpointURI(endpoint, null));
+        InputStream executeJSONGet = executeJSONGet(fmt, createEndpointURI(endpoint));
         StringWriter actual = new StringWriter();
         IOUtils.copy(executeJSONGet, actual, UTF_8);
         String config = actual.toString();
@@ -1835,7 +1846,7 @@ public class TestExecutor {
     private void deleteNCTxnLogs(String nodeId, CompilationUnit cUnit) throws Exception {
         OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
         String endpoint = "/admin/cluster/node/" + nodeId + "/config";
-        InputStream executeJSONGet = executeJSONGet(fmt, createEndpointURI(endpoint, null));
+        InputStream executeJSONGet = executeJSONGet(fmt, createEndpointURI(endpoint));
         StringWriter actual = new StringWriter();
         IOUtils.copy(executeJSONGet, actual, UTF_8);
         String config = actual.toString();
@@ -1857,7 +1868,8 @@ public class TestExecutor {
         for (CompilationUnit cUnit : cUnits) {
             List<String> expectedErrors = cUnit.getExpectedError();
             int expectedWarnCount = cUnit.getExpectedWarn().size();
-            MutableInt actualWarnCount = new MutableInt(0);
+            BitSet expectedWarnings = new BitSet(cUnit.getExpectedWarn().size());
+            expectedWarnings.set(0, cUnit.getExpectedWarn().size());
             LOGGER.info(
                     "Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             Map<String, Object> variableCtx = new HashMap<>();
@@ -1877,7 +1889,7 @@ public class TestExecutor {
                 try {
                     if (!testFile.getName().startsWith(DIAGNOSE)) {
                         executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit,
-                                queryCount, expectedResultFileCtxs, testFile, actualPath, actualWarnCount);
+                                queryCount, expectedResultFileCtxs, testFile, actualPath, expectedWarnings);
                     }
                 } catch (TestLoop loop) {
                     // rewind the iterator until we find our target
@@ -1909,7 +1921,7 @@ public class TestExecutor {
                         throw new Exception(
                                 "Test \"" + cUnit.getName() + "\" FAILED; expected exception was not thrown...");
                     }
-                    ensureWarnings(actualWarnCount.getValue(), expectedWarnCount, cUnit);
+                    ensureWarnings(expectedWarnings, cUnit);
                     LOGGER.info(
                             "[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " PASSED ");
                     if (passedGroup != null) {
@@ -2040,7 +2052,7 @@ public class TestExecutor {
                         final File file = ctx.getFile();
                         final String statement = readTestFile(file);
                         executeTestFile(testCaseCtx, ctx, variableCtx, statement, false, pb, cUnit, new MutableInt(-1),
-                                Collections.emptyList(), file, null, new MutableInt(-1));
+                                Collections.emptyList(), file, null, new BitSet());
                     }
                 }
             } catch (Exception diagnosticFailure) {
@@ -2092,17 +2104,17 @@ public class TestExecutor {
                         + cUnit.getName() + "_qbc.adm");
     }
 
-    protected URI createEndpointURI(String path, String query) throws URISyntaxException {
+    protected URI createEndpointURI(String pathAndQuery) throws URISyntaxException {
         InetSocketAddress endpoint;
-        if (!ncEndPointsList.isEmpty() && path.equals(Servlets.QUERY_SERVICE)) {
+        if (!ncEndPointsList.isEmpty() && pathAndQuery.equals(Servlets.QUERY_SERVICE)) {
             int endpointIdx = Math.abs(endpointSelector++ % ncEndPointsList.size());
             endpoint = ncEndPointsList.get(endpointIdx);
-        } else if (isCcEndPointPath(path)) {
+        } else if (isCcEndPointPath(pathAndQuery)) {
             int endpointIdx = Math.abs(endpointSelector++ % endpoints.size());
             endpoint = endpoints.get(endpointIdx);
         } else {
             // allowed patterns: [nc:endpointName URL] or [nc:nodeId:port URL]
-            final String[] tokens = path.split(" ");
+            final String[] tokens = pathAndQuery.split(" ");
             if (tokens.length != 2) {
                 throw new IllegalArgumentException("Unrecognized http pattern");
             }
@@ -2116,19 +2128,19 @@ public class TestExecutor {
             } else {
                 endpoint = getNcEndPoint(endpointName);
             }
-            path = tokens[1];
+            pathAndQuery = tokens[1];
         }
-        URI uri = new URI("http", null, endpoint.getHostString(), endpoint.getPort(), path, query, null);
+        URI uri = URI.create("http://" + toHostPort(endpoint.getHostString(), endpoint.getPort()) + pathAndQuery);
         LOGGER.debug("Created endpoint URI: " + uri);
         return uri;
     }
 
     public URI getEndpoint(String servlet) throws URISyntaxException {
-        return createEndpointURI(Servlets.getAbsolutePath(getPath(servlet)), null);
+        return createEndpointURI(Servlets.getAbsolutePath(getPath(servlet)));
     }
 
     public URI getEndpoint(String servlet, String extension) throws URISyntaxException {
-        return createEndpointURI(Servlets.getAbsolutePath(getPath(servlet)), null);
+        return createEndpointURI(Servlets.getAbsolutePath(getPath(servlet)));
     }
 
     public static String stripJavaComments(String text) {
@@ -2239,9 +2251,17 @@ public class TestExecutor {
         LOGGER.info("Cluster state now " + desiredState);
     }
 
-    protected void ensureWarnings(int actualWarnCount, int expectedWarnCount, CompilationUnit cUnit) throws Exception {
-        if (actualWarnCount < expectedWarnCount) {
-            LOGGER.error("Test {} failed to raise (an) expected warning(s)", cUnit.getName());
+    protected void ensureWarnings(BitSet expectedWarnings, CompilationUnit cUnit) throws Exception {
+        boolean fail = !expectedWarnings.isEmpty();
+        if (fail) {
+            LOGGER.error("Test {} failed to raise (an) expected warning(s):", cUnit.getName());
+        }
+        List<String> expectedWarn = cUnit.getExpectedWarn();
+        for (int i = expectedWarnings.nextSetBit(0); i >= 0; i = expectedWarnings.nextSetBit(i + 1)) {
+            String warning = expectedWarn.get(i);
+            LOGGER.error(warning);
+        }
+        if (fail) {
             throw new Exception("Test \"" + cUnit.getName() + "\" FAILED; expected warning(s) was not returned...");
         }
     }
@@ -2391,22 +2411,30 @@ public class TestExecutor {
         return extension.endsWith(AQL) ? getEndpoint(Servlets.QUERY_AQL) : getEndpoint(Servlets.QUERY_SERVICE);
     }
 
-    private void validateWarnings(List<String> actualWarnings, List<String> expectedWarn, MutableInt actualWarnCount,
+    private void validateWarnings(List<String> actualWarnings, List<String> expectedWarn, BitSet expectedWarnings,
             boolean expectedSourceLoc) throws Exception {
         if (actualWarnings != null) {
             for (String actualWarn : actualWarnings) {
-                if (expectedWarn.stream().noneMatch(actualWarn::contains)) {
-                    throw new Exception("unexpected warning was encountered (" + actualWarn + ")");
+                OptionalInt first = IntStream.range(0, expectedWarn.size())
+                        .filter(i -> actualWarn.contains(expectedWarn.get(i)) && expectedWarnings.get(i)).findFirst();
+                if (!first.isPresent()) {
+                    String msg = "unexpected warning was encountered or has already been matched (" + actualWarn + ")";
+                    LOGGER.error(msg);
+                    if (!expectedWarnings.isEmpty()) {
+                        LOGGER.error("was expecting the following warnings: ");
+                    }
+                    for (int i = expectedWarnings.nextSetBit(0); i >= 0; i = expectedWarnings.nextSetBit(i + 1)) {
+                        LOGGER.error(expectedWarn.get(i));
+                    }
+                    throw new Exception(msg);
                 }
                 if (expectedSourceLoc && !containsSourceLocation(actualWarn)) {
                     throw new Exception(MessageFormat.format(
                             "Expected to find source location \"{}, {}\" in warning text: +++++{}+++++",
                             ERR_MSG_SRC_LOC_LINE_REGEX, ERR_MSG_SRC_LOC_COLUMN_REGEX, actualWarn));
                 }
-                actualWarnCount.increment();
-                if (actualWarnCount.getValue() > expectedWarn.size()) {
-                    throw new Exception("returned warnings exceeded expected warnings");
-                }
+                int warningIndex = first.getAsInt();
+                expectedWarnings.clear(warningIndex);
             }
         }
     }

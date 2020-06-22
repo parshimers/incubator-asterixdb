@@ -18,15 +18,18 @@
  */
 package org.apache.asterix.external.input.stream;
 
+import static org.apache.asterix.common.exceptions.ErrorCode.ASTERIX;
+import static org.apache.asterix.common.exceptions.ErrorCode.INPUT_RECORD_READER_CHAR_ARRAY_RECORD_TOO_LARGE;
+import static org.apache.asterix.common.exceptions.ErrorCode.RECORD_READER_MALFORMED_INPUT_STREAM;
+import static org.apache.hyracks.api.exceptions.ErrorCode.HYRACKS;
+import static org.apache.hyracks.api.exceptions.ErrorCode.PARSING_ERROR;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.ExceptionUtils;
-import org.apache.asterix.external.api.AsterixInputStream;
 import org.apache.asterix.external.dataflow.AbstractFeedDataFlowController;
-import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.FeedLogManager;
 import org.apache.asterix.external.util.FileSystemWatcher;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -34,13 +37,12 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class LocalFSInputStream extends AsterixInputStream {
+public class LocalFSInputStream extends AbstractMultipleInputStream {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private final FileSystemWatcher watcher;
-    private FileInputStream in;
-    private byte lastByte;
     private File currentFile;
+    private String lastFileName = "";
 
     public LocalFSInputStream(FileSystemWatcher watcher) {
         this.watcher = watcher;
@@ -92,10 +94,12 @@ public class LocalFSInputStream extends AsterixInputStream {
         }
     }
 
-    /**
-     * Closes the current input stream and opens the next one, if any.
-     */
-    private boolean advance() throws IOException {
+    @Override
+    protected boolean advance() throws IOException {
+        String tmpLastFileName = "";
+        if (currentFile != null) {
+            tmpLastFileName = currentFile.getPath();
+        }
         closeFile();
         currentFile = watcher.poll();
         if (currentFile == null) {
@@ -106,43 +110,13 @@ public class LocalFSInputStream extends AsterixInputStream {
         }
         if (currentFile != null) {
             in = new FileInputStream(currentFile);
+            lastFileName = tmpLastFileName;
             if (notificationHandler != null) {
                 notificationHandler.notifyNewSource();
             }
             return true;
         }
         return false;
-    }
-
-    @Override
-    public int read() throws IOException {
-        throw new HyracksDataException(
-                "read() is not supported with this stream. use read(byte[] b, int off, int len)");
-    }
-
-    @Override
-    public int read(byte[] b, int off, int len) throws IOException {
-        if (in == null) {
-            if (!advance()) {
-                return -1;
-            }
-        }
-        int result = in.read(b, off, len);
-        while ((result < 0) && advance()) {
-            // return a new line at the end of every file <--Might create problems for some cases
-            // depending on the parser implementation-->
-            if ((lastByte != ExternalDataConstants.BYTE_LF) && (lastByte != ExternalDataConstants.BYTE_LF)) {
-                lastByte = ExternalDataConstants.BYTE_LF;
-                b[off] = ExternalDataConstants.BYTE_LF;
-                return 1;
-            }
-            // recursive call
-            result = in.read(b, off, len);
-        }
-        if (result > 0) {
-            lastByte = b[(off + result) - 1];
-        }
-        return result;
     }
 
     @Override
@@ -158,24 +132,56 @@ public class LocalFSInputStream extends AsterixInputStream {
             return false;
         }
         Throwable root = ExceptionUtils.getRootCause(th);
-        if (root instanceof HyracksDataException
-                && ((HyracksDataException) root).getErrorCode() == ErrorCode.RECORD_READER_MALFORMED_INPUT_STREAM) {
-            if (currentFile != null) {
-                try {
-                    logManager.logRecord(currentFile.getAbsolutePath(), "Corrupted input file");
-                } catch (IOException e) {
-                    LOGGER.log(Level.WARN, "Filed to write to feed log file", e);
+        if (root instanceof HyracksDataException) {
+            HyracksDataException r = (HyracksDataException) root;
+            String component = r.getComponent();
+            boolean advance = false;
+            int errorCode = r.getErrorCode();
+            if (ASTERIX.equals(component)) {
+                switch (errorCode) {
+                    case RECORD_READER_MALFORMED_INPUT_STREAM:
+                        logCorruptedInput();
+                    case INPUT_RECORD_READER_CHAR_ARRAY_RECORD_TOO_LARGE:
+                        advance = true;
+                        break;
+                    default:
+                        break;
                 }
-                LOGGER.log(Level.WARN, "Corrupted input file: " + currentFile.getAbsolutePath());
+            } else if (HYRACKS.equals(component) && errorCode == PARSING_ERROR) {
+                logCorruptedInput();
+                advance = true;
             }
-            try {
-                advance();
-                return true;
-            } catch (Exception e) {
-                LOGGER.log(Level.WARN, "An exception was thrown while trying to skip a file", e);
+            if (advance) {
+                try {
+                    advance();
+                    return true;
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARN, "An exception was thrown while trying to skip a file", e);
+                }
             }
         }
         LOGGER.log(Level.WARN, "Failed to recover from failure", th);
         return false;
+    }
+
+    @Override
+    public String getStreamName() {
+        return currentFile == null ? "" : currentFile.getPath();
+    }
+
+    @Override
+    public String getPreviousStreamName() {
+        return lastFileName;
+    }
+
+    private void logCorruptedInput() {
+        if (currentFile != null) {
+            try {
+                logManager.logRecord(currentFile.getAbsolutePath(), "Corrupted input file");
+            } catch (IOException e) {
+                LOGGER.log(Level.WARN, "Filed to write to feed log file", e);
+            }
+            LOGGER.log(Level.WARN, "Corrupted input file: " + currentFile.getAbsolutePath());
+        }
     }
 }
