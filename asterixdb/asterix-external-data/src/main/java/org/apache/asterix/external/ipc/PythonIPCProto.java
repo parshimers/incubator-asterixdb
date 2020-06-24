@@ -27,6 +27,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 
+import org.apache.asterix.external.library.msgpack.MessagePacker;
+import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 import org.apache.hyracks.control.common.ipc.CCNCFunctions;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
@@ -45,6 +47,8 @@ public class PythonIPCProto {
     InputStream sockIn;
     Executor exec;
     Semaphore started;
+    ByteBuffer sendBuffer = ByteBuffer.wrap(new byte[1024*1024*10]);
+    ByteBuffer recvBuffer = ByteBuffer.wrap(new byte[1024*1024*10]);
 
     public PythonIPCProto() throws IOException {
         started = new Semaphore(1);
@@ -142,15 +146,24 @@ public class PythonIPCProto {
         return recv.type;
     }
 
-    public static class SerializerDeserializer implements IPayloadSerializerDeserializer {
+    public class SerializerDeserializer implements IPayloadSerializerDeserializer {
 
         @Override
         public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
-
+            if(length < 1){
+                //eeh... just need to read more. but this shouldn't happen here due to outer len
+            }
+            recvBuffer.clear();
+            recv.buf = buffer;
+            recv.readVerHlen(buffer);
+            recv.readHead(buffer);
+            recvBuffer.position(0);
+            return recv;
         }
 
         @Override
         public Exception deserializeException(ByteBuffer buffer, int length) throws Exception {
+            //todo.
         }
 
         @Override
