@@ -16,6 +16,7 @@
  */
 package org.apache.asterix.external.ipc;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +27,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 
+import org.apache.hyracks.control.common.ipc.CCNCFunctions;
+import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
+import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
+import org.apache.logging.log4j.Level;
 import org.newsclub.net.unix.AFUNIXServerSocket;
 import org.newsclub.net.unix.AFUNIXSocketAddress;
 
@@ -135,6 +140,28 @@ public class PythonIPCProto {
 
     public MessageType getResponseType() {
         return recv.type;
+    }
+
+    public static class SerializerDeserializer implements IPayloadSerializerDeserializer {
+
+        @Override
+        public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
+
+        }
+
+        @Override
+        public Exception deserializeException(ByteBuffer buffer, int length) throws Exception {
+        }
+
+        @Override
+        public byte[] serializeObject(Object object) throws Exception {
+            //don't need it
+        }
+
+        @Override
+        public byte[] serializeException(Exception object) throws Exception {
+        }
+
     }
 
 }
