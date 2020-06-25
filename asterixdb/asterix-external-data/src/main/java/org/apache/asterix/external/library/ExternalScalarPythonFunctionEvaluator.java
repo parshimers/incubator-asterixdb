@@ -37,6 +37,7 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.ipc.PythonIPCProto;
+import org.apache.asterix.external.ipc.PythonResultRouter;
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
@@ -125,17 +126,19 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         ILibraryManager libMgr;
         File pythonHome;
         PythonIPCProto proto;
+        PythonResultRouter router;
         String module;
         String clazz;
         String fn;
         int ipcId;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
-                ILibraryManager libMgr, File pythonHome) {
+                                       ILibraryManager libMgr, File pythonHome, PythonResultRouter router) {
             super(jobId, evaluatorId);
             this.finfo = finfo;
             this.libMgr = libMgr;
             this.pythonHome = pythonHome;
+            this.router = router;
 
         }
 
@@ -167,16 +170,17 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.fn = fn;
             this.clazz = clazz;
             this.module = packageModule;
-            String sockName = UUID.randomUUID().toString();
-            String sockPath = FileUtil.joinPath("/tmp", sockName);
+//            String sockName = UUID.randomUUID().toString();
+//            String sockPath = FileUtil.joinPath("/tmp", sockName);
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, sockPath, packageModule, clazz, fn);
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, "66666", packageModule, clazz, fn);
             pb.directory(new File(wd));
             pb.environment().clear();
-            File sockFile = new File(sockPath);
-            proto = new PythonIPCProto();
-            proto.start(sockFile);
+//            File sockFile = new File(sockPath);
             p = pb.start();
+//            proto.start(sockFile);
+            proto = new PythonIPCProto(p.getOutputStream());
+            router.insertRoute();
             inheritIO(p.getInputStream(), System.err);
             inheritIO(p.getErrorStream(), System.err);
             proto.waitForStarted();

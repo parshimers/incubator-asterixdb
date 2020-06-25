@@ -251,6 +251,7 @@ public class NCApplication extends BaseNCApplication {
         // configure servlets after joining the cluster, so we can create HyracksClientConnection
         configureServers();
         webManager.start();
+
         startupCompleted = true;
         notifyAll();
     }

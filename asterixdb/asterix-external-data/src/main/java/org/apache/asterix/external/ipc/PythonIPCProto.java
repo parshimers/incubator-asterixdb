@@ -50,32 +50,20 @@ public class PythonIPCProto {
     ByteBuffer sendBuffer = ByteBuffer.wrap(new byte[1024*1024*10]);
     ByteBuffer recvBuffer = ByteBuffer.wrap(new byte[1024*1024*10]);
 
-    public PythonIPCProto() throws IOException {
-        started = new Semaphore(1);
-        sockServ = AFUNIXServerSocket.newInstance();
+    public PythonIPCProto(OutputStream sockOut) throws IOException {
+//        started = new Semaphore(1);
+//        sockServ = AFUNIXServerSocket.newInstance();
+        this.sockOut = sockOut;
         send = new IPCMessage();
         recv = new IPCMessage();
     }
 
     public void start(File s) throws IOException, InterruptedException {
-        AFUNIXSocketAddress addr = new AFUNIXSocketAddress(s);
-        sockServ.bind(addr);
-        exec = Executors.newSingleThreadExecutor();
-        exec.execute(() -> {
-            try {
-                started.acquire();
-                sock = sockServ.accept();
-                sockOut = sock.getOutputStream();
-                sockIn = sock.getInputStream();
-                started.release();
-            } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
-            }
-        });
+
     }
 
     public void waitForStarted() throws InterruptedException {
-        started.acquire();
+//        started.acquire();
     }
 
     public void helo() throws IOException {
@@ -144,37 +132,6 @@ public class PythonIPCProto {
 
     public MessageType getResponseType() {
         return recv.type;
-    }
-
-    public class SerializerDeserializer implements IPayloadSerializerDeserializer {
-
-        @Override
-        public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
-            if(length < 1){
-                //eeh... just need to read more. but this shouldn't happen here due to outer len
-            }
-            recvBuffer.clear();
-            recv.buf = buffer;
-            recv.readVerHlen(buffer);
-            recv.readHead(buffer);
-            recvBuffer.position(0);
-            return recv;
-        }
-
-        @Override
-        public Exception deserializeException(ByteBuffer buffer, int length) throws Exception {
-            //todo.
-        }
-
-        @Override
-        public byte[] serializeObject(Object object) throws Exception {
-            //don't need it
-        }
-
-        @Override
-        public byte[] serializeException(Exception object) throws Exception {
-        }
-
     }
 
 }

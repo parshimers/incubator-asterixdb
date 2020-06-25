@@ -19,6 +19,7 @@
 package org.apache.asterix.app.nc;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Arrays;
@@ -60,6 +61,8 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.common.transactions.IRecoveryManagerFactory;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.external.ipc.PythonIPCProto;
+import org.apache.asterix.external.ipc.PythonResultRouter;
 import org.apache.asterix.external.library.ExternalLibraryManager;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.MetadataManager;
@@ -89,6 +92,8 @@ import org.apache.hyracks.api.network.INetworkSecurityManager;
 import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.ipc.impl.HyracksConnection;
+import org.apache.hyracks.ipc.impl.IPCSystem;
+import org.apache.hyracks.ipc.sockets.PlainSocketChannelFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
@@ -153,6 +158,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private IReceptionist receptionist;
     private ICacheManager cacheManager;
     private IConfigValidator configValidator;
+    public final PythonResultRouter router;
+    public IPCSystem pythonIPC = null;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, NCExtensionManager extensionManager,
             IPropertiesFactory propertiesFactory) {
@@ -172,6 +179,13 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         resourceIdFactory = new GlobalResourceIdFactoryProvider(ncServiceContext).createResourceIdFactory();
         persistedResourceRegistry = ncServiceContext.getPersistedResourceRegistry();
         cacheManager = new CacheManager();
+        //TODO: absolutely disgusting
+        router = new PythonResultRouter();
+        try {
+            pythonIPC = new IPCSystem(new InetSocketAddress("127.0.0.1",66666), PlainSocketChannelFactory.INSTANCE,router,new PythonResultRouter.NoOpNoSerJustDe());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
