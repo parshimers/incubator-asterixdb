@@ -191,5 +191,5 @@ class Wrapper(object):
 port = str(sys.argv[1])
 wrap = Wrapper()
 wrap.connect_sock(port)
-wrap.helo()
+#wrap.helo()
 wrap.recv_loop()

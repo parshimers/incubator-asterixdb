@@ -46,6 +46,10 @@ public class PythonResultRouter implements IIPCI {
         activeClients.put(route, respBuffer);
     }
 
+    public void removeRoute( Quadruple<Long, Integer, Integer, Integer> route){
+        activeClients.remove(route);
+    }
+
     public static class NoOpNoSerJustDe implements IPayloadSerializerDeserializer {
 
         @Override

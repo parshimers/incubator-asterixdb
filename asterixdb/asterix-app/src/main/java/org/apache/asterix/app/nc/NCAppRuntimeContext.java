@@ -182,7 +182,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         router = new PythonResultRouter();
         try {
             pythonIPC = new IPCSystem(new InetSocketAddress("127.0.0.1", 6666), PlainSocketChannelFactory.INSTANCE,
-                    router, new PythonResultRouter.NoOpNoSerJustDe());
+                    router, new PythonResultRouter.NoOpNoSerJustDe(), true);
         } catch (IOException e) {
             e.printStackTrace();
         }

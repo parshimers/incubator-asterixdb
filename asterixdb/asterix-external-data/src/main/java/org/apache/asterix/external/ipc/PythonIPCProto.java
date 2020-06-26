@@ -43,11 +43,8 @@ public class PythonIPCProto {
     IPCSystem ipcSys;
     Message outMsg;
     IPayloadSerializerDeserializer serde = new PythonResultRouter.NoOpNoSerJustDe();
-    IIPCHandle handle;
 
     public PythonIPCProto(OutputStream sockOut, PythonResultRouter router, IPCSystem ipcSys) throws IOException {
-        //        started = new Semaphore(1);
-        //        sockServ = AFUNIXServer        this.
         this.sockOut = sockOut;
         send = new IPCMessage();
         recv = new IPCMessage();
@@ -126,6 +123,7 @@ public class PythonIPCProto {
         outMsg.setFlag(Message.NORMAL);
         outMsg.setMessageId(-1);
         outMsg.setRequestMessageId(-1);
+        //TODO: this sends the whole buffer, not just the contents, pretty dumb
         outMsg.setPayload(send.buf);
         sendBuffer.clear();
         sendBuffer.position(0);

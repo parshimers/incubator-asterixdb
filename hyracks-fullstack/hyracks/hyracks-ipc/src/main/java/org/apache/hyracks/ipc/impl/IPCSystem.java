@@ -50,6 +50,15 @@ public class IPCSystem {
         perfCounters = new IPCPerformanceCounters();
     }
 
+    public IPCSystem(InetSocketAddress socketAddress, ISocketChannelFactory socketChannelFactory, IIPCI ipci,
+                     IPayloadSerializerDeserializer serde, boolean blind) throws IOException {
+        cMgr = new IPCConnectionManager(this, socketAddress, socketChannelFactory,blind);
+        this.ipci = ipci;
+        this.serde = serde;
+        midFactory = new AtomicLong();
+        perfCounters = new IPCPerformanceCounters();
+    }
+
     public InetSocketAddress getSocketAddress() {
         return cMgr.getAddress();
     }
