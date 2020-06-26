@@ -25,7 +25,7 @@ import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 public class Message {
     private static final int MSG_SIZE_SIZE = 4;
 
-    private static final int HEADER_SIZE = 17;
+    public static final int HEADER_SIZE = 17;
 
     public static final byte INITIAL_REQ = 1;
 
@@ -45,7 +45,7 @@ public class Message {
 
     private Object payload;
 
-    Message(IPCHandle ipcHandle) {
+    public Message(IPCHandle ipcHandle) {
         this.ipcHandle = ipcHandle;
     }
 
@@ -112,6 +112,19 @@ public class Message {
 
     public boolean write(ByteBuffer buffer) throws Exception {
         IPayloadSerializerDeserializer serde = ipcHandle.getIPCSystem().getSerializerDeserializer();
+        byte[] bytes = flag == ERROR ? serde.serializeException((Exception) payload) : serde.serializeObject(payload);
+        if (buffer.remaining() >= MSG_SIZE_SIZE + HEADER_SIZE + bytes.length) {
+            buffer.putInt(HEADER_SIZE + bytes.length);
+            buffer.putLong(messageId);
+            buffer.putLong(requestMessageId);
+            buffer.put(flag);
+            buffer.put(bytes);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean write(ByteBuffer buffer, IPayloadSerializerDeserializer serde) throws Exception {
         byte[] bytes = flag == ERROR ? serde.serializeException((Exception) payload) : serde.serializeObject(payload);
         if (buffer.remaining() >= MSG_SIZE_SIZE + HEADER_SIZE + bytes.length) {
             buffer.putInt(HEADER_SIZE + bytes.length);

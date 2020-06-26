@@ -86,8 +86,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
         DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
-            libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, router, ipcSys, pythonPath,
-                    ctx.getTaskContext());
+            libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, router, ipcSys,
+                    pythonPath, ctx.getTaskContext());
         } catch (IOException | InterruptedException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
@@ -132,18 +132,19 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         String module;
         String clazz;
         String fn;
-        int ipcId;
         TaskAttemptId task;
-        Quadruple<Long,Integer,Integer,Integer>  ident;
+        Quadruple<Long, Integer, Integer, Integer> ident;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
-                                       ILibraryManager libMgr, File pythonHome, PythonResultRouter router, IPCSystem ipcSys, TaskAttemptId task) {
+                ILibraryManager libMgr, File pythonHome, PythonResultRouter router, IPCSystem ipcSys,
+                TaskAttemptId task) {
             super(jobId, evaluatorId);
             this.finfo = finfo;
             this.libMgr = libMgr;
             this.pythonHome = pythonHome;
             this.router = router;
             this.task = task;
+            this.ipcSys =  ipcSys;
 
         }
 
@@ -175,28 +176,28 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.fn = fn;
             this.clazz = clazz;
             this.module = packageModule;
-//            String sockName = UUID.randomUUID().toString();
-//            String sockPath = FileUtil.joinPath("/tmp", sockName);
+            //            String sockName = UUID.randomUUID().toString();
+            //            String sockPath = FileUtil.joinPath("/tmp", sockName);
             long jid = jobId.getId();
             int aid = task.getTaskId().getActivityId().getLocalId();
             int part = task.getTaskId().getPartition();
             int odid = task.getTaskId().getActivityId().getOperatorDescriptorId().getId();
-            ident = new Quadruple<>(jid,aid,part,odid);
+            ident = new Quadruple<>(jid, aid, part, odid);
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, "66666");
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, "6666");
             pb.directory(new File(wd));
             pb.environment().clear();
-//            File sockFile = new File(sockPath);
+            //            File sockFile = new File(sockPath);
             p = pb.start();
-//            proto.start(sockFile);
-            proto = new PythonIPCProto(p.getOutputStream(),router,ipcSys);
+            //            proto.start(sockFile);
+            proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);
             proto.start(ident);
             inheritIO(p.getInputStream(), System.err);
             inheritIO(p.getErrorStream(), System.err);
             proto.waitForStarted();
-//            proto.helo();
+            //            proto.helo();
             try {
-                proto.init(ident,packageModule, clazz, fn);
+                proto.init(ident, packageModule, clazz, fn);
             } catch (Exception e) {
                 //TODO: nuh
                 e.printStackTrace();
@@ -204,7 +205,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
 
         ByteBuffer callPython(ByteBuffer arguments, int numArgs) throws Exception {
-                return proto.call(ident, arguments, numArgs);
+            return proto.call(ident, arguments, numArgs);
 
         }
 
@@ -219,8 +220,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
 
         private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo,
-                ILibraryManager libMgr, PythonResultRouter router, IPCSystem ipcSys, File pythonHome, IHyracksTaskContext ctx)
-                throws IOException, InterruptedException {
+                ILibraryManager libMgr, PythonResultRouter router, IPCSystem ipcSys, File pythonHome,
+                IHyracksTaskContext ctx) throws IOException, InterruptedException {
             PythonLibraryEvaluatorId evaluatorId = new PythonLibraryEvaluatorId(dataverseName, finfo.getLibrary());
             PythonLibraryEvaluator evaluator = (PythonLibraryEvaluator) ctx.getStateObject(evaluatorId);
             if (evaluator == null) {

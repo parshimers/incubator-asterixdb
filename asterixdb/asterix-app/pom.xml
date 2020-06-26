@@ -219,7 +219,7 @@
               <arguments>
                 <argument>-o </argument>
                 <argument>${project.build.directory}${file.separator}classes${file.separator}msgpack.pyz</argument>
-                <argument>msgpack.pyz</argument>
+                <argument>msgpack</argument>
               </arguments>
               <environmentVariables>
                 <VIRTUALENV>${project.build.directory}</VIRTUALENV>

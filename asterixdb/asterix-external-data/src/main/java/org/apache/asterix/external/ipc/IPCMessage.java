@@ -71,20 +71,19 @@ public class IPCMessage {
 
     public void packHeader() {
         //TODO: know dlen beforehand
-        buf.clear();
         byte ver_hlen = 0xB;//placeholder
         int headerPos = buf.position();
-        MessagePacker.packFixPos(buf, ver_hlen);
+//        MessagePacker.packFixPos(buf, ver_hlen);
         MessagePacker.packFixPos(buf, type.getValue());
-        byte dataSizeSize = MessagePacker.minPackPosLong(buf, dataLength);
         int currPos = buf.position();
-        buf.position(headerPos);
-        buf.put(((byte) ((PythonIPCProto.VERSION << 4) + (dataSizeSize + 2 & 0xF))));
-        buf.position(currPos);
-            dataLength = MessageUnpacker.unpackNextInt(buf);
-}
+//        buf.position(headerPos);
+//        buf.put(((byte) ((PythonIPCProto.VERSION << 4) + (dataSizeSize + 2 & 0xF))));
+//        buf.position(currPos);
+//        dataLength = MessageUnpacker.unpackNextInt(buf);
+    }
 
-    public static void writeKey(ByteBuffer buf, Quadruple<Long,Integer,Integer,Integer> key){
+    public static void writeKey(ByteBuffer buf, Quadruple<Long, Integer, Integer, Integer> key) {
+        buf.clear();
         buf.putLong(key.getFirst());
         buf.putInt(key.getSecond());
         buf.putInt(key.getThird());
@@ -128,13 +127,13 @@ public class IPCMessage {
         MessagePacker.packFixStr(buf, "QUIT");
     }
 
-    public void init(Quadruple<Long,Integer,Integer,Integer> key, String module, String clazz, String fn) {
+    public void init(Quadruple<Long, Integer, Integer, Integer> key, String module, String clazz, String fn) {
         this.type = MessageType.INIT;
         initAry[0] = module;
         initAry[1] = clazz;
         initAry[2] = fn;
         dataLength = Arrays.stream(initAry).mapToInt(s -> getStringLength(s)).sum() + 2;
-        writeKey(buf,key);
+        writeKey(buf, key);
         packHeader();
         MessagePacker.packFixArrayHeader(buf, (byte) initAry.length);
         for (String s : initAry) {
@@ -142,13 +141,13 @@ public class IPCMessage {
         }
     }
 
-    public void call(Quadruple<Long,Integer,Integer,Integer> key, byte[] args, int lim, int numArgs) {
+    public void call(Quadruple<Long, Integer, Integer, Integer> key, byte[] args, int lim, int numArgs) {
         buf.clear();
         Arrays.fill(buf.array(), buf.arrayOffset(), buf.arrayOffset() + buf.limit(), (byte) 0);
         this.type = MessageType.CALL;
         dataLength = 5 + 1 + lim;
         //FIX THIS - 15 PARAM LIMIT
-        writeKey(buf,key);
+        writeKey(buf, key);
         packHeader();
         MessagePacker.packFixArrayHeader(buf, (byte) numArgs);
         buf.put(args, 0, lim);
@@ -159,7 +158,7 @@ public class IPCMessage {
     }
 
     public int initResp() {
-//        return (int) MessageUnpacker.unpackNextInt(buf);
+        //        return (int) MessageUnpacker.unpackNextInt(buf);
         return -1;
     }
 

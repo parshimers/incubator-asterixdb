@@ -286,7 +286,7 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
 
             private void shiv(FileReference sourceFile, FileReference stageDir, FileReference contentsDir)
                     throws IOException {
-                FileReference pyro4 = stageDir.getChild("pyro4.pyz");
+                FileReference pyro4 = stageDir.getChild("msgpack.pyz");
                 writeShim(pyro4);
                 unzip(sourceFile, contentsDir);
                 unzip(pyro4, contentsDir);

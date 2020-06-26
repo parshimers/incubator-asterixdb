@@ -158,7 +158,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private ICacheManager cacheManager;
     private IConfigValidator configValidator;
     public final PythonResultRouter router;
-    public IPCSystem pythonIPC = null;
+    public volatile IPCSystem pythonIPC;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, NCExtensionManager extensionManager,
             IPropertiesFactory propertiesFactory) {
@@ -181,7 +181,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         //TODO: absolutely disgusting
         router = new PythonResultRouter();
         try {
-            pythonIPC = new IPCSystem(new InetSocketAddress("127.0.0.1",66666), PlainSocketChannelFactory.INSTANCE,router,new PythonResultRouter.NoOpNoSerJustDe());
+            pythonIPC = new IPCSystem(new InetSocketAddress("127.0.0.1", 6666), PlainSocketChannelFactory.INSTANCE,
+                    router, new PythonResultRouter.NoOpNoSerJustDe());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -271,6 +272,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                 ioManager.resolveAbsolutePath(getServiceContext().getServerCtx().getAppDir().getAbsolutePath());
         libraryManager = new ExternalLibraryManager(ncs, persistedResourceRegistry, appDir);
         libraryManager.initStorage(resetStorageData);
+        pythonIPC.start();
 
         /*
          * The order of registration is important. The buffer cache must registered before recovery and transaction
@@ -445,12 +447,12 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public PythonResultRouter getRouter(){
+    public PythonResultRouter getRouter() {
         return router;
     }
 
     @Override
-    public IPCSystem getIPCI(){
+    public IPCSystem getIPCI() {
         return pythonIPC;
     }
 

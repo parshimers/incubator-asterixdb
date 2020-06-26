@@ -50,10 +50,8 @@ public abstract class ExternalScalarFunctionEvaluator implements IScalarEvaluato
         libraryManager =
                 ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getLibraryManager();
 
-        router =
-                ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getRouter();
+        router = ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getRouter();
 
-        ipcSys =
-                ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getIPCI();
+        ipcSys = ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getIPCI();
     }
 }

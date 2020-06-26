@@ -84,7 +84,6 @@ public interface INcApplicationContext extends IApplicationContext {
 
     IReplicationChannel getReplicationChannel();
 
-
     /**
      * Exports the metadata node to the metadata RMI port.
      *
