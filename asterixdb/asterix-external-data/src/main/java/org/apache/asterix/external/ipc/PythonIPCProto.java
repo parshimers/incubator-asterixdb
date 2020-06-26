@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Executor;
@@ -29,8 +30,15 @@ import java.util.concurrent.Semaphore;
 
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
+import org.apache.asterix.transaction.management.service.locking.TypeUtil;
+import org.apache.commons.io.IOUtils;
+import org.apache.hyracks.algebricks.common.utils.Quadruple;
 import org.apache.hyracks.control.common.ipc.CCNCFunctions;
-import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
+import org.apache.hyracks.ipc.api.IIPCHandle;
+import org.apache.hyracks.ipc.api.IIPCI;
+import org.apache.hyracks.ipc.exceptions.IPCException;
+import org.apache.hyracks.ipc.impl.IPCSystem;
+import org.apache.hyracks.ipc.impl.Message;
 import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
 import org.apache.logging.log4j.Level;
 import org.newsclub.net.unix.AFUNIXServerSocket;
@@ -39,42 +47,44 @@ import org.newsclub.net.unix.AFUNIXSocketAddress;
 public class PythonIPCProto {
 
     public static final byte VERSION = 1;
-    private AFUNIXServerSocket sockServ;
-    private Socket sock;
     public IPCMessage send;
     public IPCMessage recv;
+    public Message sendWrap;
     OutputStream sockOut;
-    InputStream sockIn;
-    Executor exec;
-    Semaphore started;
     ByteBuffer sendBuffer = ByteBuffer.wrap(new byte[1024*1024*10]);
     ByteBuffer recvBuffer = ByteBuffer.wrap(new byte[1024*1024*10]);
+    PythonResultRouter router;
+    IPCSystem ipcSys;
+    Message outMsg;
 
-    public PythonIPCProto(OutputStream sockOut) throws IOException {
+    public PythonIPCProto(OutputStream sockOut, PythonResultRouter router, IPCSystem ipcSys) throws IOException {
 //        started = new Semaphore(1);
-//        sockServ = AFUNIXServerSocket.newInstance();
+//        sockServ = AFUNIXServer        this.
         this.sockOut = sockOut;
         send = new IPCMessage();
         recv = new IPCMessage();
+        this.router = router;
+        this.ipcSys = ipcSys;
     }
 
-    public void start(File s) throws IOException, InterruptedException {
 
+    public void start( Quadruple<Long,Integer,Integer,Integer> id) {
+        router.insertRoute(id,recvBuffer);
     }
 
     public void waitForStarted() throws InterruptedException {
 //        started.acquire();
     }
 
-    public void helo() throws IOException {
+    public void helo(Quadruple<Long,Integer,Integer,Integer> id) throws IOException {
         receiveMsg();
         if (getResponseType() != MessageType.HELO) {
             throw new IllegalStateException("Illegal reply recieved, expected INIT_RSP");
         }
     }
 
-    public int init(String module, String clazz, String fn) throws IOException {
-        send.init(module, clazz, fn);
+    public int init(Quadruple<Long,Integer,Integer,Integer> id, String module, String clazz, String fn) throws Exception {
+        send.init(id,module, clazz, fn);
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.INIT_RSP) {
@@ -83,8 +93,8 @@ public class PythonIPCProto {
         return recv.initResp();
     }
 
-    public ByteBuffer call(int ipcId, ByteBuffer args, int numArgs) throws IOException {
-        send.call(ipcId, args.array(), args.position(), numArgs);
+    public ByteBuffer call(Quadruple<Long,Integer,Integer,Integer> id, ByteBuffer args, int numArgs) throws Exception {
+        send.call(id, args.array(), args.position(), numArgs);
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
@@ -97,37 +107,21 @@ public class PythonIPCProto {
         send.quit();
     }
 
-    private int readAtLeast(long thresh) throws IOException {
-        int read = 0;
-        while (!Thread.interrupted() && read < thresh) {
-            int rd = sockIn.read(recv.buf.array());
-            if (rd != -1) {
-                read += rd;
-            }
-        }
-        return read;
-    }
-
     public void receiveMsg() throws IOException {
-        //TODO: desync???
-        recv.buf.clear();
-        recv.buf.position(0);
-        int read = readAtLeast(1);
-        recv.readVerHlen(recv.buf);
-        if (read < recv.headerLength) {
-            read += readAtLeast((recv.headerLength - 1) - read);
-        }
-        recv.readHead(recv.buf);
-        while (recv.dataLength + recv.headerLength > recv.buf.array().length) {
-            recv.doubleBuffer();
-        }
-        if (read < recv.headerLength + recv.dataLength) {
-            readAtLeast((recv.dataLength + recv.headerLength + 1) - read);
+        try {
+            recvBuffer.wait();
+        } catch (InterruptedException e) {
+            //TODO: not this
+            e.printStackTrace();
         }
     }
 
-    public void sendMsg() throws IOException {
-        sockOut.write(send.buf.array(), 0, send.buf.position());
+    public void sendMsg() throws Exception {
+        outMsg.setFlag(Message.NORMAL);
+        outMsg.setMessageId(-1);
+        outMsg.setRequestMessageId(-1);
+        outMsg.setPayload(recv.buf);
+        outMsg.write(sendBuffer);
     }
 
     public MessageType getResponseType() {

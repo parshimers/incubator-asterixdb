@@ -23,8 +23,10 @@ from pathlib import Path
 from importlib import import_module
 import socket
 import msgpack
+from struct import *
 
 PROTO_VERSION = 1
+HEADER_SZ = 4+8+8+1+8+4+4+4
 
 
 class MessageType(IntEnum):
@@ -61,10 +63,8 @@ class Wrapper(object):
             wrapped_fn = getattr(self.wrapped_class, fn_name)
         else:
             wrapped_fn = locals()[fn_name]
-        fn_id = self.fn_id_next
-        self.wrapped_fns[fn_id] = wrapped_fn
-        self.fn_id_next = self.fn_id_next + 1
-        return fn_id
+        self.wrapped_fns[self.id] = wrapped_fn
+        return True
 
     def nextTuple(self, *args, key=None):
         fun = self.wrapped_fns[key]
@@ -76,11 +76,17 @@ class Wrapper(object):
         return cwd in module_path.parents
 
     def read_header(self):
-        header = self.unpacked_msg
-        self.ver_hlen = header[0]
-        self.type = MessageType(header[1])
-        self.dlen = header[2]
+        self.sz,self.mid,self.rmid,self.flag = unpack("!illb",readbuf)
+        self.id = unpack("!liii",readbuf)
+        #TODO: nuh
         return True
+
+    def write_header(self,response_buf,dlen):
+        total_len = dlen + HEADER_SZ;
+        header = pack("!i2lb",total_len,int(-1),int(-1),self.flag)
+        packed_key = pack("!l3i",*self.key)
+        self.response_buf.write(header)
+        self.response_buf.write(packed_key)
 
     def get_ver_hlen(self, hlen):
         return hlen + (PROTO_VERSION << 4)
@@ -89,27 +95,33 @@ class Wrapper(object):
         return self.ver_hlen - (PROTO_VERSION << 4)
 
     def helo(self):
+        self.response_buf.seek(0)
         typ = MessageType.HELO
-        self.packer.pack(self.get_ver_hlen(3))
         self.packer.pack(int(typ))
         self.packer.pack(5)
         self.packer.pack("helo")
-        self.resp = self.packer.getbuffer()
+        dlen = len(self.packer.getbuffer())
+        self.write_header(response_buf,dlen)
+        self.response_buf.write(self.packer.bytes())
+        self.resp = self.response_buf.getvalue()
         self.send_msg()
         self.packer.reset()
 
     def handle_init(self):
+        self.response_buf.seek(0)
         args = self.unpacked_msg[3]
         module = args[0]
         clazz = args[1]
         fn = args[2]
         fn_id = self.init(module, clazz, fn)
-        self.packer.pack(self.get_ver_hlen(3))
         self.packer.pack(int(MessageType.INIT_RSP))
         # TODO: would die if you had more than 128 functions per interpreter..
         self.packer.pack(1)
         self.packer.pack(int(fn_id))
-        self.resp = self.packer.getbuffer()
+        dlen = len(self.packer.getbuffer())
+        self.write_header(response_buf,dlen)
+        self.response_buf.write(self.packer.bytes())
+        self.resp = self.response_buf.getvalue()
         self.send_msg()
         self.packer.reset()
         return True
@@ -118,18 +130,14 @@ class Wrapper(object):
         self.alive = False
 
     def handle_call(self):
-        key = self.unpacked_msg[3]
-        result = self.nextTuple(self.unpacked_msg[4], key=key)
+        result = self.nextTuple(self.unpacked_msg[4], key=self.id)
         self.packer.reset()
         self.response_buf.seek(0)
         body = msgpack.packb(result)
-        dlen = msgpack.packb(len(body))
-        hlen = len(dlen) + 2  # ver_hlen + type
-        ver_hlen = self.get_ver_hlen(hlen)
-        self.packer.pack(int(ver_hlen))
+        dlen = len(body)
+        self.write_header(response_buf,dlen)
         self.packer.pack(int(MessageType.CALL_RSP))
         self.response_buf.write(self.packer.bytes())
-        self.response_buf.write(dlen)
         self.response_buf.write(body)
         self.resp = self.response_buf.getvalue()
         self.send_msg()
@@ -144,9 +152,9 @@ class Wrapper(object):
     }
 
     def connect_sock(self, sock_name):
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self.sock.connect(sock_name)
+            self.sock.connect("127.0.0.1", port)
         except socket.error as msg:
             print(sys.stderr, msg)
 
@@ -157,18 +165,17 @@ class Wrapper(object):
         completed = False
         header_read = False
         while not completed:
-            readbuf = self.sock.recv(4096)
+            readbuf = sys.stdin.buffer.read(4096)
             if not readbuf:
                 break
-            self.unpacker.feed(readbuf)
+            #TODO: aaaaaaaaaaaaAAA
+            header_read = self.read_header()
+            self.unpacker.feed(readbuf[HEADER_SZ:])
             self.unpacked_msg = list(self.unpacker)
-            if not header_read:
-                self.read_header()
-                header_read = True
-            if len(readbuf) < self.dlen+self.get_hlen():
-                readbuf = readbuf + self.sock.recv(self.dlen-len(readbuf))
+            if len(readbuf) < self.sz+HEADER_SZ:
+                readbuf = readbuf + sys.stdin.buffer.read((self.sz-len(readbuf)))
+                #TODO: wat
                 self.unpacker.feed(readbuf)
-
             completed = self.type_handler[self.type](self)
 
     def send_msg(self):
@@ -180,8 +187,8 @@ class Wrapper(object):
             self.recv_msg()
 
 
-sock_name = str(sys.argv[1])
+port = str(sys.argv[1])
 wrap = Wrapper()
-wrap.connect_sock(sock_name)
+wrap.connect_sock(port)
 wrap.helo()
 wrap.recv_loop()

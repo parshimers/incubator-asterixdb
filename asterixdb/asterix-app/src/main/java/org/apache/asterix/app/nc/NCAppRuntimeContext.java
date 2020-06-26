@@ -61,7 +61,6 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.common.transactions.IRecoveryManagerFactory;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
-import org.apache.asterix.external.ipc.PythonIPCProto;
 import org.apache.asterix.external.ipc.PythonResultRouter;
 import org.apache.asterix.external.library.ExternalLibraryManager;
 import org.apache.asterix.file.StorageComponentProvider;
@@ -443,6 +442,16 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     @Override
     public ILibraryManager getLibraryManager() {
         return libraryManager;
+    }
+
+    @Override
+    public PythonResultRouter getRouter(){
+        return router;
+    }
+
+    @Override
+    public IPCSystem getIPCI(){
+        return pythonIPC;
     }
 
     @Override

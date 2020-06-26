@@ -23,6 +23,7 @@ import java.util.Arrays;
 
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
+import org.apache.hyracks.algebricks.common.utils.Quadruple;
 
 public class IPCMessage {
     /*
@@ -80,6 +81,14 @@ public class IPCMessage {
         buf.position(headerPos);
         buf.put(((byte) ((PythonIPCProto.VERSION << 4) + (dataSizeSize + 2 & 0xF))));
         buf.position(currPos);
+            dataLength = MessageUnpacker.unpackNextInt(buf);
+}
+
+    public static void writeKey(ByteBuffer buf, Quadruple<Long,Integer,Integer,Integer> key){
+        buf.putLong(key.getFirst());
+        buf.putInt(key.getSecond());
+        buf.putInt(key.getThird());
+        buf.putInt(key.getFourth());
     }
 
     //TODO: THIS IS WRONG UNLESS YOU LIVE IN 1972
@@ -103,7 +112,6 @@ public class IPCMessage {
     public void readHead(ByteBuffer buf) {
         byte typ = buf.get();
         type = MessageType.fromByte(typ);
-        dataLength = MessageUnpacker.unpackNextInt(buf);
     }
 
     public void hello() {
@@ -120,12 +128,13 @@ public class IPCMessage {
         MessagePacker.packFixStr(buf, "QUIT");
     }
 
-    public void init(String module, String clazz, String fn) {
+    public void init(Quadruple<Long,Integer,Integer,Integer> key, String module, String clazz, String fn) {
         this.type = MessageType.INIT;
         initAry[0] = module;
         initAry[1] = clazz;
         initAry[2] = fn;
         dataLength = Arrays.stream(initAry).mapToInt(s -> getStringLength(s)).sum() + 2;
+        writeKey(buf,key);
         packHeader();
         MessagePacker.packFixArrayHeader(buf, (byte) initAry.length);
         for (String s : initAry) {
@@ -133,14 +142,14 @@ public class IPCMessage {
         }
     }
 
-    public void call(int ipcId, byte[] args, int lim, int numArgs) {
+    public void call(Quadruple<Long,Integer,Integer,Integer> key, byte[] args, int lim, int numArgs) {
         buf.clear();
         Arrays.fill(buf.array(), buf.arrayOffset(), buf.arrayOffset() + buf.limit(), (byte) 0);
         this.type = MessageType.CALL;
         dataLength = 5 + 1 + lim;
         //FIX THIS - 15 PARAM LIMIT
+        writeKey(buf,key);
         packHeader();
-        MessagePacker.packInt(buf, ipcId);
         MessagePacker.packFixArrayHeader(buf, (byte) numArgs);
         buf.put(args, 0, lim);
     }
@@ -150,7 +159,8 @@ public class IPCMessage {
     }
 
     public int initResp() {
-        return (int) MessageUnpacker.unpackNextInt(buf);
+//        return (int) MessageUnpacker.unpackNextInt(buf);
+        return -1;
     }
 
     public boolean heloResp() {

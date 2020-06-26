@@ -3,6 +3,7 @@ package org.apache.asterix.external.ipc;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hyracks.algebricks.common.utils.Quadruple;
 import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.api.IIPCI;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
@@ -13,18 +14,20 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PythonResultRouter implements IIPCI {
 
 
-    ConcurrentHashMap<Pair<Integer, Integer>, ByteBuffer> activeClients = new ConcurrentHashMap<>();
-    MutablePair<Integer, Integer> key;
+    ConcurrentHashMap<Quadruple<Long,Integer,Integer,Integer>, ByteBuffer> activeClients = new ConcurrentHashMap<>();
+    Quadruple<Long,Integer,Integer,Integer> mutableKey = new Quadruple<>(-1l,-1,-1,-1);
+
 
     @Override
     public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload) {
-        //todo: idk? seems wrong
-        int pid = (int) rmid >> 32;
-        int fid = (int) rmid;
-        key.setLeft(pid);
-        key.setRight(fid);
-        ByteBuffer copyTo = activeClients.get(key);
-        assert copyTo != null; // REMOVE. TESTING.
+        ByteBuffer buf = (ByteBuffer) payload;
+        //long tag b
+        mutableKey.setFirst(buf.getLong());
+        mutableKey.setSecond(buf.getInt());
+        mutableKey.setThird(buf.getInt());
+        mutableKey.setFourth(buf.getInt());
+        ByteBuffer copyTo = activeClients.get(mutableKey);
+        assert copyTo != null; //TODO: REMOVE. TESTING.
         ByteBuffer copyFrom = (ByteBuffer) payload;
         System.arraycopy(payload,
                 ((ByteBuffer) payload).position() + ((ByteBuffer) payload).arrayOffset(),
@@ -41,8 +44,8 @@ public class PythonResultRouter implements IIPCI {
         //TODO: important.
     }
 
-    public void insertRoute(int pid, int fnId, ByteBuffer respBuffer) {
-        activeClients.put(new ImmutablePair(pid, fnId), respBuffer);
+    public void insertRoute(Quadruple<Long,Integer,Integer,Integer> route, ByteBuffer respBuffer) {
+        activeClients.put(route, respBuffer);
     }
 
 
@@ -50,6 +53,8 @@ public class PythonResultRouter implements IIPCI {
 
         @Override
         public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
+            //TODO: dont assert
+            assert length >10;
             return buffer;
         }
 
