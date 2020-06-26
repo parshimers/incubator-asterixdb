@@ -78,6 +78,8 @@ public class PythonIPCProto {
 
     public int init(Quadruple<Long, Integer, Integer, Integer> id, String module, String clazz, String fn)
             throws Exception {
+        recvBuffer.clear();
+        recvBuffer.position(0);
         send.init(id, module, clazz, fn);
         sendMsg();
         receiveMsg();
@@ -89,6 +91,8 @@ public class PythonIPCProto {
 
     public ByteBuffer call(Quadruple<Long, Integer, Integer, Integer> id, ByteBuffer args, int numArgs)
             throws Exception {
+        recvBuffer.clear();
+        recvBuffer.position(0);
         send.call(id, args.array(), args.position(), numArgs);
         sendMsg();
         receiveMsg();
@@ -123,6 +127,8 @@ public class PythonIPCProto {
         outMsg.setMessageId(-1);
         outMsg.setRequestMessageId(-1);
         outMsg.setPayload(send.buf);
+        sendBuffer.clear();
+        sendBuffer.position(0);
         outMsg.write(sendBuffer, serde);
         sockOut.write(sendBuffer.array(),0,sendBuffer.position());
         sockOut.flush();

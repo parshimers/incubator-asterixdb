@@ -112,7 +112,7 @@ class Wrapper(object):
 
     def handle_init(self):
         self.response_buf.seek(0)
-        args = self.unpacked_msg[3]
+        args = self.unpacked_msg[2]
         module = args[0]
         clazz = args[1]
         fn = args[2]
@@ -131,12 +131,12 @@ class Wrapper(object):
         self.alive = False
 
     def handle_call(self):
-        result = self.nextTuple(self.unpacked_msg[4], key=self.id)
+        result = self.nextTuple(self.unpacked_msg[2], key=self.id)
         self.packer.reset()
         self.response_buf.seek(0)
         body = msgpack.packb(result)
-        dlen = len(body)
-        self.write_header(response_buf,dlen)
+        dlen = len(body)+1
+        self.write_header(self.response_buf,dlen)
         self.packer.pack(int(MessageType.CALL_RSP))
         self.response_buf.write(self.packer.bytes())
         self.response_buf.write(body)

@@ -144,6 +144,7 @@ public class IPCMessage {
     public void call(Quadruple<Long, Integer, Integer, Integer> key, byte[] args, int lim, int numArgs) {
         buf.clear();
         Arrays.fill(buf.array(), buf.arrayOffset(), buf.arrayOffset() + buf.limit(), (byte) 0);
+        buf.position(0);
         this.type = MessageType.CALL;
         dataLength = 5 + 1 + lim;
         //FIX THIS - 15 PARAM LIMIT
