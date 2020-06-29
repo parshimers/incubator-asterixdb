@@ -28,4 +28,6 @@ public interface IPayloadSerializerDeserializer {
     public byte[] serializeObject(Object object) throws Exception;
 
     public byte[] serializeException(Exception object) throws Exception;
+
+    public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception;
 }

@@ -16,14 +16,23 @@
  */
 package org.apache.asterix.external.ipc;
 
+import static org.apache.hyracks.api.util.JavaSerializationUtils.getSerializationProvider;
+import static org.msgpack.core.MessagePack.Code.BIN16;
+import static org.msgpack.core.MessagePack.Code.BIN32;
+import static org.msgpack.core.MessagePack.Code.EXT16;
 import static org.msgpack.core.MessagePack.Code.isFixInt;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 import org.apache.asterix.external.library.msgpack.MessageUnpacker;
 import org.apache.hyracks.algebricks.common.utils.Quadruple;
+import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
 
 public class IPCMessage {
     /*
@@ -45,6 +54,7 @@ public class IPCMessage {
     long dataLength;
     ByteBuffer buf;
     String[] initAry = new String[3];
+
 
     public IPCMessage() {
         this.type = null;
@@ -71,24 +81,9 @@ public class IPCMessage {
 
     public void packHeader() {
         //TODO: know dlen beforehand
-        byte ver_hlen = 0xB;//placeholder
-        int headerPos = buf.position();
-//        MessagePacker.packFixPos(buf, ver_hlen);
         MessagePacker.packFixPos(buf, type.getValue());
-        int currPos = buf.position();
-//        buf.position(headerPos);
-//        buf.put(((byte) ((PythonIPCProto.VERSION << 4) + (dataSizeSize + 2 & 0xF))));
-//        buf.position(currPos);
-//        dataLength = MessageUnpacker.unpackNextInt(buf);
     }
 
-    public static void writeKey(ByteBuffer buf, Quadruple<Long, Integer, Integer, Integer> key) {
-        buf.clear();
-        buf.putLong(key.getFirst());
-        buf.putInt(key.getSecond());
-        buf.putInt(key.getThird());
-        buf.putInt(key.getFourth());
-    }
 
     //TODO: THIS IS WRONG UNLESS YOU LIVE IN 1972
     private int getStringLength(String s) {
@@ -115,9 +110,13 @@ public class IPCMessage {
 
     public void hello() {
         this.type = MessageType.HELO;
-        dataLength = getStringLength("HELO" + 1);
+        byte[] serAddr = serialize(new InetSocketAddress("127.0.0.1",1));
+        dataLength = serAddr.length+5;
         packHeader();
-        MessagePacker.packFixStr(buf, "HELO");
+        //TODO:make this cleaner
+        buf.put(BIN32);
+        buf.putInt(serAddr.length);
+        buf.put(serAddr);
     }
 
     public void quit() {
@@ -127,13 +126,12 @@ public class IPCMessage {
         MessagePacker.packFixStr(buf, "QUIT");
     }
 
-    public void init(Quadruple<Long, Integer, Integer, Integer> key, String module, String clazz, String fn) {
+    public void init(String module, String clazz, String fn) {
         this.type = MessageType.INIT;
         initAry[0] = module;
         initAry[1] = clazz;
         initAry[2] = fn;
         dataLength = Arrays.stream(initAry).mapToInt(s -> getStringLength(s)).sum() + 2;
-        writeKey(buf, key);
         packHeader();
         MessagePacker.packFixArrayHeader(buf, (byte) initAry.length);
         for (String s : initAry) {
@@ -141,14 +139,13 @@ public class IPCMessage {
         }
     }
 
-    public void call(Quadruple<Long, Integer, Integer, Integer> key, byte[] args, int lim, int numArgs) {
+    public void call(byte[] args, int lim, int numArgs) {
         buf.clear();
         Arrays.fill(buf.array(), buf.arrayOffset(), buf.arrayOffset() + buf.limit(), (byte) 0);
         buf.position(0);
         this.type = MessageType.CALL;
         dataLength = 5 + 1 + lim;
         //FIX THIS - 15 PARAM LIMIT
-        writeKey(buf, key);
         packHeader();
         MessagePacker.packFixArrayHeader(buf, (byte) numArgs);
         buf.put(args, 0, lim);
@@ -170,5 +167,21 @@ public class IPCMessage {
 
     public boolean quitResp() {
         return true;
+    }
+
+    private byte[] serialize(Object object) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ObjectOutputStream oos = getSerializationProvider().newObjectOutputStream(baos)) {
+            oos.writeObject(object);
+            oos.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try {
+            baos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return baos.toByteArray();
     }
 }

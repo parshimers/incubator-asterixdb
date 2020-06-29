@@ -176,28 +176,18 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.fn = fn;
             this.clazz = clazz;
             this.module = packageModule;
-            //            String sockName = UUID.randomUUID().toString();
-            //            String sockPath = FileUtil.joinPath("/tmp", sockName);
-            long jid = jobId.getId();
-            int aid = task.getTaskId().getActivityId().getLocalId();
-            int part = task.getTaskId().getPartition();
-            int odid = task.getTaskId().getActivityId().getOperatorDescriptorId().getId();
-            ident = new Quadruple<>(jid, aid, part, odid);
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
                     PY_NO_USER_PKGS_OPT, ENTRYPOINT, "6666");
             pb.directory(new File(wd));
             pb.environment().clear();
-            //            File sockFile = new File(sockPath);
             p = pb.start();
-            //            proto.start(sockFile);
             proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);
-            proto.start(ident);
+            proto.start();
             inheritIO(p.getInputStream(), System.err);
             inheritIO(p.getErrorStream(), System.err);
-            proto.waitForStarted();
-            //            proto.helo();
             try {
-                proto.init(ident, packageModule, clazz, fn);
+                proto.helo();
+                proto.init(packageModule, clazz, fn);
             } catch (Exception e) {
                 //TODO: nuh
                 e.printStackTrace();
@@ -205,7 +195,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
 
         ByteBuffer callPython(ByteBuffer arguments, int numArgs) throws Exception {
-            return proto.call(ident, arguments, numArgs);
+            return proto.call(arguments, numArgs);
 
         }
 
@@ -276,15 +266,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             default:
                 throw new IllegalArgumentException("NYI");
         }
-    }
-
-    private TypeInfo getTypeInfo(IAType type) {
-        TypeInfo typeInfo = infoPool.get(type);
-        if (typeInfo == null) {
-            typeInfo = new TypeInfo(reflectingPool, type, type.getTypeTag());
-            infoPool.put(type, typeInfo);
-        }
-        return typeInfo;
     }
 
     private void wrap(ByteBuffer resultWrapper, DataOutput out) throws HyracksDataException {

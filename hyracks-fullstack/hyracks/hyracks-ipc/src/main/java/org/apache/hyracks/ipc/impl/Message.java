@@ -103,8 +103,21 @@ public class Message {
         int length = msgSize - HEADER_SIZE;
         try {
             IPayloadSerializerDeserializer serde = ipcHandle.getIPCSystem().getSerializerDeserializer();
-            payload = flag == ERROR ? serde.deserializeException(buffer, length)
-                    : serde.deserializeObject(buffer, length);
+            switch(flag){
+                case NORMAL:
+                case INITIAL_ACK:
+                    payload = serde.deserializeObject(buffer,length);
+                    break;
+                case INITIAL_REQ:
+                    payload = serde.deserializeControlObject(buffer,length);
+                    break;
+                case ERROR:
+                    payload = serde.deserializeException(buffer,length);
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unknown message flag");
+            }
+
         } finally {
             buffer.position(finalPosition);
         }
@@ -137,7 +150,7 @@ public class Message {
         return false;
     }
 
-    public boolean writeHeader(ByteBuffer buffer, int dlen) {
+    public static boolean writeHeader(ByteBuffer buffer, int dlen, long messageId, long requestMessageId, byte flag) {
         if (buffer.remaining() >= MSG_SIZE_SIZE + HEADER_SIZE + dlen) {
             buffer.putInt(HEADER_SIZE + dlen);
             buffer.putLong(messageId);

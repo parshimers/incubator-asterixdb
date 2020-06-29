@@ -18,13 +18,10 @@ package org.apache.asterix.external.ipc;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 import org.apache.hyracks.algebricks.common.utils.Quadruple;
-import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
-import org.apache.hyracks.ipc.exceptions.IPCException;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.Message;
 
@@ -35,7 +32,6 @@ public class PythonIPCProto {
     public static final byte VERSION = 1;
     public IPCMessage send;
     public IPCMessage recv;
-    public Message sendWrap;
     OutputStream sockOut;
     ByteBuffer sendBuffer = ByteBuffer.wrap(new byte[1024 * 1024 * 10]);
     ByteBuffer recvBuffer = ByteBuffer.wrap(new byte[1024 * 1024 * 10]);
@@ -43,6 +39,7 @@ public class PythonIPCProto {
     IPCSystem ipcSys;
     Message outMsg;
     IPayloadSerializerDeserializer serde = new PythonResultRouter.NoOpNoSerJustDe();
+    long key;
 
     public PythonIPCProto(OutputStream sockOut, PythonResultRouter router, IPCSystem ipcSys) throws IOException {
         this.sockOut = sockOut;
@@ -53,31 +50,31 @@ public class PythonIPCProto {
         this.outMsg = new Message(null);
     }
 
-    public void start(Quadruple<Long, Integer, Integer, Integer> id) {
-        router.insertRoute(id, recvBuffer);
-        try {
-            sleep(300);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+    public void start() {
+        this.key = router.insertRoute(recvBuffer);
     }
 
     public void waitForStarted() throws InterruptedException {
         //        started.acquire();
     }
 
-    public void helo(Quadruple<Long, Integer, Integer, Integer> id) throws IOException {
-        receiveMsg();
-        if (getResponseType() != MessageType.HELO) {
-            throw new IllegalStateException("Illegal reply recieved, expected INIT_RSP");
-        }
+    public void helo() throws Exception {
+        recvBuffer.clear();
+        recvBuffer.position(0);
+        send.buf.clear();
+        send.buf.position(0);
+        send.hello();
+        sendMsg();
+        Thread.sleep(300);
     }
 
-    public int init(Quadruple<Long, Integer, Integer, Integer> id, String module, String clazz, String fn)
+    public int init(String module, String clazz, String fn)
             throws Exception {
         recvBuffer.clear();
         recvBuffer.position(0);
-        send.init(id, module, clazz, fn);
+        send.buf.clear();
+        send.buf.position(0);
+        send.init(module, clazz, fn);
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.INIT_RSP) {
@@ -86,11 +83,11 @@ public class PythonIPCProto {
         return recv.initResp();
     }
 
-    public ByteBuffer call(Quadruple<Long, Integer, Integer, Integer> id, ByteBuffer args, int numArgs)
+    public ByteBuffer call(ByteBuffer args, int numArgs)
             throws Exception {
         recvBuffer.clear();
         recvBuffer.position(0);
-        send.call(id, args.array(), args.position(), numArgs);
+        send.call(args.array(), args.position(), numArgs);
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
@@ -103,6 +100,7 @@ public class PythonIPCProto {
 
     public void quit() throws IOException {
         send.quit();
+        router.removeRoute(key);
     }
 
     public void receiveMsg() throws IOException {
@@ -120,15 +118,11 @@ public class PythonIPCProto {
     }
 
     public void sendMsg() throws Exception {
-        outMsg.setFlag(Message.NORMAL);
-        outMsg.setMessageId(-1);
-        outMsg.setRequestMessageId(-1);
-        //TODO: this sends the whole buffer, not just the contents, pretty dumb
-        outMsg.setPayload(send.buf);
         sendBuffer.clear();
         sendBuffer.position(0);
-        outMsg.write(sendBuffer, serde);
+        Message.writeHeader(sendBuffer, send.buf.position(),-1,key,Message.NORMAL);
         sockOut.write(sendBuffer.array(),0,sendBuffer.position());
+        sockOut.write(send.buf.array(),0,send.buf.position());
         sockOut.flush();
     }
 

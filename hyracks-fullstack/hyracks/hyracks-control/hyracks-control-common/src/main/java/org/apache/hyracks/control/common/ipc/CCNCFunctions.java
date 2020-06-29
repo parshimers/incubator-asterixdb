@@ -1466,6 +1466,11 @@ public class CCNCFunctions {
             return serialize(object, (byte) FunctionId.OTHER.ordinal());
         }
 
+        @Override
+        public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception {
+            return deserializeObject(buffer,length);
+        }
+
         private byte[] serialize(Object object, byte fid) throws Exception {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(fid);

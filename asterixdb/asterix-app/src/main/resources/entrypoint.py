@@ -26,7 +26,7 @@ import msgpack
 from struct import *
 
 PROTO_VERSION = 1
-HEADER_SZ = 4+8+8+1+8+4+4+4
+HEADER_SZ = 4+8+8+1
 
 
 class MessageType(IntEnum):
@@ -37,18 +37,23 @@ class MessageType(IntEnum):
     CALL = 4
     CALL_RSP = 5
 
+class MessageFlags(IntEnum):
+    NORMAL = 0
+    INITIAL_REQ = 1
+    INITIAL_ACK = 2
+    ERROR = 3
+
 
 class Wrapper(object):
     wrapped_module = None
     wrapped_class = None
     wrapped_fn = None
-    packer = msgpack.Packer(use_bin_type=False, autoreset=False)
+    packer = msgpack.Packer(autoreset=False)
     unpacker = msgpack.Unpacker()
     response_buf = BytesIO()
     wrapped_fns = {}
     fn_id_next = 0
     alive = True
-    id = (0,0,0,0)
 
     def init(self, module_name, class_name, fn_name):
         self.wrapped_module = import_module(module_name)
@@ -64,7 +69,7 @@ class Wrapper(object):
             wrapped_fn = getattr(self.wrapped_class, fn_name)
         else:
             wrapped_fn = locals()[fn_name]
-        self.wrapped_fns[self.id] = wrapped_fn
+        self.wrapped_fns[self.rmid] = wrapped_fn
         return True
 
     def nextTuple(self, *args, key=None):
@@ -79,17 +84,13 @@ class Wrapper(object):
     def read_header(self,readbuf):
         self.sz,self.mid,self.rmid,self.flag = unpack("!iqqb",readbuf[0:21])
         print(self.sz,self.mid,self.rmid,self.flag)
-        self.id = unpack("!qiii",readbuf[21:41])
-        print(self.id)
         #TODO: nuh
         return True
 
     def write_header(self,response_buf,dlen):
         total_len = dlen + HEADER_SZ-4;
-        header = pack("!iqqb",total_len,int(-1),int(-1),0)
-        packed_key = pack("!qiii",*self.id)
+        header = pack("!iqqb",total_len,int(-1),int(self.rmid),self.flag)
         self.response_buf.write(header)
-        self.response_buf.write(packed_key)
 
     def get_ver_hlen(self, hlen):
         return hlen + (PROTO_VERSION << 4)
@@ -98,25 +99,26 @@ class Wrapper(object):
         return self.ver_hlen - (PROTO_VERSION << 4)
 
     def helo(self):
+        print("HELO")
         self.response_buf.seek(0)
-        typ = MessageType.HELO
-        self.packer.pack(int(typ))
-        self.packer.pack(5)
-        self.packer.pack("helo")
-        dlen = len(self.packer.getbuffer())
+        self.flag = int(MessageFlags.INITIAL_REQ)
+        dlen = len(self.unpacked_msg[1])
         self.write_header(self.response_buf,dlen)
-        self.response_buf.write(self.packer.bytes())
+        self.response_buf.write(self.unpacked_msg[1])
         self.resp = self.response_buf.getvalue()
         self.send_msg()
         self.packer.reset()
+        return True
 
     def handle_init(self):
+        print("INIT")
+        self.flag = 0
         self.response_buf.seek(0)
-        args = self.unpacked_msg[2]
+        args = self.unpacked_msg[1]
         module = args[0]
         clazz = args[1]
         fn = args[2]
-        fn_id = self.init(module, clazz, fn)
+        self.init(module, clazz, fn)
         self.packer.pack(int(MessageType.INIT_RSP))
         # TODO: would die if you had more than 128 functions per interpreter..
         dlen = 1
@@ -131,7 +133,9 @@ class Wrapper(object):
         self.alive = False
 
     def handle_call(self):
-        result = self.nextTuple(self.unpacked_msg[2], key=self.id)
+        print("CALL")
+        self.flag = MessageFlags.NORMAL
+        result = self.nextTuple(self.unpacked_msg[1], key=self.rmid)
         self.packer.reset()
         self.response_buf.seek(0)
         body = msgpack.packb(result)
@@ -172,14 +176,14 @@ class Wrapper(object):
                 break
             #TODO: aaaaaaaaaaaaAAA
             header_read = self.read_header(readbuf)
-            self.unpacker.feed(readbuf[40:])
+            print(self.flag)
+            self.unpacker.feed(readbuf[21:])
             self.unpacked_msg = list(self.unpacker)
-            self.type = MessageType(self.unpacked_msg[1])
-            print(self.type)
+            self.type = MessageType(self.unpacked_msg[0])
             completed = self.type_handler[self.type](self)
 
     def send_msg(self):
-        print(self.resp)
+        print(self.flag)
         self.sock.sendall(self.resp)
         return
 
