@@ -22,10 +22,14 @@ public class PythonResultRouter implements IIPCI {
     public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload) {
         ByteBuffer buf = (ByteBuffer) payload;
         //long tag b
-        buf.position(Message.HEADER_SIZE+4);
+        int origPos = buf.position();
+        buf.reset();
+        int end = buf.position();
+        buf.position(origPos);
+        buf.position(buf.position()+Message.HEADER_SIZE+4);
         ByteBuffer copyTo = activeClients.get(rmid);
         assert copyTo != null; //TODO: REMOVE. TESTING.
-        for(int i = buf.position();i<buf.limit();i++){
+        for(int i = buf.position();i<end;i++){
             copyTo.put(buf.get());
         }
         copyTo.flip();
@@ -62,6 +66,10 @@ public class PythonResultRouter implements IIPCI {
 
         @Override
         public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
+            int origPos = buffer.position();
+            buffer.position(length);
+            buffer.mark();
+            buffer.position(origPos);
             return buffer;
         }
 
