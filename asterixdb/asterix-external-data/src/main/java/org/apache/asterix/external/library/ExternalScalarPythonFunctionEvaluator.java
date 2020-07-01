@@ -152,6 +152,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                     Scanner sc = new Scanner(src);
                     while (sc.hasNextLine()) {
                         dest.println(sc.nextLine());
+                        dest.flush();
                     }
                 }
             }).start();

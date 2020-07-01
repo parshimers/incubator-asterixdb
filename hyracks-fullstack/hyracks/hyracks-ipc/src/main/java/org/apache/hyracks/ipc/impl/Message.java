@@ -94,7 +94,7 @@ public class Message {
             return false;
         }
         int msgSize = buffer.getInt(buffer.position());
-        return buffer.remaining() >= msgSize + MSG_SIZE_SIZE;
+        return msgSize > 0 && buffer.remaining() >= msgSize + MSG_SIZE_SIZE;
     }
 
     public void read(ByteBuffer buffer) throws Exception {

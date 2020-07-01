@@ -20,11 +20,15 @@ public class PythonResultRouter implements IIPCI {
 
     @Override
     public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload) {
+        int rewind = handle.getAttachmentLen();
         ByteBuffer buf = (ByteBuffer) payload;
         //long tag b
+        int end = buf.position();
+        buf.position(end-rewind);
         Pair<Exchanger<ByteBuffer>, ByteBuffer> route = activeClients.get(rmid);
         ByteBuffer copyTo = route.second;
         assert copyTo != null; //TODO: REMOVE. TESTING.
+        copyTo.position(0);
         for (int i = 0; i <handle.getAttachmentLen(); i++) {
             copyTo.put(buf.get());
         }
@@ -35,6 +39,7 @@ public class PythonResultRouter implements IIPCI {
         } catch (InterruptedException e) {
             //? duno
         }
+        buf.position(end);
 
     }
 

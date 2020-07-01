@@ -26,7 +26,7 @@ import msgpack
 from struct import *
 
 PROTO_VERSION = 1
-HEADER_SZ = 4+8+8+1
+HEADER_SZ = 8+8+1
 
 
 class MessageType(IntEnum):
@@ -83,14 +83,16 @@ class Wrapper(object):
 
     def read_header(self,readbuf):
         self.sz,self.mid,self.rmid,self.flag = unpack("!iqqb",readbuf[0:21])
-        print(self.sz,self.mid,self.rmid,self.flag)
+        print("recv'd header")
+        print("SZ: ",self.sz,"MID: ",self.mid,"RMID: ",self.rmid,"FLAG: ",self.flag)
         #TODO: nuh
         return True
 
     def write_header(self,response_buf,dlen):
-        total_len = dlen + HEADER_SZ-4;
+        total_len = dlen + HEADER_SZ;
         header = pack("!iqqb",total_len,int(-1),int(self.rmid),self.flag)
         self.response_buf.write(header)
+        return total_len+4
 
     def get_ver_hlen(self, hlen):
         return hlen + (PROTO_VERSION << 4)
@@ -103,9 +105,9 @@ class Wrapper(object):
         self.response_buf.seek(0)
         self.flag = int(MessageFlags.INITIAL_REQ)
         dlen = len(self.unpacked_msg[1])
-        self.write_header(self.response_buf,dlen)
+        resp_len = self.write_header(self.response_buf,dlen)
         self.response_buf.write(self.unpacked_msg[1])
-        self.resp = self.response_buf.getvalue()
+        self.resp = self.response_buf.getbuffer()[0:resp_len]
         self.send_msg()
         self.packer.reset()
         return True
@@ -122,9 +124,9 @@ class Wrapper(object):
         self.packer.pack(int(MessageType.INIT_RSP))
         # TODO: would die if you had more than 128 functions per interpreter..
         dlen = 1
-        self.write_header(self.response_buf,dlen)
+        resp_len = self.write_header(self.response_buf,dlen)
         self.response_buf.write(self.packer.bytes())
-        self.resp = self.response_buf.getvalue()
+        self.resp = self.response_buf.getbuffer()[0:resp_len]
         self.send_msg()
         self.packer.reset()
         return True
@@ -140,11 +142,13 @@ class Wrapper(object):
         self.response_buf.seek(0)
         body = msgpack.packb(result)
         dlen = len(body)+1
-        self.write_header(self.response_buf,dlen)
+        print("dlen: ", dlen)
+        resp_len = self.write_header(self.response_buf,dlen)
         self.packer.pack(int(MessageType.CALL_RSP))
         self.response_buf.write(self.packer.bytes())
         self.response_buf.write(body)
-        self.resp = self.response_buf.getvalue()
+        print("buf: ", self.response_buf.getbuffer()[0:resp_len])
+        self.resp = self.response_buf.getbuffer()[0:resp_len]
         self.send_msg()
         self.packer.reset()
         return True
@@ -171,20 +175,20 @@ class Wrapper(object):
         header_read = False
         while not completed:
             readbuf = sys.stdin.buffer.read1(8192)
-            print(len(readbuf))
+            print("NUMBYTES FROM STDIN:", len(readbuf))
             if not readbuf:
                 break
             #TODO: aaaaaaaaaaaaAAA
             header_read = self.read_header(readbuf)
-            print(self.flag)
+            print("FLAG: ",self.flag)
             self.unpacker.feed(readbuf[21:])
             self.unpacked_msg = list(self.unpacker)
             self.type = MessageType(self.unpacked_msg[0])
             completed = self.type_handler[self.type](self)
 
     def send_msg(self):
-        print(self.flag)
         self.sock.sendall(self.resp)
+        self.resp = None
         return
 
     def recv_loop(self):

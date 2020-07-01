@@ -88,7 +88,7 @@ public class PythonIPCProto {
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
-            throw new IllegalStateException("Illegal reply recieved, expected CALL_RSP");
+            throw new IllegalStateException("Illegal reply recieved, expected CALL_RSP, recvd: "+getResponseType());
         }
         return recvBuffer;
     }
