@@ -99,12 +99,11 @@ public class IPCConnectionManager {
         workingSendList = new ArrayList<>();
     }
 
-    IPCConnectionManager(IPCSystem system, InetSocketAddress socketAddress, ISocketChannelFactory socketChannelFactory, boolean blind)
-            throws IOException {
-        this(system,socketAddress,socketChannelFactory);
+    IPCConnectionManager(IPCSystem system, InetSocketAddress socketAddress, ISocketChannelFactory socketChannelFactory,
+            boolean blind) throws IOException {
+        this(system, socketAddress, socketChannelFactory);
         this.blind = blind;
     }
-
 
     InetSocketAddress getAddress() {
         return address;
@@ -542,7 +541,7 @@ public class IPCConnectionManager {
 
         private void connectionReceived(ISocketChannel channel, SelectionKey channelKey) {
             final IPCHandle handle = new IPCHandle(system, null);
-            if(blind){
+            if (blind) {
                 handle.setState(HandleState.CONNECTED);
             } else {
                 handle.setState(HandleState.CONNECT_RECEIVED);

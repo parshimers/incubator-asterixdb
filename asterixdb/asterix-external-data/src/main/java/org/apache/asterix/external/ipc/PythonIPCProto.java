@@ -16,16 +16,16 @@
  */
 package org.apache.asterix.external.ipc;
 
+import static java.lang.Thread.sleep;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.concurrent.Exchanger;
 
-import org.apache.hyracks.algebricks.common.utils.Quadruple;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.Message;
-
-import static java.lang.Thread.sleep;
 
 public class PythonIPCProto {
 
@@ -40,6 +40,7 @@ public class PythonIPCProto {
     Message outMsg;
     IPayloadSerializerDeserializer serde = new PythonResultRouter.NoOpNoSerJustDe();
     long key;
+    Exchanger<ByteBuffer> routerExch = new Exchanger<>();
 
     public PythonIPCProto(OutputStream sockOut, PythonResultRouter router, IPCSystem ipcSys) throws IOException {
         this.sockOut = sockOut;
@@ -51,11 +52,7 @@ public class PythonIPCProto {
     }
 
     public void start() {
-        this.key = router.insertRoute(recvBuffer);
-    }
-
-    public void waitForStarted() throws InterruptedException {
-        //        started.acquire();
+        this.key = router.insertRoute(ByteBuffer.allocate(1024 * 1024), routerExch);
     }
 
     public void helo() throws Exception {
@@ -68,8 +65,7 @@ public class PythonIPCProto {
         Thread.sleep(300);
     }
 
-    public int init(String module, String clazz, String fn)
-            throws Exception {
+    public int init(String module, String clazz, String fn) throws Exception {
         recvBuffer.clear();
         recvBuffer.position(0);
         send.buf.clear();
@@ -83,19 +79,18 @@ public class PythonIPCProto {
         return recv.initResp();
     }
 
-    public ByteBuffer call(ByteBuffer args, int numArgs)
-            throws Exception {
+    public ByteBuffer call(ByteBuffer args, int numArgs) throws Exception {
         recvBuffer.clear();
         recvBuffer.position(0);
+        send.buf.clear();
+        send.buf.position(0);
         send.call(args.array(), args.position(), numArgs);
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
             throw new IllegalStateException("Illegal reply recieved, expected CALL_RSP");
         }
-        byte[] wat = new byte[recvBuffer.limit()-recvBuffer.position()];
-        System.arraycopy(recvBuffer.array(),recvBuffer.position(),wat,0,recvBuffer.limit()-recvBuffer.position()-1);
-        return ByteBuffer.wrap(wat);
+        return recvBuffer;
     }
 
     public void quit() throws IOException {
@@ -105,11 +100,8 @@ public class PythonIPCProto {
 
     public void receiveMsg() throws IOException {
         try {
-            synchronized (recvBuffer) {
-                if (recvBuffer.position() == 0){
-                    recvBuffer.wait();
-                }
-            }
+            ByteBuffer swap = routerExch.exchange(recvBuffer);
+            recvBuffer = swap;
         } catch (InterruptedException e) {
             //TODO: not this
             e.printStackTrace();
@@ -120,9 +112,9 @@ public class PythonIPCProto {
     public void sendMsg() throws Exception {
         sendBuffer.clear();
         sendBuffer.position(0);
-        Message.writeHeader(sendBuffer, send.buf.position(),-1,key,Message.NORMAL);
-        sockOut.write(sendBuffer.array(),0,sendBuffer.position());
-        sockOut.write(send.buf.array(),0,send.buf.position());
+        Message.writeHeader(sendBuffer, send.buf.position(), -1, key, Message.NORMAL);
+        sockOut.write(sendBuffer.array(), 0, sendBuffer.position());
+        sockOut.write(send.buf.array(), 0, send.buf.position());
         sockOut.flush();
     }
 

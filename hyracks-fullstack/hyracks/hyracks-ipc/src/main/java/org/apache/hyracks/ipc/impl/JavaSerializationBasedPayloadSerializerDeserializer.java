@@ -54,7 +54,7 @@ public class JavaSerializationBasedPayloadSerializerDeserializer implements IPay
 
     @Override
     public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception {
-        return deserializeObject(buffer,length);
+        return deserializeObject(buffer, length);
     }
 
     public static void serialize(OutputStream out, Object object) throws IOException {

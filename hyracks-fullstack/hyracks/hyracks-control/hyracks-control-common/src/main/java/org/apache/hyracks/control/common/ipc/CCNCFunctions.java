@@ -1468,7 +1468,7 @@ public class CCNCFunctions {
 
         @Override
         public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception {
-            return deserializeObject(buffer,length);
+            return deserializeObject(buffer, length);
         }
 
         private byte[] serialize(Object object, byte fid) throws Exception {

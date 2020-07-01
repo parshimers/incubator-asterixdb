@@ -46,7 +46,6 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.asterix.om.util.container.ListObjectPool;
-import org.apache.hyracks.algebricks.common.utils.Quadruple;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -133,7 +132,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         String clazz;
         String fn;
         TaskAttemptId task;
-        Quadruple<Long, Integer, Integer, Integer> ident;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
                 ILibraryManager libMgr, File pythonHome, PythonResultRouter router, IPCSystem ipcSys,
@@ -144,7 +142,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.pythonHome = pythonHome;
             this.router = router;
             this.task = task;
-            this.ipcSys =  ipcSys;
+            this.ipcSys = ipcSys;
 
         }
 

@@ -45,6 +45,8 @@ public class Message {
 
     private Object payload;
 
+    private int payloadLen;
+
     public Message(IPCHandle ipcHandle) {
         this.ipcHandle = ipcHandle;
     }
@@ -85,6 +87,8 @@ public class Message {
         return payload;
     }
 
+    int getPayloadLen() {return payloadLen;}
+
     public static boolean hasMessage(ByteBuffer buffer) {
         if (buffer.remaining() < MSG_SIZE_SIZE) {
             return false;
@@ -101,18 +105,19 @@ public class Message {
         flag = buffer.get();
         int finalPosition = buffer.position() + msgSize - HEADER_SIZE;
         int length = msgSize - HEADER_SIZE;
+        payloadLen = length;
         try {
             IPayloadSerializerDeserializer serde = ipcHandle.getIPCSystem().getSerializerDeserializer();
-            switch(flag){
+            switch (flag) {
                 case NORMAL:
                 case INITIAL_ACK:
-                    payload = serde.deserializeObject(buffer,length);
+                    payload = serde.deserializeObject(buffer, length);
                     break;
                 case INITIAL_REQ:
-                    payload = serde.deserializeControlObject(buffer,length);
+                    payload = serde.deserializeControlObject(buffer, length);
                     break;
                 case ERROR:
-                    payload = serde.deserializeException(buffer,length);
+                    payload = serde.deserializeException(buffer, length);
                     break;
                 default:
                     throw new UnsupportedOperationException("Unknown message flag");

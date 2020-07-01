@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Exchanger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.hyracks.algebricks.common.utils.Quadruple;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.api.IIPCI;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
@@ -16,26 +16,26 @@ public class PythonResultRouter implements IIPCI {
 
     AtomicLong minId = new AtomicLong(0);
     AtomicLong maxId = new AtomicLong(0);
-    ConcurrentHashMap<Long, ByteBuffer> activeClients = new ConcurrentHashMap<>();
+    ConcurrentHashMap<Long, Pair<Exchanger<ByteBuffer>, ByteBuffer>> activeClients = new ConcurrentHashMap<>();
 
     @Override
     public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload) {
         ByteBuffer buf = (ByteBuffer) payload;
         //long tag b
-        int origPos = buf.position();
-        buf.reset();
-        int end = buf.position();
-        buf.position(origPos);
-        buf.position(buf.position()+Message.HEADER_SIZE+4);
-        ByteBuffer copyTo = activeClients.get(rmid);
+        Pair<Exchanger<ByteBuffer>, ByteBuffer> route = activeClients.get(rmid);
+        ByteBuffer copyTo = route.second;
         assert copyTo != null; //TODO: REMOVE. TESTING.
-        for(int i = buf.position();i<end;i++){
+        for (int i = 0; i <handle.getAttachmentLen(); i++) {
             copyTo.put(buf.get());
         }
         copyTo.flip();
-        synchronized (copyTo) {
-            copyTo.notify();
+        try {
+            ByteBuffer fresh = route.first.exchange(copyTo);
+            route.second = fresh;
+        } catch (InterruptedException e) {
+            //? duno
         }
+
     }
 
     @Override
@@ -43,33 +43,28 @@ public class PythonResultRouter implements IIPCI {
         //TODO: important.
     }
 
-    public Long insertRoute(ByteBuffer buf) {
+    public Long insertRoute(ByteBuffer buf, Exchanger<ByteBuffer> exch) {
         long id = maxId.incrementAndGet();
-        activeClients.put(id, buf);
+        activeClients.put(id, new Pair<>(exch, buf));
         return id;
     }
 
-    public ByteBuffer getBuf(Long id){
-        return activeClients.get(id);
+    public ByteBuffer getBuf(Long id) {
+        return activeClients.get(id).second;
     }
 
-    public void removeRoute(Long id){
+    public void removeRoute(Long id) {
         // ???
-        if(id <=minId.get()){
+        if (id <= minId.get()) {
             minId.decrementAndGet();
         }
         activeClients.remove(id);
     }
 
-
     public static class NoOpNoSerJustDe implements IPayloadSerializerDeserializer {
 
         @Override
         public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
-            int origPos = buffer.position();
-            buffer.position(length);
-            buffer.mark();
-            buffer.position(origPos);
             return buffer;
         }
 
@@ -89,9 +84,9 @@ public class PythonResultRouter implements IIPCI {
         }
 
         @Override
-        public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception{
+        public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception {
             //TODO: ugh
-            return new JavaSerializationBasedPayloadSerializerDeserializer().deserializeControlObject(buffer,length);
+            return new JavaSerializationBasedPayloadSerializerDeserializer().deserializeControlObject(buffer, length);
         }
     }
 }

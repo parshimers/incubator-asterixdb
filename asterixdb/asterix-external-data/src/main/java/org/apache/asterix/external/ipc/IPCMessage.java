@@ -17,9 +17,7 @@
 package org.apache.asterix.external.ipc;
 
 import static org.apache.hyracks.api.util.JavaSerializationUtils.getSerializationProvider;
-import static org.msgpack.core.MessagePack.Code.BIN16;
 import static org.msgpack.core.MessagePack.Code.BIN32;
-import static org.msgpack.core.MessagePack.Code.EXT16;
 import static org.msgpack.core.MessagePack.Code.isFixInt;
 
 import java.io.ByteArrayOutputStream;
@@ -30,9 +28,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.apache.asterix.external.library.msgpack.MessagePacker;
-import org.apache.asterix.external.library.msgpack.MessageUnpacker;
-import org.apache.hyracks.algebricks.common.utils.Quadruple;
-import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
 
 public class IPCMessage {
     /*
@@ -54,7 +49,6 @@ public class IPCMessage {
     long dataLength;
     ByteBuffer buf;
     String[] initAry = new String[3];
-
 
     public IPCMessage() {
         this.type = null;
@@ -84,7 +78,6 @@ public class IPCMessage {
         MessagePacker.packFixPos(buf, type.getValue());
     }
 
-
     //TODO: THIS IS WRONG UNLESS YOU LIVE IN 1972
     private int getStringLength(String s) {
         return s.length();
@@ -110,8 +103,8 @@ public class IPCMessage {
 
     public void hello() {
         this.type = MessageType.HELO;
-        byte[] serAddr = serialize(new InetSocketAddress("127.0.0.1",1));
-        dataLength = serAddr.length+5;
+        byte[] serAddr = serialize(new InetSocketAddress("127.0.0.1", 1));
+        dataLength = serAddr.length + 5;
         packHeader();
         //TODO:make this cleaner
         buf.put(BIN32);
