@@ -1487,16 +1487,6 @@
         <artifactId>httpmime</artifactId>
         <version>4.5.11</version>
       </dependency>
-      <dependency>
-        <groupId>net.razorvine</groupId>
-        <artifactId>pyrolite</artifactId>
-        <version>5.1-SNAPSHOT</version>
-      </dependency>
-      <dependency>
-        <groupId>net.razorvine</groupId>
-        <artifactId>serpent</artifactId>
-        <version>1.23</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 

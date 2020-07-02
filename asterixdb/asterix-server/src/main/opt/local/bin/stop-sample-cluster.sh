@@ -101,7 +101,7 @@ if [ -z "$JAVACMD" ] ; then
 fi
 export JAVA_VERSION=$($JAVACMD -version 2>&1 | head -1 | awk '{ print $3 }' | tr -d '"')
 case $JAVA_VERSION in
-  1.8*|1.9*|10*|11*|13*)
+  1.8*|1.9*|10*|11*)
     ;;
   *)
   echo JAVA_HOME must be at version 1.8 or later, but is: $JAVA_VERSION
