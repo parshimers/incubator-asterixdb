@@ -157,8 +157,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private IReceptionist receptionist;
     private ICacheManager cacheManager;
     private IConfigValidator configValidator;
-    public final PythonResultRouter router;
-    public volatile IPCSystem pythonIPC;
+    private final PythonResultRouter router;
+    private IPCSystem pythonIPC;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, NCExtensionManager extensionManager,
             IPropertiesFactory propertiesFactory) {
@@ -178,14 +178,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         resourceIdFactory = new GlobalResourceIdFactoryProvider(ncServiceContext).createResourceIdFactory();
         persistedResourceRegistry = ncServiceContext.getPersistedResourceRegistry();
         cacheManager = new CacheManager();
-        //TODO: absolutely disgusting
         router = new PythonResultRouter();
-        try {
-            pythonIPC = new IPCSystem(new InetSocketAddress("127.0.0.1", 6666), PlainSocketChannelFactory.INSTANCE,
-                    router, new PythonResultRouter.NoOpNoSerJustDe());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -272,6 +265,9 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                 ioManager.resolveAbsolutePath(getServiceContext().getServerCtx().getAppDir().getAbsolutePath());
         libraryManager = new ExternalLibraryManager(ncs, persistedResourceRegistry, appDir);
         libraryManager.initStorage(resetStorageData);
+
+        pythonIPC = new IPCSystem(new InetSocketAddress("127.0.0.1", 0), PlainSocketChannelFactory.INSTANCE, router,
+                new PythonResultRouter.NoOpNoSerJustDe());
         pythonIPC.start();
 
         /*

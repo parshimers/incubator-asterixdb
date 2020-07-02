@@ -147,18 +147,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         }
 
-        private static void inheritIO(final InputStream src, final PrintStream dest) {
-            new Thread(new Runnable() {
-                public void run() {
-                    Scanner sc = new Scanner(src);
-                    while (sc.hasNextLine()) {
-                        dest.println(sc.nextLine());
-                        dest.flush();
-                    }
-                }
-            }).start();
-        }
-
         public void initialize() throws IOException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
@@ -176,15 +164,14 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.fn = fn;
             this.clazz = clazz;
             this.module = packageModule;
+            int port = ipcSys.getSocketAddress().getPort();
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, "6666");
+                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port));
             pb.directory(new File(wd));
             pb.environment().clear();
             p = pb.start();
             proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);
             proto.start();
-            inheritIO(p.getInputStream(), System.err);
-            inheritIO(p.getErrorStream(), System.err);
             try {
                 proto.helo();
                 proto.init(packageModule, clazz, fn);
