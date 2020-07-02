@@ -10,9 +10,6 @@ import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.api.IIPCI;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
-import org.apache.hyracks.ipc.impl.Message;
-
-import javax.naming.InsufficientResourcesException;
 
 public class PythonResultRouter implements IIPCI {
 
@@ -26,19 +23,20 @@ public class PythonResultRouter implements IIPCI {
         int rewind = handle.getAttachmentLen();
         ByteBuffer buf = (ByteBuffer) payload;
         int end = buf.position();
-        buf.position(end-rewind);
+        buf.position(end - rewind);
         Pair<Exchanger<ByteBuffer>, ByteBuffer> route = activeClients.get(rmid);
         ByteBuffer copyTo = route.second;
-        if(copyTo.capacity() < handle.getAttachmentLen()){
+        if (copyTo.capacity() < handle.getAttachmentLen()) {
             int nextSize = closestPow2(handle.getAttachmentLen());
-            if(nextSize > MAX_BUF_SIZE){
+            if (nextSize > MAX_BUF_SIZE) {
                 //TODO: something more graceful
                 throw new IllegalArgumentException("Message too big");
             }
             copyTo = ByteBuffer.allocate(nextSize);
         }
         copyTo.position(0);
-        System.arraycopy(buf.array(),buf.position()+buf.arrayOffset(),copyTo.array(),copyTo.arrayOffset(),handle.getAttachmentLen());
+        System.arraycopy(buf.array(), buf.position() + buf.arrayOffset(), copyTo.array(), copyTo.arrayOffset(),
+                handle.getAttachmentLen());
         try {
             ByteBuffer fresh = route.first.exchange(copyTo);
             route.second = fresh;
@@ -68,13 +66,13 @@ public class PythonResultRouter implements IIPCI {
         activeClients.remove(id);
     }
 
-    public static int closestPow2(int n){
-        return (int) Math.pow(2,Math.ceil(Math.log(n)/Math.log(2)));
+    public static int closestPow2(int n) {
+        return (int) Math.pow(2, Math.ceil(Math.log(n) / Math.log(2)));
     }
 
     public static class NoOpNoSerJustDe implements IPayloadSerializerDeserializer {
 
-        private static byte[] noop = new byte[]{(byte)0};
+        private static byte[] noop = new byte[] { (byte) 0 };
 
         @Override
         public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {

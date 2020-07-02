@@ -204,11 +204,11 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             boolean dead = false;
             try {
                 p.destroy();
-                dead = p.waitFor(100,TimeUnit.MILLISECONDS);
+                dead = p.waitFor(100, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 //gonna kill it anyway
             }
-            if(!dead){
+            if (!dead) {
                 p.destroyForcibly();
             }
         }

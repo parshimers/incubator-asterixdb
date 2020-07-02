@@ -91,9 +91,9 @@ public class PythonMessageBuilder {
     }
 
     public void call(byte[] args, int lim, int numArgs) {
-        if(args.length > buf.capacity()){
+        if (args.length > buf.capacity()) {
             int growTo = PythonResultRouter.closestPow2(args.length);
-            if(growTo > MAX_BUF_SIZE){
+            if (growTo > MAX_BUF_SIZE) {
                 //TODO: something more graceful
                 throw new IllegalArgumentException("Reached maximum buffer size");
             }

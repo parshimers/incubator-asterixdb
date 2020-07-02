@@ -17,6 +17,7 @@
 package org.apache.asterix.external.ipc;
 
 import static java.lang.Thread.sleep;
+import static org.apache.hyracks.ipc.impl.Message.HEADER_SIZE;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -26,8 +27,6 @@ import java.util.concurrent.Exchanger;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.Message;
-
-import static org.apache.hyracks.ipc.impl.Message.HEADER_SIZE;
 
 public class PythonIPCProto {
 
@@ -90,7 +89,7 @@ public class PythonIPCProto {
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
-            throw new IllegalStateException("Illegal reply recieved, expected CALL_RSP, recvd: "+getResponseType());
+            throw new IllegalStateException("Illegal reply recieved, expected CALL_RSP, recvd: " + getResponseType());
         }
         return recvBuffer;
     }
@@ -118,7 +117,7 @@ public class PythonIPCProto {
         headerBuffer.putLong(-1);
         headerBuffer.putLong(key);
         headerBuffer.put(Message.NORMAL);
-        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE+Integer.BYTES);
+        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
         sockOut.write(send.buf.array(), 0, send.buf.position());
         sockOut.flush();
     }

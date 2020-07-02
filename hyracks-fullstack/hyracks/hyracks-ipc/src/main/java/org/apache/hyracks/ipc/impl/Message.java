@@ -87,7 +87,9 @@ public class Message {
         return payload;
     }
 
-    int getPayloadLen() {return payloadLen;}
+    int getPayloadLen() {
+        return payloadLen;
+    }
 
     public static boolean hasMessage(ByteBuffer buffer) {
         if (buffer.remaining() < MSG_SIZE_SIZE) {
@@ -156,10 +158,10 @@ public class Message {
     }
 
     public static boolean writeHeader(ByteBuffer buffer, int dlen, long messageId, long requestMessageId, byte flag) {
-            buffer.putInt(HEADER_SIZE + dlen);
-            buffer.putLong(messageId);
-            buffer.putLong(requestMessageId);
-            buffer.put(flag);
+        buffer.putInt(HEADER_SIZE + dlen);
+        buffer.putLong(messageId);
+        buffer.putLong(requestMessageId);
+        buffer.put(flag);
         return false;
     }
 
