@@ -120,7 +120,7 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
             try {
                 adapterFactory = (ITypedAdapterFactory) (classLoader.loadClass(adaptorFactoryClassName).newInstance());
                 adapterFactory.setOutputType(adapterOutputType);
-                adapterFactory.configure(null, adaptorConfiguration);
+                adapterFactory.configure(null, adaptorConfiguration, ctx.getWarningCollector());
             } catch (Exception e) {
                 throw HyracksDataException.create(e);
             }

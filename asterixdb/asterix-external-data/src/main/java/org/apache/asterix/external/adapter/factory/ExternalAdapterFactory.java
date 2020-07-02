@@ -38,8 +38,11 @@ import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
 
 public final class ExternalAdapterFactory implements ITypedAdapterFactory {
+
+    private static final long serialVersionUID = 1L;
 
     private final DataverseName libraryDataverse;
 
@@ -62,7 +65,8 @@ public final class ExternalAdapterFactory implements ITypedAdapterFactory {
     }
 
     @Override
-    public void configure(ICCServiceContext serviceContext, Map<String, String> configuration) {
+    public void configure(ICCServiceContext serviceContext, Map<String, String> configuration,
+            IWarningCollector warningCollector) {
         this.serviceContext = serviceContext;
         this.configuration = configuration;
     }
@@ -88,7 +92,7 @@ public final class ExternalAdapterFactory implements ITypedAdapterFactory {
             ITypedAdapterFactory adapterFactory = (ITypedAdapterFactory) cl.loadClass(className).newInstance();
             adapterFactory.setOutputType(outputType);
             adapterFactory.setMetaType(metaType);
-            adapterFactory.configure(null, configuration);
+            adapterFactory.configure(null, configuration, ctx.getWarningCollector());
             return adapterFactory.createAdapter(ctx, partition);
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException | AlgebricksException e) {
             throw HyracksDataException.create(e);

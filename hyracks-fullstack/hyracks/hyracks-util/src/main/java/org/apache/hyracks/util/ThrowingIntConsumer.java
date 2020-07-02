@@ -16,24 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-/*
- * Description  : Feed with an external adapter
- * Expected Res : Success
- */
+package org.apache.hyracks.util;
 
-use externallibtest;
+import java.util.function.IntConsumer;
 
-create adapter TweetAdapter language java as "testlib",
-  "org.apache.asterix.external.library.adapter.TestTypedAdapterFactory";
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
-create type TweetType as open {
-    tweetid: int64
-};
+@FunctionalInterface
+public interface ThrowingIntConsumer {
+    void process(int value) throws Exception;
 
-create dataset Tweets(TweetType) primary key tweetid;
+    @SuppressWarnings("Duplicates")
+    static IntConsumer asUnchecked(ThrowingIntConsumer consumer) {
+        return input -> {
+            try {
+                consumer.process(input);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new UncheckedExecutionException(e);
+            } catch (Exception e) {
+                throw new UncheckedExecutionException(e);
+            }
+        };
+    }
 
-create feed TweetFeed with {
-  "adapter-name": "TweetAdapter",
-  "type-name" : "TweetType",
-  "num_output_records": 4
-};
+}

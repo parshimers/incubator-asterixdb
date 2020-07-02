@@ -42,6 +42,8 @@ import org.apache.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescri
 
 abstract class AbstractLibraryOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
+    private static final long serialVersionUID = 1L;
+
     protected final DataverseName dataverseName;
 
     protected final String libraryName;

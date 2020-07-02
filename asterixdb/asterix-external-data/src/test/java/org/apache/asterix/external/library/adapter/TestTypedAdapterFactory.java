@@ -34,6 +34,7 @@ import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.std.file.ITupleParser;
 import org.apache.hyracks.dataflow.std.file.ITupleParserFactory;
@@ -104,7 +105,8 @@ public class TestTypedAdapterFactory implements ITypedAdapterFactory {
     }
 
     @Override
-    public void configure(ICCServiceContext serviceContext, Map<String, String> configuration) {
+    public void configure(ICCServiceContext serviceContext, Map<String, String> configuration,
+            IWarningCollector warningCollector) {
         this.configuration = configuration;
     }
 

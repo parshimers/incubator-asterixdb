@@ -48,6 +48,7 @@ import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
+import org.apache.asterix.external.library.ExternalLibraryManager;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.statement.CreateLibraryStatement;
 import org.apache.asterix.lang.common.statement.LibraryDropStatement;
@@ -69,6 +70,7 @@ import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.exceptions.IFormattedException;
 import org.apache.hyracks.control.cc.ClusterControllerService;
+import org.apache.hyracks.control.common.context.ServerContext;
 import org.apache.hyracks.control.common.work.SynchronizableWork;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
@@ -116,7 +118,8 @@ public class UdfApiServlet extends BasicAuthServlet {
         this.httpServerProtocol = httpServerProtocol;
         this.httpServerPort = httpServerPort;
         File baseDir = srvCtx.getServerCtx().getBaseDir();
-        this.workingDir = baseDir.getAbsoluteFile().toPath().normalize().resolve(Paths.get("tmp", "library"));
+        this.workingDir = baseDir.getAbsoluteFile().toPath().normalize().resolve(
+                Paths.get(ServerContext.APP_DIR_NAME, ExternalLibraryManager.LIBRARY_MANAGER_BASE_DIR_NAME, "tmp"));
     }
 
     @Override

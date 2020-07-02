@@ -698,10 +698,11 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     throw new CompilationException(ErrorCode.DATASET_EXISTS, sourceLoc, datasetName, dataverseName);
                 }
             }
+            Datatype itemTypeEntity;
             IAType itemType;
             switch (itemTypeExpr.getTypeKind()) {
                 case TYPEREFERENCE:
-                    Datatype itemTypeEntity = metadataProvider.findTypeEntity(itemTypeDataverseName, itemTypeName);
+                    itemTypeEntity = metadataProvider.findTypeEntity(itemTypeDataverseName, itemTypeName);
                     if (itemTypeEntity == null || itemTypeEntity.getIsAnonymous()) {
                         // anonymous types cannot be referred from CREATE DATASET
                         throw new AsterixException(ErrorCode.UNKNOWN_TYPE, sourceLoc,
@@ -713,8 +714,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 case RECORD:
                     itemType = translateType(itemTypeDataverseName, itemTypeName, itemTypeExpr, mdTxnCtx);
                     validateDatasetItemType(dsType, itemType, false, sourceLoc);
-                    MetadataManager.INSTANCE.addDatatype(mdTxnCtx,
-                            new Datatype(itemTypeDataverseName, itemTypeName, itemType, true));
+                    itemTypeEntity = new Datatype(itemTypeDataverseName, itemTypeName, itemType, true);
+                    MetadataManager.INSTANCE.addDatatype(mdTxnCtx, itemTypeEntity);
                     break;
                 default:
                     throw new CompilationException(ErrorCode.COMPILATION_ILLEGAL_STATE, sourceLoc,
@@ -786,8 +787,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     break;
                 case EXTERNAL:
                     ExternalDetailsDecl externalDetails = (ExternalDetailsDecl) dd.getDatasetDetailsDecl();
-                    Map<String, String> properties =
-                            createExternalDatasetProperties(dataverseName, dd, metadataProvider, mdTxnCtx);
+                    Map<String, String> properties = createExternalDatasetProperties(dataverseName, dd, itemTypeEntity,
+                            metadataProvider, mdTxnCtx);
                     ExternalDataUtils.normalize(properties);
                     ExternalDataUtils.validate(properties);
                     validateExternalDatasetProperties(externalDetails, properties, dd.getSourceLocation(), mdTxnCtx);
@@ -888,7 +889,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     protected Map<String, String> createExternalDatasetProperties(DataverseName dataverseName, DatasetDecl dd,
-            MetadataProvider metadataProvider, MetadataTransactionContext mdTxnCtx) throws AlgebricksException {
+            Datatype itemType, MetadataProvider metadataProvider, MetadataTransactionContext mdTxnCtx)
+            throws AlgebricksException {
         ExternalDetailsDecl externalDetails = (ExternalDetailsDecl) dd.getDatasetDetailsDecl();
         return externalDetails.getProperties();
     }
@@ -2700,7 +2702,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             ExternalDataUtils.normalize(configuration);
             ExternalDataUtils.validate(configuration);
             feed = new Feed(dataverseName, feedName, configuration);
-            FeedMetadataUtil.validateFeed(feed, mdTxnCtx, appCtx);
+            FeedMetadataUtil.validateFeed(feed, mdTxnCtx, appCtx, warningCollector);
             MetadataManager.INSTANCE.addFeed(metadataProvider.getMetadataTxnContext(), feed);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
@@ -3726,6 +3728,6 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
      */
     protected void validateAdapterSpecificProperties(Map<String, String> configuration, SourceLocation srcLoc)
             throws CompilationException {
-        ExternalDataUtils.validateAdapterSpecificProperties(configuration, srcLoc);
+        ExternalDataUtils.validateAdapterSpecificProperties(configuration, srcLoc, warningCollector);
     }
 }

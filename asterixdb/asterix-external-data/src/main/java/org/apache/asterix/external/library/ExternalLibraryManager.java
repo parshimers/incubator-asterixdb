@@ -54,7 +54,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 public final class ExternalLibraryManager implements ILibraryManager, ILifeCycleComponent {
 
-    private static final String BASE_DIR_NAME = "library";
+    public static final String LIBRARY_MANAGER_BASE_DIR_NAME = "library";
 
     private static final String STORAGE_DIR_NAME = "storage";
 
@@ -85,7 +85,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     public ExternalLibraryManager(NodeControllerService ncs, IPersistedResourceRegistry reg, FileReference appDir) {
         this.ncs = ncs;
         this.reg = reg;
-        baseDir = appDir.getChild(BASE_DIR_NAME);
+        baseDir = appDir.getChild(LIBRARY_MANAGER_BASE_DIR_NAME);
         storageDir = baseDir.getChild(STORAGE_DIR_NAME);
         storageDirPath = storageDir.getFile().toPath();
         trashDir = baseDir.getChild(TRASH_DIR_NAME);
