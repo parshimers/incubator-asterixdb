@@ -25,12 +25,12 @@ later repeatedly. For SQL++ functions, a user can refer to [SQL++ Functions](sql
 for their usages. This document will focus on UDFs in languages other than SQL++
 
 
-## <a name="authentication">Endpoints and Authentication</a>##
+## <a name="authentication">Endpoints and Authentication</a>
 
 The UDF endpoint is not enabled by default until authentication has been configured properly. To enable it, we
-will need to set the path to the credential file and populate it with our username and password. 
+will need to set the path to the credential file and populate it with our username and password.
 
-The credential file is a simple `/etc/passwd` style text file with usernames and corresponding `bcrypt` hashed and salted 
+The credential file is a simple `/etc/passwd` style text file with usernames and corresponding `bcrypt` hashed and salted
 passwords. You can populate this on your own if you would like, but the `asterixhelper` utility can write the entries as
 well. We can invoke `asterixhelper` like so:
 
@@ -45,27 +45,28 @@ Then, in your `cc.conf`, in the `[cc]` section, add the correct `credential.file
     credential.file = conf/passwd
 
 Now,restart the cluster if it was already started to allow the Cluster Controller to find the new credentials.
-        
 
-## <a name="installingUDF">Installing a Java UDF Library</a>##
+
+## <a name="installingUDF">Installing a Java UDF Library</a>
 
 To install a UDF package to the cluster, we need to send a Multipart Form-data HTTP request to the `/admin/udf` endpoint
-of the CC at the normal API port (`19002` by default). The request should use HTTP Basic authentication. This means your 
+of the CC at the normal API port (`19002` by default). The request should use HTTP Basic authentication. This means your
 credentials will *not* be obfuscated or encrypted *in any way*, so submit to this endpoint over localhost or a network
 where you know your traffic is safe from eavesdropping. Any suitable tool will do, but for the example here I will use
-`curl` which is widely available. 
+`curl` which is widely available.
 
 For example, to install a library with the following criteria:
 
-* `udfs` dataverse name 
+* `udfs` dataverse name
 * with a new Library name of `testlib`
-* from `lib.zip` in the present working directory 
+* from `lib.zip` in the present working directory
 * to the cluster at `localhost` with API port `19002`
 * with credentials being a username and password of `admin:admin`
 
 we would execute
 
     curl -v -u admin:admin -X POST -F 'data=@./lib.zip' localhost:19002/admin/udf/udfs/testlib
+
 Any response other than `200` indicates an error in deployment.
 
 In the AsterixDB source release, we provide several sample UDFs that you can try out.
@@ -73,39 +74,6 @@ You need to build the AsterixDB source to get the compiled UDF package. It can b
 the `asterixdb-external` sub-project. Assuming that these UDFs have been installed into the `udfs` dataverse and `testlib` library,
 here is an example that uses the sample UDF `mysum` to compute the sum of two input integers.
 
-        USE udfs;
-        
-        CREATE FUNCTION mysum(a: int32, b: int32) 
-        RETURNS int32 
-        LANGUAGE JAVA 
-        AS "testlib","org.apache.asterix.external.library.MySumFactory";
-
- 
- 
-## <a id="UDFOnFeeds">Creating a Python UDF</a> ##
-
-Python UDFs need to be rolled into a `shiv` package with all their dependencies. By default AsterixDB will use the 
-Python interpreter located at `/usr/bin/python3`. This can be changed in the cluster config `[common]` section using 
-the `python.path` configuration variable. 
-
-First, in the module directory, execute `shiv` with all the dependencies of the module listed.
-
-    shiv -o lib.pyz --site-packages . scikit-learn
-
-Then, deploy it the same as the Java UDF was, with the library name `sentiment`
-
-    curl -v -u admin:admin -X POST -F 'data=@./lib.pyz' localhost:19002/admin/udf/udfs/sentiment
-    
-With the library deployed, we can define a function within it for use. For example, to expose the Python function 
-`sentiment` in the module `sentiment` in the class `module`, the `CREATE FUNCTION` would be as follows
-
-    CREATE FUNCTION sentiment(a)
-    LANGUAGE PYTHON
-    AS "sentiment","sentiment:model";
-    
-    
-It can then be used as any other scalar SQL++ function could be. 
-=======
     USE udfs;
 
     CREATE FUNCTION mysum(a: int32, b: int32)
@@ -149,7 +117,6 @@ Now, in the module directory, execute `shiv` with all the dependencies of the mo
 scikit-learn here (our method is obviously better!), but it's just included as an example of a real dependency.
 
     shiv -o lib.pyz --site-packages . scikit-learn
->>>>>>> dmitry/libdeploy
 
 Then, deploy it the same as the Java UDF was, with the library name `pylib`
 
@@ -198,15 +165,6 @@ datatype. Thus, users should make sure that their datatypes are consistent in th
 take advantage of open datatypes in AsterixDB by creating a minimum description of the data for simplicity.
 Here we use open datatypes:
 
-<<<<<<< HEAD
-        USE udfs;
-
-        CREATE TYPE TweetType IF NOT EXISTS AS OPEN {
-            id: int64
-        };
-
-        CREATE DATASET ProcessedTweets(TweetType) PRIMARY KEY id;
-=======
     USE udfs;
 
     CREATE TYPE TweetType IF NOT EXISTS AS OPEN {
@@ -214,43 +172,11 @@ Here we use open datatypes:
     };
 
     CREATE DATASET ProcessedTweets(TweetType) PRIMARY KEY id;
->>>>>>> dmitry/libdeploy
 
 As the `TweetType` is an open datatype, processed Tweets can be stored into the dataset after they are annotated
 with an extra attribute. Given the datatype and dataset above, we can create a Twitter Feed with the same datatype.
 Please refer to section [Data Ingestion](feeds.html) if you have any trouble in creating feeds.
 
-<<<<<<< HEAD
-        USE udfs;
-
-        CREATE FEED TwitterFeed WITH {
-          "adapter-name": "push_twitter",
-          "type-name": "TweetType",
-          "format": "twitter-status",
-          "consumer.key": "************",
-          "consumer.secret": "************",
-          "access.token": "**********",
-          "access.token.secret": "*************"
-        };
-        
-        
-Then we define the function we want to apply to the feed
-
-       USE udfs;
-       
-       CREATE FUNCTION addMentionedUsers(t: TweetType) 
-       RETURNS TweetType
-       LANGUAGE JAVA as "testlib","org.apache.asterix.external.library.AddMentionedUsersFactory" 
-       WITH {"textFieldName": "text"};
-
-After creating the feed, we attach the UDF onto the feed pipeline and start the feed with following statements:
-
-        USE udfs;
-
-        CONNECT FEED TwitterFeed TO DATASET ProcessedTweets APPLY FUNCTION addMentionedUsers;
-
-        START FEED TwitterFeed;
-=======
     USE udfs;
 
     CREATE FEED TwitterFeed WITH {
@@ -266,7 +192,6 @@ After creating the feed, we attach the UDF onto the feed pipeline and start the 
 Then we define the function we want to apply to the feed
 
    USE udfs;
->>>>>>> dmitry/libdeploy
 
    CREATE FUNCTION addMentionedUsers(t: TweetType)
    RETURNS TweetType
@@ -275,21 +200,6 @@ Then we define the function we want to apply to the feed
 
 After creating the feed, we attach the UDF onto the feed pipeline and start the feed with following statements:
 
-<<<<<<< HEAD
-## <a name="uninstall">Unstalling an UDF Library</a>##
-
-If you want to uninstall the UDF library, simply issue a `DELETE` against the endpoint you `POST`ed against once all 
-functions declared with the library are removed. First we'll drop the function we declared earlier:
-
-        USE udfs;
-        DROP FUNCTION mysum@2;
-
-Then issue the proper `DELETE` request
-
-        curl -u admin:admin -X DELETE localhost:19002/admin/udf/udfs/testlib
-
-The library will also be dropped if you drop the dataverse entirely. 
-=======
     USE udfs;
 
     CONNECT FEED TwitterFeed TO DATASET ProcessedTweets APPLY FUNCTION addMentionedUsers;
@@ -313,4 +223,3 @@ Then issue the proper `DELETE` request
     curl -u admin:admin -X DELETE localhost:19002/admin/udf/udfs/testlib
 
 The library will also be dropped if you drop the dataverse entirely.
->>>>>>> dmitry/libdeploy
