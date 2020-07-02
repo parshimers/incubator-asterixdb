@@ -83,6 +83,9 @@ public class MessageUnpacker {
                 case FLOAT64:
                     unpackDouble(in, out, tagged);
                     break;
+                case STR8:
+                    unpackStr(in, out, Byte.toUnsignedInt(in.get()), tagged);
+                    break;
                 case STR16:
                     unpackStr(in, out, Short.toUnsignedInt(in.getShort()), tagged);
                     break;
@@ -228,6 +231,7 @@ public class MessageUnpacker {
     }
 
     public static void unpackMap(ByteBuffer in, ByteBuffer out, int count) {
+        //TODO: need to handle typed records. this only produces a completely open record.
         //hdr size = 6?
         int startOffs = out.position();
         out.put(ATypeTag.SERIALIZED_RECORD_TYPE_TAG);
@@ -259,13 +263,8 @@ public class MessageUnpacker {
         out.putInt(totalSizeOffs, out.position() - startOffs);
     }
 
-    public static int unpackInt(ByteBuffer in) {
-        assert in.get() == INT32;
-        return in.getInt();
-    }
-
     public static void unpackStr(ByteBuffer in, ByteBuffer out, long uLen, boolean tag) {
-        //TODO (ian): this probably breaks for 3 and 4 byte UTF-8
+        //TODO: this probably breaks for 3 and 4 byte UTF-8
         if (tag) {
             out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
         }
@@ -280,10 +279,6 @@ public class MessageUnpacker {
                 len);
         out.position(out.position() + len);
         in.position(in.position() + len);
-    }
-
-    public static void unpackStr(ByteBuffer in, ByteBuffer out, int len) {
-        unpackStr(in, out, len, true);
     }
 
 }

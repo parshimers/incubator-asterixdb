@@ -27,14 +27,17 @@ import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.Message;
 
+import static org.apache.hyracks.ipc.impl.Message.HEADER_SIZE;
+
 public class PythonIPCProto {
 
     public static final byte VERSION = 1;
-    public IPCMessage send;
-    public IPCMessage recv;
+    public static final int MAX_BUF_SIZE = 21 * 1024 * 1024;
+    public PythonMessageBuilder send;
+    public PythonMessageBuilder recv;
     OutputStream sockOut;
-    ByteBuffer sendBuffer = ByteBuffer.wrap(new byte[1024 * 1024 * 10]);
-    ByteBuffer recvBuffer = ByteBuffer.wrap(new byte[1024 * 1024 * 10]);
+    ByteBuffer headerBuffer = ByteBuffer.allocate(21);
+    ByteBuffer recvBuffer = ByteBuffer.allocate(4096);
     PythonResultRouter router;
     IPCSystem ipcSys;
     Message outMsg;
@@ -44,8 +47,8 @@ public class PythonIPCProto {
 
     public PythonIPCProto(OutputStream sockOut, PythonResultRouter router, IPCSystem ipcSys) throws IOException {
         this.sockOut = sockOut;
-        send = new IPCMessage();
-        recv = new IPCMessage();
+        send = new PythonMessageBuilder();
+        recv = new PythonMessageBuilder();
         this.router = router;
         this.ipcSys = ipcSys;
         this.outMsg = new Message(null);
@@ -65,7 +68,7 @@ public class PythonIPCProto {
         Thread.sleep(300);
     }
 
-    public int init(String module, String clazz, String fn) throws Exception {
+    public void init(String module, String clazz, String fn) throws Exception {
         recvBuffer.clear();
         recvBuffer.position(0);
         send.buf.clear();
@@ -76,7 +79,6 @@ public class PythonIPCProto {
         if (getResponseType() != MessageType.INIT_RSP) {
             throw new IllegalStateException("Illegal reply recieved, expected INIT_RSP");
         }
-        return recv.initResp();
     }
 
     public ByteBuffer call(ByteBuffer args, int numArgs) throws Exception {
@@ -110,10 +112,13 @@ public class PythonIPCProto {
     }
 
     public void sendMsg() throws Exception {
-        sendBuffer.clear();
-        sendBuffer.position(0);
-        Message.writeHeader(sendBuffer, send.buf.position(), -1, key, Message.NORMAL);
-        sockOut.write(sendBuffer.array(), 0, sendBuffer.position());
+        headerBuffer.clear();
+        headerBuffer.position(0);
+        headerBuffer.putInt(HEADER_SIZE + send.buf.position());
+        headerBuffer.putLong(-1);
+        headerBuffer.putLong(key);
+        headerBuffer.put(Message.NORMAL);
+        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE+Integer.BYTES);
         sockOut.write(send.buf.array(), 0, send.buf.position());
         sockOut.flush();
     }

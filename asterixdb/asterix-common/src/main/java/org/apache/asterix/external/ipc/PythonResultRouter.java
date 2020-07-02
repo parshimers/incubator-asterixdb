@@ -12,27 +12,33 @@ import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.Message;
 
+import javax.naming.InsufficientResourcesException;
+
 public class PythonResultRouter implements IIPCI {
 
     AtomicLong minId = new AtomicLong(0);
     AtomicLong maxId = new AtomicLong(0);
     ConcurrentHashMap<Long, Pair<Exchanger<ByteBuffer>, ByteBuffer>> activeClients = new ConcurrentHashMap<>();
+    private static int MAX_BUF_SIZE = 21 * 1024 * 1024; //21MB
 
     @Override
     public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload) {
         int rewind = handle.getAttachmentLen();
         ByteBuffer buf = (ByteBuffer) payload;
-        //long tag b
         int end = buf.position();
         buf.position(end-rewind);
         Pair<Exchanger<ByteBuffer>, ByteBuffer> route = activeClients.get(rmid);
         ByteBuffer copyTo = route.second;
-        assert copyTo != null; //TODO: REMOVE. TESTING.
-        copyTo.position(0);
-        for (int i = 0; i <handle.getAttachmentLen(); i++) {
-            copyTo.put(buf.get());
+        if(copyTo.capacity() < handle.getAttachmentLen()){
+            int nextSize = closestPow2(handle.getAttachmentLen());
+            if(nextSize > MAX_BUF_SIZE){
+                //TODO: something more graceful
+                throw new IllegalArgumentException("Message too big");
+            }
+            copyTo = ByteBuffer.allocate(nextSize);
         }
-        copyTo.flip();
+        copyTo.position(0);
+        System.arraycopy(buf.array(),buf.position()+buf.arrayOffset(),copyTo.array(),copyTo.arrayOffset(),handle.getAttachmentLen());
         try {
             ByteBuffer fresh = route.first.exchange(copyTo);
             route.second = fresh;
@@ -54,19 +60,21 @@ public class PythonResultRouter implements IIPCI {
         return id;
     }
 
-    public ByteBuffer getBuf(Long id) {
-        return activeClients.get(id).second;
-    }
-
+    //TODO: make this so you can't overflow the id
     public void removeRoute(Long id) {
-        // ???
         if (id <= minId.get()) {
             minId.decrementAndGet();
         }
         activeClients.remove(id);
     }
 
+    public static int closestPow2(int n){
+        return (int) Math.pow(2,Math.ceil(Math.log(n)/Math.log(2)));
+    }
+
     public static class NoOpNoSerJustDe implements IPayloadSerializerDeserializer {
+
+        private static byte[] noop = new byte[]{(byte)0};
 
         @Override
         public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
@@ -80,17 +88,16 @@ public class PythonResultRouter implements IIPCI {
 
         @Override
         public byte[] serializeObject(Object object) throws Exception {
-            return new byte[1];
+            return noop;
         }
 
         @Override
         public byte[] serializeException(Exception object) throws Exception {
-            throw new UnsupportedOperationException("nice try");
+            return noop;
         }
 
         @Override
         public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception {
-            //TODO: ugh
             return new JavaSerializationBasedPayloadSerializerDeserializer().deserializeControlObject(buffer, length);
         }
     }

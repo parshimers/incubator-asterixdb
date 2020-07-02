@@ -27,6 +27,7 @@ from struct import *
 
 PROTO_VERSION = 1
 HEADER_SZ = 8+8+1
+REAL_HEADER_SZ = 4+8+8+1
 
 
 class MessageType(IntEnum):
@@ -51,8 +52,8 @@ class Wrapper(object):
     packer = msgpack.Packer(autoreset=False)
     unpacker = msgpack.Unpacker()
     response_buf = BytesIO()
+    stdin_buf = BytesIO()
     wrapped_fns = {}
-    fn_id_next = 0
     alive = True
 
     def init(self, module_name, class_name, fn_name):
@@ -83,9 +84,6 @@ class Wrapper(object):
 
     def read_header(self,readbuf):
         self.sz,self.mid,self.rmid,self.flag = unpack("!iqqb",readbuf[0:21])
-        print("recv'd header")
-        print("SZ: ",self.sz,"MID: ",self.mid,"RMID: ",self.rmid,"FLAG: ",self.flag)
-        #TODO: nuh
         return True
 
     def write_header(self,response_buf,dlen):
@@ -101,9 +99,8 @@ class Wrapper(object):
         return self.ver_hlen - (PROTO_VERSION << 4)
 
     def helo(self):
-        print("HELO")
         self.response_buf.seek(0)
-        self.flag = int(MessageFlags.INITIAL_REQ)
+        self.flag = MessageFlags.INITIAL_REQ
         dlen = len(self.unpacked_msg[1])
         resp_len = self.write_header(self.response_buf,dlen)
         self.response_buf.write(self.unpacked_msg[1])
@@ -113,8 +110,7 @@ class Wrapper(object):
         return True
 
     def handle_init(self):
-        print("INIT")
-        self.flag = 0
+        self.flag = MessageFlags.NORMAL
         self.response_buf.seek(0)
         args = self.unpacked_msg[1]
         module = args[0]
@@ -122,8 +118,7 @@ class Wrapper(object):
         fn = args[2]
         self.init(module, clazz, fn)
         self.packer.pack(int(MessageType.INIT_RSP))
-        # TODO: would die if you had more than 128 functions per interpreter..
-        dlen = 1
+        dlen = 1 #just the tag.
         resp_len = self.write_header(self.response_buf,dlen)
         self.response_buf.write(self.packer.bytes())
         self.resp = self.response_buf.getbuffer()[0:resp_len]
@@ -135,19 +130,16 @@ class Wrapper(object):
         self.alive = False
 
     def handle_call(self):
-        print("CALL")
         self.flag = MessageFlags.NORMAL
         result = self.nextTuple(self.unpacked_msg[1], key=self.rmid)
         self.packer.reset()
         self.response_buf.seek(0)
         body = msgpack.packb(result)
-        dlen = len(body)+1
-        print("dlen: ", dlen)
+        dlen = len(body)+1 # 1 for tag
         resp_len = self.write_header(self.response_buf,dlen)
         self.packer.pack(int(MessageType.CALL_RSP))
         self.response_buf.write(self.packer.bytes())
         self.response_buf.write(body)
-        print("buf: ", self.response_buf.getbuffer()[0:resp_len])
         self.resp = self.response_buf.getbuffer()[0:resp_len]
         self.send_msg()
         self.packer.reset()
@@ -172,15 +164,15 @@ class Wrapper(object):
 
     def recv_msg(self):
         completed = False
-        header_read = False
         while not completed:
-            readbuf = sys.stdin.buffer.read1(8192)
-            print("NUMBYTES FROM STDIN:", len(readbuf))
-            if not readbuf:
-                break
-            #TODO: aaaaaaaaaaaaAAA
-            header_read = self.read_header(readbuf)
-            print("FLAG: ",self.flag)
+            readbuf = sys.stdin.buffer.read1(4096)
+            if(len(readbuf) < REAL_HEADER_SZ):
+               while(len(readbuf) < REAL_HEADER_SZ):
+                   readbuf += sys.stdin.buffer.read1(4096)
+            self.read_header(readbuf)
+            if(self.sz > len(readbuf)):
+               while(len(readbuf) < self.sz):
+                   readbuf += sys.stdin.buffer.read1(4096)
             self.unpacker.feed(readbuf[21:])
             self.unpacked_msg = list(self.unpacker)
             self.type = MessageType(self.unpacked_msg[0])
@@ -199,5 +191,4 @@ class Wrapper(object):
 port = str(sys.argv[1])
 wrap = Wrapper()
 wrap.connect_sock(port)
-#wrap.helo()
 wrap.recv_loop()

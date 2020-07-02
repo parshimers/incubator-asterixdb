@@ -17,8 +17,7 @@
 package org.apache.asterix.external.ipc;
 
 import static org.apache.hyracks.api.util.JavaSerializationUtils.getSerializationProvider;
-import static org.msgpack.core.MessagePack.Code.BIN32;
-import static org.msgpack.core.MessagePack.Code.isFixInt;
+import static org.msgpack.core.MessagePack.Code.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,44 +28,17 @@ import java.util.Arrays;
 
 import org.apache.asterix.external.library.msgpack.MessagePacker;
 
-public class IPCMessage {
-    /*
-        HEADER FORMAT
-        All fields are msgpack
-        --------------------------------------------------------
-        | VERSION & HLEN |     TYPE     |   DATA LENGTH (DLEN)  |
-        | 1 nibble each  |    fixpos    |   fixpos to uint32    |
-        |    fixpos (1b) |              |                       |
-        ---------------------------------------------------------
-     */
-    public static int HEADER_LENGTH_MIN = 3;
-    public static int HEADER_LENGTH_MAX = 11;
-    public static int VERSION_HLEN_IDX = 0;
-    public static int TYPE_IDX = 1;
-    private static final int MAX_BUF_SIZE = 10 * 1024 * 1024; //python msgpack uses this limit by default
+public class PythonMessageBuilder {
+    private static final int MAX_BUF_SIZE = 21 * 1024 * 1024; //21MB.
     MessageType type;
-    byte headerLength;
     long dataLength;
     ByteBuffer buf;
     String[] initAry = new String[3];
 
-    public IPCMessage() {
+    public PythonMessageBuilder() {
         this.type = null;
         dataLength = -1;
-        this.buf = ByteBuffer.wrap(new byte[4096]);
-    }
-
-    public void doubleBuffer() {
-        if (buf.array().length > MAX_BUF_SIZE) {
-            throw new UnsupportedOperationException("Maximum buffer size reached.");
-        }
-        byte[] newBuf = new byte[buf.array().length * 2];
-        System.arraycopy(buf.array(), 0, newBuf, 0, buf.array().length - 1);
-        this.buf = ByteBuffer.wrap(newBuf);
-    }
-
-    public ByteBuffer toBytes() {
-        return buf;
+        this.buf = ByteBuffer.allocate(4096);
     }
 
     public void setType(MessageType type) {
@@ -74,26 +46,12 @@ public class IPCMessage {
     }
 
     public void packHeader() {
-        //TODO: know dlen beforehand
         MessagePacker.packFixPos(buf, type.getValue());
     }
 
-    //TODO: THIS IS WRONG UNLESS YOU LIVE IN 1972
+    //TODO: this is wrong for any multibyte chars
     private int getStringLength(String s) {
         return s.length();
-    }
-
-    public void readVerHlen(ByteBuffer buf) {
-        byte ver_hlen = buf.get();
-        if (!isFixInt(ver_hlen)) {
-            //die
-        }
-        byte ver = (byte) ((ver_hlen << 4) >> 4);
-        // ver is high 3 bytes. byte 0 is the fixed positive integer mask.
-        if (ver != PythonIPCProto.VERSION) {
-            //die
-        }
-        headerLength = (byte) (0x0f & ver_hlen);
     }
 
     public void readHead(ByteBuffer buf) {
@@ -133,35 +91,27 @@ public class IPCMessage {
     }
 
     public void call(byte[] args, int lim, int numArgs) {
+        if(args.length > buf.capacity()){
+            int growTo = PythonResultRouter.closestPow2(args.length);
+            if(growTo > MAX_BUF_SIZE){
+                //TODO: something more graceful
+                throw new IllegalArgumentException("Reached maximum buffer size");
+            }
+            buf = ByteBuffer.allocate(growTo);
+        }
         buf.clear();
-        Arrays.fill(buf.array(), buf.arrayOffset(), buf.arrayOffset() + buf.limit(), (byte) 0);
         buf.position(0);
         this.type = MessageType.CALL;
         dataLength = 5 + 1 + lim;
-        //FIX THIS - 15 PARAM LIMIT
         packHeader();
-        MessagePacker.packFixArrayHeader(buf, (byte) numArgs);
+        //TODO: make this switch between fixarray/array16/array32
+        buf.put(ARRAY32);
+        buf.putInt(numArgs);
         buf.put(args, 0, lim);
     }
 
-    public ByteBuffer callResp() {
-        return buf;
-    }
-
-    public int initResp() {
-        //        return (int) MessageUnpacker.unpackNextInt(buf);
-        return -1;
-    }
-
-    public boolean heloResp() {
-        //TODO check response
-        return true;
-    }
-
-    public boolean quitResp() {
-        return true;
-    }
-
+    //this is used to send a serialized java inetaddress to the entrypoint so it can send it back
+    //to the IPC subsystem, which needs it. don't use this for anything else.
     private byte[] serialize(Object object) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (ObjectOutputStream oos = getSerializationProvider().newObjectOutputStream(baos)) {

@@ -156,13 +156,10 @@ public class Message {
     }
 
     public static boolean writeHeader(ByteBuffer buffer, int dlen, long messageId, long requestMessageId, byte flag) {
-        if (buffer.remaining() >= MSG_SIZE_SIZE + HEADER_SIZE + dlen) {
             buffer.putInt(HEADER_SIZE + dlen);
             buffer.putLong(messageId);
             buffer.putLong(requestMessageId);
             buffer.put(flag);
-            return true;
-        }
         return false;
     }
 
