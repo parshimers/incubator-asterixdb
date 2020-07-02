@@ -17,13 +17,14 @@
 
 import sys
 sys.path.insert(0, './site-packages/')
-from io import BytesIO
-from enum import IntEnum
-from pathlib import Path
-from importlib import import_module
-import socket
-import msgpack
 from struct import *
+import signal
+import msgpack
+import socket
+from importlib import import_module
+from pathlib import Path
+from enum import IntEnum
+from io import BytesIO
 
 PROTO_VERSION = 1
 HEADER_SZ = 8+8+1
@@ -37,6 +38,7 @@ class MessageType(IntEnum):
     INIT_RSP = 3
     CALL = 4
     CALL_RSP = 5
+
 
 class MessageFlags(IntEnum):
     NORMAL = 0
@@ -82,13 +84,14 @@ class Wrapper(object):
         module_path = Path(module.__file__).resolve()
         return cwd in module_path.parents
 
-    def read_header(self,readbuf):
-        self.sz,self.mid,self.rmid,self.flag = unpack("!iqqb",readbuf[0:21])
+    def read_header(self, readbuf):
+        self.sz, self.mid, self.rmid, self.flag = unpack(
+            "!iqqb", readbuf[0:21])
         return True
 
-    def write_header(self,response_buf,dlen):
-        total_len = dlen + HEADER_SZ;
-        header = pack("!iqqb",total_len,int(-1),int(self.rmid),self.flag)
+    def write_header(self, response_buf, dlen):
+        total_len = dlen + HEADER_SZ
+        header = pack("!iqqb", total_len, int(-1), int(self.rmid), self.flag)
         self.response_buf.write(header)
         return total_len+4
 
@@ -102,7 +105,7 @@ class Wrapper(object):
         self.response_buf.seek(0)
         self.flag = MessageFlags.INITIAL_REQ
         dlen = len(self.unpacked_msg[1])
-        resp_len = self.write_header(self.response_buf,dlen)
+        resp_len = self.write_header(self.response_buf, dlen)
         self.response_buf.write(self.unpacked_msg[1])
         self.resp = self.response_buf.getbuffer()[0:resp_len]
         self.send_msg()
@@ -118,8 +121,8 @@ class Wrapper(object):
         fn = args[2]
         self.init(module, clazz, fn)
         self.packer.pack(int(MessageType.INIT_RSP))
-        dlen = 1 #just the tag.
-        resp_len = self.write_header(self.response_buf,dlen)
+        dlen = 1  # just the tag.
+        resp_len = self.write_header(self.response_buf, dlen)
         self.response_buf.write(self.packer.bytes())
         self.resp = self.response_buf.getbuffer()[0:resp_len]
         self.send_msg()
@@ -128,6 +131,7 @@ class Wrapper(object):
 
     def quit(self):
         self.alive = False
+        return True
 
     def handle_call(self):
         self.flag = MessageFlags.NORMAL
@@ -135,8 +139,8 @@ class Wrapper(object):
         self.packer.reset()
         self.response_buf.seek(0)
         body = msgpack.packb(result)
-        dlen = len(body)+1 # 1 for tag
-        resp_len = self.write_header(self.response_buf,dlen)
+        dlen = len(body)+1  # 1 for tag
+        resp_len = self.write_header(self.response_buf, dlen)
         self.packer.pack(int(MessageType.CALL_RSP))
         self.response_buf.write(self.packer.bytes())
         self.response_buf.write(body)
@@ -159,20 +163,21 @@ class Wrapper(object):
         except socket.error as msg:
             print(sys.stderr, msg)
 
-    def disconnect_sock(self):
+    def disconnect_sock(self, *args):
+        self.sock.shutdown(socket.SHUT_RDWR)
         self.sock.close()
 
     def recv_msg(self):
         completed = False
-        while not completed:
+        while not completed and self.alive:
             readbuf = sys.stdin.buffer.read1(4096)
             if(len(readbuf) < REAL_HEADER_SZ):
-               while(len(readbuf) < REAL_HEADER_SZ):
-                   readbuf += sys.stdin.buffer.read1(4096)
+                while(len(readbuf) < REAL_HEADER_SZ):
+                    readbuf += sys.stdin.buffer.read1(4096)
             self.read_header(readbuf)
             if(self.sz > len(readbuf)):
-               while(len(readbuf) < self.sz):
-                   readbuf += sys.stdin.buffer.read1(4096)
+                while(len(readbuf) < self.sz):
+                    readbuf += sys.stdin.buffer.read1(4096)
             self.unpacker.feed(readbuf[21:])
             self.unpacked_msg = list(self.unpacker)
             self.type = MessageType(self.unpacked_msg[0])
@@ -186,9 +191,11 @@ class Wrapper(object):
     def recv_loop(self):
         while self.alive:
             self.recv_msg()
+        self.disconnect_sock()
 
 
 port = str(sys.argv[1])
 wrap = Wrapper()
 wrap.connect_sock(port)
+signal.signal(signal.SIGTERM, wrap.disconnect_sock)
 wrap.recv_loop()

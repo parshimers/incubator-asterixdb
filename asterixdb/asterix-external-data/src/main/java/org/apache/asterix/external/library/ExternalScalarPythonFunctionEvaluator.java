@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -158,7 +159,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }).start();
         }
 
-        public void initialize() throws IOException, InterruptedException {
+        public void initialize() throws IOException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
             PythonLibrary library = (PythonLibrary) libMgr.getLibrary(fnId.dataverseName, fnId.libraryName);
@@ -200,12 +201,16 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         @Override
         public void deallocate() {
+            boolean dead = false;
             try {
-                proto.quit();
-            } catch (IOException e) {
-                //we're killing it anyway
+                p.destroy();
+                dead = p.waitFor(100,TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                //gonna kill it anyway
             }
-            p.destroyForcibly();
+            if(!dead){
+                p.destroyForcibly();
+            }
         }
 
         private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo,
