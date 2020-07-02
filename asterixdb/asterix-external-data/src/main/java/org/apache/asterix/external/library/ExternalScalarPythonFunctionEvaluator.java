@@ -22,14 +22,11 @@ package org.apache.asterix.external.library;
 import java.io.DataOutput;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.asterix.common.functions.FunctionSignature;
