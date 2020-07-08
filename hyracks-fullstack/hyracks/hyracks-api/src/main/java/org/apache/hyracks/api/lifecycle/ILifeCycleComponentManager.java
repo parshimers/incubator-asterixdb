@@ -27,7 +27,7 @@ public interface ILifeCycleComponentManager extends UncaughtExceptionHandler {
 
     public void register(ILifeCycleComponent component);
 
-    public void startAll();
+    public void startAll() throws IOException;
 
     public void dumpState(OutputStream os) throws IOException;
 

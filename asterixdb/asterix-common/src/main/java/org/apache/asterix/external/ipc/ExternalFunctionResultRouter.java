@@ -23,8 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Exchanger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import it.unimi.dsi.fastutil.Hash;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksException;
@@ -32,10 +30,10 @@ import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.api.IIPCI;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
+import org.apache.hyracks.ipc.impl.Message;
 
 public class ExternalFunctionResultRouter implements IIPCI {
 
-    AtomicLong minId = new AtomicLong(0);
     AtomicLong maxId = new AtomicLong(0);
     ConcurrentHashMap<Long, Pair<Exchanger<ByteBuffer>, ByteBuffer>> activeClients = new ConcurrentHashMap<>();
     ConcurrentHashMap<Long, Exception> exceptionInbox = new ConcurrentHashMap<>();
@@ -76,7 +74,7 @@ public class ExternalFunctionResultRouter implements IIPCI {
 
     @Override
     public void onError(IIPCHandle handle, long mid, long rmid, Exception exception) {
-        exceptionInbox.put(rmid,exception);
+        exceptionInbox.put(rmid, exception);
         Pair<Exchanger<ByteBuffer>, ByteBuffer> route = activeClients.get(rmid);
         try {
             route.first.exchange(null);
@@ -87,19 +85,19 @@ public class ExternalFunctionResultRouter implements IIPCI {
 
     public Long insertRoute(ByteBuffer buf, Exchanger<ByteBuffer> exch) {
         Long id = maxId.incrementAndGet();
+        if (id == Long.MAX_VALUE) {
+            maxId.set(0);
+        }
         activeClients.put(id, new Pair<>(exch, buf));
         return id;
     }
 
-    public Exception getException(Long id){
+    public Exception getException(Long id) {
         return exceptionInbox.get(id);
     }
 
     //TODO: make this so you can't overflow the id
     public void removeRoute(Long id) {
-        if (id <= minId.get()) {
-            minId.decrementAndGet();
-        }
         activeClients.remove(id);
     }
 
@@ -112,7 +110,11 @@ public class ExternalFunctionResultRouter implements IIPCI {
         private static byte[] noop = new byte[] { (byte) 0 };
 
         @Override
-        public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
+        public Object deserializeObject(ByteBuffer buffer, int length, byte flag) throws Exception {
+            if (flag == Message.INITIAL_REQ) {
+                return new JavaSerializationBasedPayloadSerializerDeserializer().deserializeObject(buffer, length,
+                        flag);
+            }
             return buffer;
         }
 
@@ -129,11 +131,6 @@ public class ExternalFunctionResultRouter implements IIPCI {
         @Override
         public byte[] serializeException(Exception object) throws Exception {
             return noop;
-        }
-
-        @Override
-        public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception {
-            return new JavaSerializationBasedPayloadSerializerDeserializer().deserializeControlObject(buffer, length);
         }
     }
 }

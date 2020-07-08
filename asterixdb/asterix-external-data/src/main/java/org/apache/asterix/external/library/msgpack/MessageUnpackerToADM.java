@@ -24,7 +24,7 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.util.encoding.VarLenIntEncoderDecoder;
 import org.apache.hyracks.util.string.UTF8StringUtil;
 
-public class MessageUnpacker {
+public class MessageUnpackerToADM {
 
     public static void unpack(ByteBuffer in, ByteBuffer out, boolean tagged) {
         byte tag = in.get();
@@ -268,7 +268,7 @@ public class MessageUnpacker {
         if (tag) {
             out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
         }
-        if (uLen > Integer.MAX_VALUE) {
+        if (Long.compareUnsigned(uLen, Integer.MAX_VALUE) > 0) {
             throw new UnsupportedOperationException("String is too long");
         }
         int len = (int) uLen;

@@ -259,7 +259,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         libraryManager = new ExternalLibraryManager(ncs, persistedResourceRegistry, appDir);
         libraryManager.initStorage(resetStorageData);
 
-
         /*
          * The order of registration is important. The buffer cache must registered before recovery and transaction
          * managers. Notes: registered components are stopped in reversed order

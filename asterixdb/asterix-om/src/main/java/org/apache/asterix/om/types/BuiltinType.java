@@ -18,8 +18,6 @@
  */
 package org.apache.asterix.om.types;
 
-import static org.apache.asterix.om.pointables.base.DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE;
-import static org.apache.asterix.om.pointables.base.DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE;
 import static org.apache.asterix.om.types.ATypeTag.VALUE_TYPE_MAPPING;
 
 import org.apache.asterix.om.base.IAObject;
@@ -1154,78 +1152,6 @@ public abstract class BuiltinType implements IAType {
                 return ANY;
             case SHORTWITHOUTTYPEINFO:
                 return SHORTWITHOUTTYPEINFO;
-            default:
-                throw new UnsupportedOperationException(typeTag.toString());
-        }
-    }
-
-    public static IAType fromTypeTag(ATypeTag typeTag) {
-        switch (typeTag) {
-            case TYPE:
-                return ALL_TYPE;
-            case TINYINT:
-                return AINT8;
-            case SMALLINT:
-                return AINT16;
-            case INTEGER:
-                return AINT32;
-            case BIGINT:
-                return AINT64;
-            case FLOAT:
-                return AFLOAT;
-            case DOUBLE:
-                return ADOUBLE;
-            case STRING:
-                return ASTRING;
-            case BINARY:
-                return ABINARY;
-            case MISSING:
-                return AMISSING;
-            case NULL:
-                return ANULL;
-            case BOOLEAN:
-                return ABOOLEAN;
-            case TIME:
-                return ATIME;
-            case DATE:
-                return ADATE;
-            case DATETIME:
-                return ADATETIME;
-            case DURATION:
-                return ADURATION;
-            case YEARMONTHDURATION:
-                return AYEARMONTHDURATION;
-            case DAYTIMEDURATION:
-                return ADAYTIMEDURATION;
-            case INTERVAL:
-                return AINTERVAL;
-            case POINT:
-                return APOINT;
-            case POINT3D:
-                return APOINT3D;
-            case LINE:
-                return ALINE;
-            case POLYGON:
-                return APOLYGON;
-            case GEOMETRY:
-                return AGEOMETRY;
-            case CIRCLE:
-                return ACIRCLE;
-            case RECTANGLE:
-                return ARECTANGLE;
-            case BITARRAY:
-            case UUID:
-                return AUUID;
-            case ANY:
-                return ANY;
-            case SHORTWITHOUTTYPEINFO:
-                return SHORTWITHOUTTYPEINFO;
-            case ARRAY:
-                return NESTED_OPEN_AORDERED_LIST_TYPE;
-            case MULTISET:
-                return NESTED_OPEN_AORDERED_LIST_TYPE;
-            case OBJECT:
-                return NESTED_OPEN_RECORD_TYPE;
             default:
                 throw new UnsupportedOperationException(typeTag.toString());
         }

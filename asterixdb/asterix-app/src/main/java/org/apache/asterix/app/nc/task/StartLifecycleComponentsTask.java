@@ -18,6 +18,7 @@
  */
 package org.apache.asterix.app.nc.task;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -58,7 +59,11 @@ public class StartLifecycleComponentsTask implements INCLifecycleTask {
             LOGGER.info("Configured:" + lccm);
         }
         serviceCtx.setStateDumpHandler(new AsterixStateDumpHandler(serviceCtx.getNodeId(), lccm.getDumpPath(), lccm));
-        lccm.startAll();
+        try {
+            lccm.startAll();
+        } catch (IOException e) {
+            throw new HyracksDataException("Failed to start lifecycle component", e);
+        }
     }
 
     @Override

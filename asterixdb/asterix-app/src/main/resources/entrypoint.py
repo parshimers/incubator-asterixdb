@@ -38,6 +38,7 @@ class MessageType(IntEnum):
     INIT_RSP = 3
     CALL = 4
     CALL_RSP = 5
+    ERROR = 6
 
 
 class MessageFlags(IntEnum):
@@ -149,6 +150,22 @@ class Wrapper(object):
         self.packer.reset()
         return True
 
+    def handle_error(self,e):
+        self.flag = MessageFlags.ERROR
+        result = str(e)
+        self.packer.reset()
+        self.response_buf.seek(0)
+        body = msgpack.packb(result)
+        dlen = len(body)+1  # 1 for tag
+        resp_len = self.write_header(self.response_buf, dlen)
+        self.packer.pack(int(MessageType.ERROR))
+        self.response_buf.write(self.packer.bytes())
+        self.response_buf.write(body)
+        self.resp = self.response_buf.getbuffer()[0:resp_len]
+        self.send_msg()
+        self.packer.reset()
+        return True
+
     type_handler = {
         MessageType.HELO: helo,
         MessageType.QUIT: quit,
@@ -171,17 +188,20 @@ class Wrapper(object):
         completed = False
         while not completed and self.alive:
             readbuf = sys.stdin.buffer.read1(4096)
-            if(len(readbuf) < REAL_HEADER_SZ):
-                while(len(readbuf) < REAL_HEADER_SZ):
-                    readbuf += sys.stdin.buffer.read1(4096)
-            self.read_header(readbuf)
-            if(self.sz > len(readbuf)):
-                while(len(readbuf) < self.sz):
-                    readbuf += sys.stdin.buffer.read1(4096)
-            self.unpacker.feed(readbuf[21:])
-            self.unpacked_msg = list(self.unpacker)
-            self.type = MessageType(self.unpacked_msg[0])
-            completed = self.type_handler[self.type](self)
+            try:
+                if(len(readbuf) < REAL_HEADER_SZ):
+                    while(len(readbuf) < REAL_HEADER_SZ):
+                        readbuf += sys.stdin.buffer.read1(4096)
+                self.read_header(readbuf)
+                if(self.sz > len(readbuf)):
+                    while(len(readbuf) < self.sz):
+                        readbuf += sys.stdin.buffer.read1(4096)
+                self.unpacker.feed(readbuf[21:])
+                self.unpacked_msg = list(self.unpacker)
+                self.type = MessageType(self.unpacked_msg[0])
+                completed = self.type_handler[self.type](self)
+            except BaseException as e:
+                self.handle_error(e)
 
     def send_msg(self):
         self.sock.sendall(self.resp)

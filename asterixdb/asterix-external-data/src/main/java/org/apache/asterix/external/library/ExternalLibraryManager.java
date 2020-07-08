@@ -147,8 +147,8 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
 
     @Override
     public void start() throws IOException {
-        pythonIPC = new IPCSystem(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), PlainSocketChannelFactory.INSTANCE, router,
-                new ExternalFunctionResultRouter.NoOpNoSerJustDe());
+        pythonIPC = new IPCSystem(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                PlainSocketChannelFactory.INSTANCE, router, new ExternalFunctionResultRouter.NoOpNoSerJustDe());
         pythonIPC.start();
     }
 
@@ -312,8 +312,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         return pythonIPC;
     }
 
-
-        private static final class DeleteDirectoryWork extends AbstractWork {
+    private static final class DeleteDirectoryWork extends AbstractWork {
 
         private final Path path;
 

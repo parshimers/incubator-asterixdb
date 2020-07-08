@@ -36,7 +36,6 @@ import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
-import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
@@ -90,7 +89,6 @@ public interface INcApplicationContext extends IApplicationContext {
      * @throws RemoteException
      */
     void exportMetadataNodeStub() throws RemoteException;
-
 
     /**
      * Initializes the metadata node and bootstraps the metadata.

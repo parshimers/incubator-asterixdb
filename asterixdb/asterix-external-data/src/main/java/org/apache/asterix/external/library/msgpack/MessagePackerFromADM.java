@@ -41,8 +41,8 @@ import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AUnionType;
 import org.apache.asterix.om.types.AbstractCollectionType;
-import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
 import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -56,7 +56,7 @@ import org.apache.hyracks.data.std.primitive.LongPointable;
 import org.apache.hyracks.data.std.primitive.ShortPointable;
 import org.apache.hyracks.util.string.UTF8StringUtil;
 
-public class MessagePacker {
+public class MessagePackerFromADM {
 
     private static final int TYPE_TAG_SIZE = 1;
     private static final int TYPE_SIZE = 1;
@@ -225,7 +225,7 @@ public class MessagePacker {
                 int itemOffs =
                         offs + IntegerPointable.getInteger(in, itemCtOffs + ITEM_COUNT_SIZE + (i * ITEM_OFFSET_SIZE));
                 ATypeTag tag = ATypeTag.VALUE_TYPE_MAPPING[BytePointable.getByte(in, itemOffs)];
-                pack(in, itemOffs, BuiltinType.fromTypeTag(tag), true, out);
+                pack(in, itemOffs, TypeTagUtil.getBuiltinTypeByTag(tag), true, out);
             }
         }
     }
@@ -245,8 +245,8 @@ public class MessagePacker {
             for (int i = 0; i < RecordUtils.getOpenFieldCount(in, offs, recType); i++) {
                 packStr(in, RecordUtils.getOpenFieldNameOffset(in, offs, recType, i), out);
                 ATypeTag tag = ATypeTag.VALUE_TYPE_MAPPING[RecordUtils.getOpenFieldTag(in, offs, recType, i)];
-                pack(in, RecordUtils.getOpenFieldValueOffset(in, offs, recType, i), BuiltinType.fromTypeTag(tag), true,
-                        out);
+                pack(in, RecordUtils.getOpenFieldValueOffset(in, offs, recType, i),
+                        TypeTagUtil.getBuiltinTypeByTag(tag), true, out);
             }
         }
 

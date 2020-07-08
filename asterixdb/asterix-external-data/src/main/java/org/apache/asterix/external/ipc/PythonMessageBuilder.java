@@ -22,11 +22,12 @@ import static org.msgpack.core.MessagePack.Code.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import org.apache.asterix.external.library.msgpack.MessagePacker;
+import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
 
 public class PythonMessageBuilder {
     private static final int MAX_BUF_SIZE = 21 * 1024 * 1024; //21MB.
@@ -46,7 +47,7 @@ public class PythonMessageBuilder {
     }
 
     public void packHeader() {
-        MessagePacker.packFixPos(buf, type.getValue());
+        MessagePackerFromADM.packFixPos(buf, (byte) type.ordinal());
     }
 
     //TODO: this is wrong for any multibyte chars
@@ -61,7 +62,7 @@ public class PythonMessageBuilder {
 
     public void hello() {
         this.type = MessageType.HELO;
-        byte[] serAddr = serialize(new InetSocketAddress("127.0.0.1", 1));
+        byte[] serAddr = serialize(new InetSocketAddress(InetAddress.getLoopbackAddress(), 1));
         dataLength = serAddr.length + 5;
         packHeader();
         //TODO:make this cleaner
@@ -74,7 +75,7 @@ public class PythonMessageBuilder {
         this.type = MessageType.QUIT;
         dataLength = getStringLength("QUIT");
         packHeader();
-        MessagePacker.packFixStr(buf, "QUIT");
+        MessagePackerFromADM.packFixStr(buf, "QUIT");
     }
 
     public void init(String module, String clazz, String fn) {
@@ -84,9 +85,9 @@ public class PythonMessageBuilder {
         initAry[2] = fn;
         dataLength = Arrays.stream(initAry).mapToInt(s -> getStringLength(s)).sum() + 2;
         packHeader();
-        MessagePacker.packFixArrayHeader(buf, (byte) initAry.length);
+        MessagePackerFromADM.packFixArrayHeader(buf, (byte) initAry.length);
         for (String s : initAry) {
-            MessagePacker.packStr(buf, s);
+            MessagePackerFromADM.packStr(buf, s);
         }
     }
 

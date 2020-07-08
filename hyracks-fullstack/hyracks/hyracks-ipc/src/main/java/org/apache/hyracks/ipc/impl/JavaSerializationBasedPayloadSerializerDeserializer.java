@@ -33,7 +33,7 @@ import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 public class JavaSerializationBasedPayloadSerializerDeserializer implements IPayloadSerializerDeserializer {
 
     @Override
-    public Object deserializeObject(ByteBuffer buffer, int length) throws Exception {
+    public Object deserializeObject(ByteBuffer buffer, int length, byte flag) throws Exception {
         return deserialize(buffer, length);
     }
 
@@ -50,11 +50,6 @@ public class JavaSerializationBasedPayloadSerializerDeserializer implements IPay
     @Override
     public byte[] serializeException(Exception exception) throws Exception {
         return serialize(exception);
-    }
-
-    @Override
-    public Object deserializeControlObject(ByteBuffer buffer, int length) throws Exception {
-        return deserializeObject(buffer, length);
     }
 
     public static void serialize(OutputStream out, Object object) throws IOException {

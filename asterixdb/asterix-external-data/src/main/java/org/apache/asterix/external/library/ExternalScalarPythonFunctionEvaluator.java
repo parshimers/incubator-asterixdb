@@ -30,14 +30,15 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.exceptions.WarningUtil;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.api.IJObject;
-import org.apache.asterix.external.ipc.PythonIPCProto;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
-import org.apache.asterix.external.library.msgpack.MessagePacker;
-import org.apache.asterix.external.library.msgpack.MessageUnpacker;
+import org.apache.asterix.external.ipc.PythonIPCProto;
+import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
+import org.apache.asterix.external.library.msgpack.MessageUnpackerToADM;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
@@ -52,9 +53,9 @@ import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.IWarningCollector;
+import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.resources.IDeallocatable;
-import org.apache.hyracks.api.util.ErrorMessageUtil;
 import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.api.IValueReference;
@@ -82,15 +83,15 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final IPointable[] argValues;
 
     ExternalScalarPythonFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
-            IAType[] argTypes, IEvaluatorContext ctx) throws HyracksDataException {
+            IAType[] argTypes, IEvaluatorContext ctx, SourceLocation sourceLoc) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
 
         File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
         DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
             libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, router, ipcSys,
-                    pythonPath, ctx.getTaskContext(), ctx.getWarningCollector());
-        } catch (IOException | InterruptedException e) {
+                    pythonPath, ctx.getTaskContext(), ctx.getWarningCollector(), sourceLoc);
+        } catch (IOException | AsterixException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
         argValues = new IPointable[args.length];
@@ -137,10 +138,11 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         String fn;
         TaskAttemptId task;
         IWarningCollector warningCollector;
+        SourceLocation sourceLoc;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
-                                       ILibraryManager libMgr, File pythonHome, ExternalFunctionResultRouter router, IPCSystem ipcSys,
-                                       TaskAttemptId task, IWarningCollector warningCollector) {
+                ILibraryManager libMgr, File pythonHome, ExternalFunctionResultRouter router, IPCSystem ipcSys,
+                TaskAttemptId task, IWarningCollector warningCollector, SourceLocation sourceLoc) {
             super(jobId, evaluatorId);
             this.finfo = finfo;
             this.libMgr = libMgr;
@@ -181,13 +183,19 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 proto.helo();
                 proto.init(packageModule, clazz, fn);
             } catch (Exception e) {
-                throw AsterixException.create(ErrorCode.LOCAL_NETWORK_ERROR,e);
+                throw AsterixException.create(ErrorCode.LOCAL_NETWORK_ERROR, e);
             }
         }
 
         ByteBuffer callPython(ByteBuffer arguments, int numArgs) throws Exception {
-            return proto.call(arguments, numArgs);
-
+            ByteBuffer ret = null;
+            try {
+                ret = proto.call(arguments, numArgs);
+            } catch (AsterixException e) {
+                warningCollector.warn(WarningUtil.forAsterix(sourceLoc,
+                        org.apache.asterix.common.exceptions.ErrorCode.EXTERNAL_UDF_RESULT_TYPE_ERROR, e.getMessage()));
+            }
+            return ret;
         }
 
         @Override
@@ -205,15 +213,16 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
 
         private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo,
-                                                          ILibraryManager libMgr, ExternalFunctionResultRouter router, IPCSystem ipcSys, File pythonHome,
-                                                          IHyracksTaskContext ctx, IWarningCollector warningCollector) throws IOException, InterruptedException {
+                ILibraryManager libMgr, ExternalFunctionResultRouter router, IPCSystem ipcSys, File pythonHome,
+                IHyracksTaskContext ctx, IWarningCollector warningCollector, SourceLocation sourceLoc)
+                throws IOException, AsterixException {
             PythonLibraryEvaluatorId evaluatorId = new PythonLibraryEvaluatorId(dataverseName, finfo.getLibrary());
             PythonLibraryEvaluator evaluator = (PythonLibraryEvaluator) ctx.getStateObject(evaluatorId);
             if (evaluator == null) {
                 evaluator = new PythonLibraryEvaluator(ctx.getJobletContext().getJobId(), evaluatorId, finfo, libMgr,
-                        pythonHome, router, ipcSys, ctx.getTaskAttemptId(), warningCollector);
-                evaluator.initialize();
+                        pythonHome, router, ipcSys, ctx.getTaskAttemptId(), warningCollector, sourceLoc);
                 ctx.registerDeallocatable(evaluator);
+                evaluator.initialize();
                 ctx.setStateObject(evaluator);
             }
             return evaluator;
@@ -256,7 +265,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 pointy.set(valueReference);
                 ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-                MessagePacker.pack(valueReference, rtType, argHolder);
+                MessagePackerFromADM.pack(valueReference, rtType, argHolder);
                 break;
             default:
                 throw new IllegalArgumentException("NYI");
@@ -267,7 +276,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         //TODO: output wrapper needs to grow with result wrapper
         outputWrapper.clear();
         outputWrapper.position(0);
-        MessageUnpacker.unpack(resultWrapper, outputWrapper, true);
+        MessageUnpackerToADM.unpack(resultWrapper, outputWrapper, true);
         try {
             out.write(outputWrapper.array(), 0, outputWrapper.position() + outputWrapper.arrayOffset());
         } catch (IOException e) {

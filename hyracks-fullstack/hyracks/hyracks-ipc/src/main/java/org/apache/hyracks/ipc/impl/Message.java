@@ -113,10 +113,8 @@ public class Message {
             switch (flag) {
                 case NORMAL:
                 case INITIAL_ACK:
-                    payload = serde.deserializeObject(buffer, length);
-                    break;
                 case INITIAL_REQ:
-                    payload = serde.deserializeControlObject(buffer, length);
+                    payload = serde.deserializeObject(buffer, length, flag);
                     break;
                 case ERROR:
                     payload = serde.deserializeException(buffer, length);

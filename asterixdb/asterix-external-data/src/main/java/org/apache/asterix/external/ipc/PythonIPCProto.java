@@ -16,7 +16,6 @@
  */
 package org.apache.asterix.external.ipc;
 
-import static java.lang.Thread.sleep;
 import static org.apache.hyracks.ipc.impl.Message.HEADER_SIZE;
 
 import java.io.IOException;
@@ -24,14 +23,14 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Exchanger;
 
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.Message;
+import org.msgpack.core.MessagePack;
 
 public class PythonIPCProto {
 
-    public static final byte VERSION = 1;
-    public static final int MAX_BUF_SIZE = 21 * 1024 * 1024;
     public PythonMessageBuilder send;
     public PythonMessageBuilder recv;
     OutputStream sockOut;
@@ -44,7 +43,8 @@ public class PythonIPCProto {
     Long key;
     Exchanger<ByteBuffer> routerExch = new Exchanger<>();
 
-    public PythonIPCProto(OutputStream sockOut, ExternalFunctionResultRouter router, IPCSystem ipcSys) throws IOException {
+    public PythonIPCProto(OutputStream sockOut, ExternalFunctionResultRouter router, IPCSystem ipcSys)
+            throws IOException {
         this.sockOut = sockOut;
         send = new PythonMessageBuilder();
         recv = new PythonMessageBuilder();
@@ -64,7 +64,6 @@ public class PythonIPCProto {
         send.buf.position(0);
         send.hello();
         sendMsg();
-        Thread.sleep(300);
     }
 
     public void init(String module, String clazz, String fn) throws Exception {
@@ -102,7 +101,7 @@ public class PythonIPCProto {
     public void receiveMsg() throws Exception {
         try {
             ByteBuffer swap = routerExch.exchange(recvBuffer);
-            if(swap == null){
+            if (swap == null) {
                 Exception e = router.getException(key);
             }
             recvBuffer = swap;
@@ -111,6 +110,9 @@ public class PythonIPCProto {
             e.printStackTrace();
         }
         recv.readHead(recvBuffer);
+        if (recv.type == MessageType.ERROR) {
+            throw new AsterixException(MessagePack.newDefaultUnpacker(recv.buf).unpackString());
+        }
     }
 
     public void sendMsg() throws Exception {

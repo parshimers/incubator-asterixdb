@@ -76,8 +76,6 @@ public class IPCConnectionManager {
 
     private volatile boolean stopped;
 
-    private boolean blind = false;
-
     private final ISocketChannelFactory socketChannelFactory;
 
     IPCConnectionManager(IPCSystem system, InetSocketAddress socketAddress, ISocketChannelFactory socketChannelFactory)
@@ -97,12 +95,6 @@ public class IPCConnectionManager {
         workingPendingConnections = new ArrayList<>();
         sendList = new ArrayList<>();
         workingSendList = new ArrayList<>();
-    }
-
-    IPCConnectionManager(IPCSystem system, InetSocketAddress socketAddress, ISocketChannelFactory socketChannelFactory,
-            boolean blind) throws IOException {
-        this(system, socketAddress, socketChannelFactory);
-        this.blind = blind;
     }
 
     InetSocketAddress getAddress() {
@@ -541,11 +533,7 @@ public class IPCConnectionManager {
 
         private void connectionReceived(ISocketChannel channel, SelectionKey channelKey) {
             final IPCHandle handle = new IPCHandle(system, null);
-            if (blind) {
-                handle.setState(HandleState.CONNECTED);
-            } else {
-                handle.setState(HandleState.CONNECT_RECEIVED);
-            }
+            handle.setState(HandleState.CONNECT_RECEIVED);
             handle.setSocketChannel(channel);
             handle.setKey(channelKey);
             channelKey.attach(handle);
