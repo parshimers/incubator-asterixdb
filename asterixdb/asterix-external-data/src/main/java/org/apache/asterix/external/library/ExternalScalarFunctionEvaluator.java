@@ -21,7 +21,7 @@ package org.apache.asterix.external.library;
 
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
-import org.apache.asterix.external.ipc.PythonResultRouter;
+import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
@@ -36,7 +36,7 @@ public abstract class ExternalScalarFunctionEvaluator implements IScalarEvaluato
     protected final IScalarEvaluator[] argEvals;
     protected final IAType[] argTypes;
     protected final ILibraryManager libraryManager;
-    protected final PythonResultRouter router;
+    protected final ExternalFunctionResultRouter router;
     protected final IPCSystem ipcSys;
 
     public ExternalScalarFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
@@ -49,9 +49,7 @@ public abstract class ExternalScalarFunctionEvaluator implements IScalarEvaluato
         }
         libraryManager =
                 ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getLibraryManager();
-
-        router = ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getRouter();
-
-        ipcSys = ((INcApplicationContext) context.getServiceContext().getApplicationContext()).getIPCI();
+        router = libraryManager.getRouter();
+        ipcSys = libraryManager.getIPCI();
     }
 }

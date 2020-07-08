@@ -19,7 +19,6 @@
 package org.apache.asterix.app.nc;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Arrays;
@@ -61,7 +60,6 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.common.transactions.IRecoveryManagerFactory;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
-import org.apache.asterix.external.ipc.PythonResultRouter;
 import org.apache.asterix.external.library.ExternalLibraryManager;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.MetadataManager;
@@ -91,8 +89,6 @@ import org.apache.hyracks.api.network.INetworkSecurityManager;
 import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.ipc.impl.HyracksConnection;
-import org.apache.hyracks.ipc.impl.IPCSystem;
-import org.apache.hyracks.ipc.sockets.PlainSocketChannelFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
@@ -157,8 +153,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private IReceptionist receptionist;
     private ICacheManager cacheManager;
     private IConfigValidator configValidator;
-    private final PythonResultRouter router;
-    private IPCSystem pythonIPC;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, NCExtensionManager extensionManager,
             IPropertiesFactory propertiesFactory) {
@@ -178,7 +172,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         resourceIdFactory = new GlobalResourceIdFactoryProvider(ncServiceContext).createResourceIdFactory();
         persistedResourceRegistry = ncServiceContext.getPersistedResourceRegistry();
         cacheManager = new CacheManager();
-        router = new PythonResultRouter();
     }
 
     @Override
@@ -266,9 +259,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         libraryManager = new ExternalLibraryManager(ncs, persistedResourceRegistry, appDir);
         libraryManager.initStorage(resetStorageData);
 
-        pythonIPC = new IPCSystem(new InetSocketAddress("127.0.0.1", 0), PlainSocketChannelFactory.INSTANCE, router,
-                new PythonResultRouter.NoOpNoSerJustDe());
-        pythonIPC.start();
 
         /*
          * The order of registration is important. The buffer cache must registered before recovery and transaction
@@ -440,16 +430,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     @Override
     public ILibraryManager getLibraryManager() {
         return libraryManager;
-    }
-
-    @Override
-    public PythonResultRouter getRouter() {
-        return router;
-    }
-
-    @Override
-    public IPCSystem getIPCI() {
-        return pythonIPC;
     }
 
     @Override

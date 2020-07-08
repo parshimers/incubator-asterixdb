@@ -37,14 +37,14 @@ public class PythonIPCProto {
     OutputStream sockOut;
     ByteBuffer headerBuffer = ByteBuffer.allocate(21);
     ByteBuffer recvBuffer = ByteBuffer.allocate(4096);
-    PythonResultRouter router;
+    ExternalFunctionResultRouter router;
     IPCSystem ipcSys;
     Message outMsg;
-    IPayloadSerializerDeserializer serde = new PythonResultRouter.NoOpNoSerJustDe();
-    long key;
+    IPayloadSerializerDeserializer serde = new ExternalFunctionResultRouter.NoOpNoSerJustDe();
+    Long key;
     Exchanger<ByteBuffer> routerExch = new Exchanger<>();
 
-    public PythonIPCProto(OutputStream sockOut, PythonResultRouter router, IPCSystem ipcSys) throws IOException {
+    public PythonIPCProto(OutputStream sockOut, ExternalFunctionResultRouter router, IPCSystem ipcSys) throws IOException {
         this.sockOut = sockOut;
         send = new PythonMessageBuilder();
         recv = new PythonMessageBuilder();
@@ -99,9 +99,12 @@ public class PythonIPCProto {
         router.removeRoute(key);
     }
 
-    public void receiveMsg() throws IOException {
+    public void receiveMsg() throws Exception {
         try {
             ByteBuffer swap = routerExch.exchange(recvBuffer);
+            if(swap == null){
+                Exception e = router.getException(key);
+            }
             recvBuffer = swap;
         } catch (InterruptedException e) {
             //TODO: not this

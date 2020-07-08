@@ -23,18 +23,23 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Exchanger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import it.unimi.dsi.fastutil.Hash;
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.api.exceptions.ErrorCode;
+import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.api.IIPCI;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
 
-public class PythonResultRouter implements IIPCI {
+public class ExternalFunctionResultRouter implements IIPCI {
 
     AtomicLong minId = new AtomicLong(0);
     AtomicLong maxId = new AtomicLong(0);
     ConcurrentHashMap<Long, Pair<Exchanger<ByteBuffer>, ByteBuffer>> activeClients = new ConcurrentHashMap<>();
-    private static int MAX_BUF_SIZE = 21 * 1024 * 1024; //21MB
+    ConcurrentHashMap<Long, Exception> exceptionInbox = new ConcurrentHashMap<>();
+    private static int MAX_BUF_SIZE = 32 * 1024 * 1024; //32MB
 
     @Override
     public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload) {
@@ -47,8 +52,13 @@ public class PythonResultRouter implements IIPCI {
         if (copyTo.capacity() < handle.getAttachmentLen()) {
             int nextSize = closestPow2(handle.getAttachmentLen());
             if (nextSize > MAX_BUF_SIZE) {
-                //TODO: something more graceful
-                throw new IllegalArgumentException("Message too big");
+                exceptionInbox.put(rmid, HyracksException.create(ErrorCode.RECORD_IS_TOO_LARGE));
+                try {
+                    route.first.exchange(null);
+                } catch (InterruptedException e) {
+                    //??
+                }
+                return;
             }
             copyTo = ByteBuffer.allocate(nextSize);
         }
@@ -62,18 +72,27 @@ public class PythonResultRouter implements IIPCI {
             //? duno
         }
         buf.position(end);
-
     }
 
     @Override
     public void onError(IIPCHandle handle, long mid, long rmid, Exception exception) {
-        //TODO: important.
+        exceptionInbox.put(rmid,exception);
+        Pair<Exchanger<ByteBuffer>, ByteBuffer> route = activeClients.get(rmid);
+        try {
+            route.first.exchange(null);
+        } catch (InterruptedException e) {
+            //??
+        }
     }
 
     public Long insertRoute(ByteBuffer buf, Exchanger<ByteBuffer> exch) {
-        long id = maxId.incrementAndGet();
+        Long id = maxId.incrementAndGet();
         activeClients.put(id, new Pair<>(exch, buf));
         return id;
+    }
+
+    public Exception getException(Long id){
+        return exceptionInbox.get(id);
     }
 
     //TODO: make this so you can't overflow the id

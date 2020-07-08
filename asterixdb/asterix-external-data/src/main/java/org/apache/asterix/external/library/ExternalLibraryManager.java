@@ -23,6 +23,8 @@ import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTR
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -34,6 +36,7 @@ import org.apache.asterix.common.library.ILibrary;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -43,6 +46,8 @@ import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 import org.apache.hyracks.api.util.IoUtil;
 import org.apache.hyracks.control.common.work.AbstractWork;
 import org.apache.hyracks.control.nc.NodeControllerService;
+import org.apache.hyracks.ipc.impl.IPCSystem;
+import org.apache.hyracks.ipc.sockets.PlainSocketChannelFactory;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -81,6 +86,8 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     private final FileReference trashDir;
     private final Path trashDirPath;
     private final Map<Pair<DataverseName, String>, ILibrary> libraries = new HashMap<>();
+    private IPCSystem pythonIPC;
+    private final ExternalFunctionResultRouter router;
 
     public ExternalLibraryManager(NodeControllerService ncs, IPersistedResourceRegistry reg, FileReference appDir) {
         this.ncs = ncs;
@@ -91,6 +98,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         trashDir = baseDir.getChild(TRASH_DIR_NAME);
         trashDirPath = trashDir.getFile().toPath().normalize();
         objectMapper = createObjectMapper();
+        router = new ExternalFunctionResultRouter();
     }
 
     public void initStorage(boolean resetStorageData) throws HyracksDataException {
@@ -138,7 +146,10 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     @Override
-    public void start() {
+    public void start() throws IOException {
+        pythonIPC = new IPCSystem(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), PlainSocketChannelFactory.INSTANCE, router,
+                new ExternalFunctionResultRouter.NoOpNoSerJustDe());
+        pythonIPC.start();
     }
 
     @Override
@@ -291,7 +302,18 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         return om;
     }
 
-    private static final class DeleteDirectoryWork extends AbstractWork {
+    @Override
+    public ExternalFunctionResultRouter getRouter() {
+        return router;
+    }
+
+    @Override
+    public IPCSystem getIPCI() {
+        return pythonIPC;
+    }
+
+
+        private static final class DeleteDirectoryWork extends AbstractWork {
 
         private final Path path;
 

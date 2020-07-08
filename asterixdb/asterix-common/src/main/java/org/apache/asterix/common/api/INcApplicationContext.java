@@ -91,9 +91,6 @@ public interface INcApplicationContext extends IApplicationContext {
      */
     void exportMetadataNodeStub() throws RemoteException;
 
-    org.apache.asterix.external.ipc.PythonResultRouter getRouter();
-
-    IPCSystem getIPCI();
 
     /**
      * Initializes the metadata node and bootstraps the metadata.
