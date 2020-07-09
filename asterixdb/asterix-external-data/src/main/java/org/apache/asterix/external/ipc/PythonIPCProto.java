@@ -64,6 +64,10 @@ public class PythonIPCProto {
         send.buf.position(0);
         send.hello();
         sendMsg();
+        receiveMsg();
+        if (getResponseType() != MessageType.HELO) {
+            throw new IllegalStateException("Illegal reply received, expected HELO");
+        }
     }
 
     public void init(String module, String clazz, String fn) throws Exception {
@@ -75,7 +79,7 @@ public class PythonIPCProto {
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.INIT_RSP) {
-            throw new IllegalStateException("Illegal reply recieved, expected INIT_RSP");
+            throw new IllegalStateException("Illegal reply received, expected INIT_RSP");
         }
     }
 
@@ -88,7 +92,7 @@ public class PythonIPCProto {
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
-            throw new IllegalStateException("Illegal reply recieved, expected CALL_RSP, recvd: " + getResponseType());
+            throw new IllegalStateException("Illegal reply received, expected CALL_RSP, recvd: " + getResponseType());
         }
         return recvBuffer;
     }

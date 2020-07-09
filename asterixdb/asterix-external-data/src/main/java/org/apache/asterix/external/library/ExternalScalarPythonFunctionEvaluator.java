@@ -19,17 +19,22 @@
 
 package org.apache.asterix.external.library;
 
+import java.io.BufferedReader;
 import java.io.DataOutput;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.WarningUtil;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -50,7 +55,6 @@ import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
-import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.exceptions.SourceLocation;
@@ -125,6 +129,20 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         result.set(resultBuffer.getByteArray(), resultBuffer.getStartOffset(), resultBuffer.getLength());
     }
 
+    static class StreamGobbler implements Runnable {
+        private InputStream inputStream;
+        private Consumer<String> consumeInputLine;
+
+        public StreamGobbler(InputStream inputStream, Consumer<String> consumeInputLine) {
+            this.inputStream = inputStream;
+            this.consumeInputLine = consumeInputLine;
+        }
+
+        public void run() {
+            new BufferedReader(new InputStreamReader(inputStream)).lines().forEach(consumeInputLine);
+        }
+    }
+
     private static class PythonLibraryEvaluator extends AbstractStateObject implements IDeallocatable {
         Process p;
         IExternalFunctionInfo finfo;
@@ -175,15 +193,18 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
                     PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port));
             pb.directory(new File(wd));
-            pb.environment().clear();
             p = pb.start();
+            StreamGobbler outputGobbler = new StreamGobbler(p.getInputStream(), System.out::println);
+            StreamGobbler errorGobbler = new StreamGobbler(p.getErrorStream(), System.out::println);
+            new Thread(outputGobbler).start();
+            new Thread(errorGobbler).start();
             proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);
             proto.start();
             try {
                 proto.helo();
                 proto.init(packageModule, clazz, fn);
             } catch (Exception e) {
-                throw AsterixException.create(ErrorCode.LOCAL_NETWORK_ERROR, e);
+                throw AsterixException.create(ErrorCode.REQUEST_TIMEOUT, e);
             }
         }
 
@@ -268,7 +289,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 MessagePackerFromADM.pack(valueReference, rtType, argHolder);
                 break;
             default:
-                throw new IllegalArgumentException("NYI");
+                MessagePackerFromADM.pack(valueReference,type,argHolder);
+                break;
         }
     }
 

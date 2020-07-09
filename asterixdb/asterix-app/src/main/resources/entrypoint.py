@@ -102,12 +102,27 @@ class Wrapper(object):
     def get_hlen(self):
         return self.ver_hlen - (PROTO_VERSION << 4)
 
-    def helo(self):
+    def init_remote_ipc(self):
         self.response_buf.seek(0)
         self.flag = MessageFlags.INITIAL_REQ
         dlen = len(self.unpacked_msg[1])
         resp_len = self.write_header(self.response_buf, dlen)
         self.response_buf.write(self.unpacked_msg[1])
+        self.resp = self.response_buf.getbuffer()[0:resp_len]
+        self.send_msg()
+        self.packer.reset()
+
+    def helo(self):
+        #need to ack the connection back before sending actual HELO
+        self.init_remote_ipc()
+
+        self.flag = MessageFlags.NORMAL
+        self.response_buf.seek(0)
+        self.packer.pack(int(MessageType.HELO))
+        self.packer.pack("HELO")
+        dlen = 5 #tag(1) + body(4)
+        resp_len = self.write_header(self.response_buf, dlen)
+        self.response_buf.write(self.packer.bytes())
         self.resp = self.response_buf.getbuffer()[0:resp_len]
         self.send_msg()
         self.packer.reset()
@@ -201,7 +216,7 @@ class Wrapper(object):
                 self.type = MessageType(self.unpacked_msg[0])
                 completed = self.type_handler[self.type](self)
             except BaseException as e:
-                self.handle_error(e)
+                completed = self.handle_error(e)
 
     def send_msg(self):
         self.sock.sendall(self.resp)
