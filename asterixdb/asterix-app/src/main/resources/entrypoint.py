@@ -65,7 +65,7 @@ class Wrapper(object):
         wrapped_fn = None
         if not self.check_module_path(self.wrapped_module):
             wrapped_module = None
-            return None
+            raise ImportError("Module was not found in library")
         if class_name is not None:
             self.wrapped_class = getattr(
                 import_module(module_name), class_name)()
@@ -73,8 +73,9 @@ class Wrapper(object):
             wrapped_fn = getattr(self.wrapped_class, fn_name)
         else:
             wrapped_fn = locals()[fn_name]
+        if wrapped_fn is None:
+            raise ImportError("Could not find class or function in specified module")
         self.wrapped_fns[self.rmid] = wrapped_fn
-        return True
 
     def nextTuple(self, *args, key=None):
         fun = self.wrapped_fns[key]
@@ -133,8 +134,12 @@ class Wrapper(object):
         self.response_buf.seek(0)
         args = self.unpacked_msg[1]
         module = args[0]
-        clazz = args[1]
-        fn = args[2]
+        if len(args) == 3:
+            clazz = args[1]
+            fn = args[2]
+        else:
+            clazz = None
+            fn = args[1]
         self.init(module, clazz, fn)
         self.packer.pack(int(MessageType.INIT_RSP))
         dlen = 1  # just the tag.
@@ -166,8 +171,8 @@ class Wrapper(object):
         return True
 
     def handle_error(self,e):
-        self.flag = MessageFlags.ERROR
-        result = str(e)
+        self.flag = MessageFlags.NORMAL
+        result = type(e).__name__ + ": " + str(e)
         self.packer.reset()
         self.response_buf.seek(0)
         body = msgpack.packb(result)
@@ -216,6 +221,7 @@ class Wrapper(object):
                 self.type = MessageType(self.unpacked_msg[0])
                 completed = self.type_handler[self.type](self)
             except BaseException as e:
+                print("d'oh!")
                 completed = self.handle_error(e)
 
     def send_msg(self):

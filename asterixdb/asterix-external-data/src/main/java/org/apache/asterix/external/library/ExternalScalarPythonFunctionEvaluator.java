@@ -200,12 +200,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             new Thread(errorGobbler).start();
             proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);
             proto.start();
-            try {
-                proto.helo();
-                proto.init(packageModule, clazz, fn);
-            } catch (Exception e) {
-                throw AsterixException.create(ErrorCode.REQUEST_TIMEOUT, e);
-            }
+            proto.helo();
+            proto.init(packageModule, clazz, fn);
         }
 
         ByteBuffer callPython(ByteBuffer arguments, int numArgs) throws Exception {
@@ -213,8 +209,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             try {
                 ret = proto.call(arguments, numArgs);
             } catch (AsterixException e) {
-                warningCollector.warn(WarningUtil.forAsterix(sourceLoc,
-                        org.apache.asterix.common.exceptions.ErrorCode.EXTERNAL_UDF_RESULT_TYPE_ERROR, e.getMessage()));
+                warningCollector
+                        .warn(WarningUtil.forAsterix(sourceLoc, ErrorCode.EXTERNAL_UDF_EXCEPTION, e.getMessage()));
             }
             return ret;
         }
@@ -289,7 +285,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 MessagePackerFromADM.pack(valueReference, rtType, argHolder);
                 break;
             default:
-                MessagePackerFromADM.pack(valueReference,type,argHolder);
+                MessagePackerFromADM.pack(valueReference, type, argHolder);
                 break;
         }
     }

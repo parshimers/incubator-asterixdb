@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.Exchanger;
 
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.Message;
@@ -57,7 +58,7 @@ public class PythonIPCProto {
         this.key = router.insertRoute(ByteBuffer.allocate(1024 * 1024), routerExch);
     }
 
-    public void helo() throws Exception {
+    public void helo() throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
         send.buf.clear();
@@ -70,7 +71,7 @@ public class PythonIPCProto {
         }
     }
 
-    public void init(String module, String clazz, String fn) throws Exception {
+    public void init(String module, String clazz, String fn) throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
         send.buf.clear();
@@ -102,7 +103,7 @@ public class PythonIPCProto {
         router.removeRoute(key);
     }
 
-    public void receiveMsg() throws Exception {
+    public void receiveMsg() throws IOException, AsterixException {
         try {
             ByteBuffer swap = routerExch.exchange(recvBuffer);
             if (swap == null) {
@@ -115,11 +116,12 @@ public class PythonIPCProto {
         }
         recv.readHead(recvBuffer);
         if (recv.type == MessageType.ERROR) {
-            throw new AsterixException(MessagePack.newDefaultUnpacker(recv.buf).unpackString());
+            throw new AsterixException(ErrorCode.EXTERNAL_UDF_EXCEPTION,
+                    MessagePack.newDefaultUnpacker(recvBuffer).unpackString());
         }
     }
 
-    public void sendMsg() throws Exception {
+    public void sendMsg() throws IOException {
         headerBuffer.clear();
         headerBuffer.position(0);
         headerBuffer.putInt(HEADER_SIZE + send.buf.position());
