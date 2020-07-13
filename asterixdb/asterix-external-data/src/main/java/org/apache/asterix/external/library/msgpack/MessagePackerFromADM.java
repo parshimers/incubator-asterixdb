@@ -102,6 +102,7 @@ public class MessagePackerFromADM {
                 packDouble(out, DoublePointable.getDouble(ptr, relOffs));
                 break;
             case ARRAY:
+            case MULTISET:
                 packArray(ptr, offs, type, out);
                 break;
             case OBJECT:

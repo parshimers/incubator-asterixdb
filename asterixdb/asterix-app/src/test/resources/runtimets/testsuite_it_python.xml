@@ -35,5 +35,10 @@
         <expected-error>ImportError: Module was not found in library</expected-error>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="external-library">
+      <compilation-unit name="py_bigobj_roundtrip">
+        <output-dir compare="Text">py_bigobj_roundtrip</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
 </test-suite>

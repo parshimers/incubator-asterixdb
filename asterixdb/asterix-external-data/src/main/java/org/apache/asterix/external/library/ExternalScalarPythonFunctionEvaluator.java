@@ -26,9 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -39,7 +37,6 @@ import org.apache.asterix.common.exceptions.WarningUtil;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
-import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
 import org.apache.asterix.external.ipc.PythonIPCProto;
 import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
@@ -49,8 +46,6 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
-import org.apache.asterix.om.util.container.IObjectPool;
-import org.apache.asterix.om.util.container.ListObjectPool;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -77,8 +72,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     private final ByteBuffer argHolder;
     private final ByteBuffer outputWrapper;
-    private final IObjectPool<IJObject, IAType> reflectingPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
-    private final Map<IAType, TypeInfo> infoPool = new HashMap<>();
     private final IEvaluatorContext evaluatorContext;
     private static final String ENTRYPOINT = "entrypoint.py";
     private static final String PY_NO_SITE_PKGS_OPT = "-S";
@@ -103,8 +96,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             argValues[i] = VoidPointable.FACTORY.createPointable();
         }
         //TODO: these should be dynamic
-        this.argHolder = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
-        this.outputWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE]);
+        this.argHolder = ByteBuffer.wrap(new byte[Short.MAX_VALUE*2]);
+        this.outputWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE*2]);
         this.evaluatorContext = ctx;
     }
 

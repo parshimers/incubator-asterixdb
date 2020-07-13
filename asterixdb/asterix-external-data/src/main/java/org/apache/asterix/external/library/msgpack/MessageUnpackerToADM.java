@@ -223,7 +223,7 @@ public class MessageUnpackerToADM {
             out.putInt(0xFFFF);
         }
         for (int i = 0; i < count; i++) {
-            out.putInt(slotStartOffs + (i * 4), (out.position() - offs) + Integer.BYTES);
+            out.putInt(slotStartOffs + (i * 4), (out.position() - offs));
             unpack(in, out, true);
         }
         int totalLen = out.position() - offs;
@@ -254,10 +254,10 @@ public class MessageUnpackerToADM {
             int offs = out.position();
             int relOffs = offs - startOffs;
             unpack(in, out, false);
+            out.putInt(offsetAryPos, relOffs);
+            offsetAryPos += 4;
             int hash = UTF8StringUtil.hash(out.array(), offs);
             out.putInt(offsetAryPos, hash);
-            offsetAryPos += 4;
-            out.putInt(offsetAryPos, relOffs);
             unpack(in, out, true);
         }
         out.putInt(totalSizeOffs, out.position() - startOffs);
