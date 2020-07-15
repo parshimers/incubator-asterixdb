@@ -39,5 +39,10 @@
         <output-dir compare="Clean-JSON">py_nested_access</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="external-library">
+      <compilation-unit name="py_function_error">
+        <output-dir compare="Clean-JSON">py_function_error</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
 </test-suite>
