@@ -96,8 +96,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             argValues[i] = VoidPointable.FACTORY.createPointable();
         }
         //TODO: these should be dynamic
-        this.argHolder = ByteBuffer.wrap(new byte[Short.MAX_VALUE*2]);
-        this.outputWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE*2]);
+        this.argHolder = ByteBuffer.wrap(new byte[Short.MAX_VALUE * 2]);
+        this.outputWrapper = ByteBuffer.wrap(new byte[Short.MAX_VALUE * 2]);
         this.evaluatorContext = ctx;
     }
 
