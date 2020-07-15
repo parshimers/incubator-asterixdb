@@ -36,6 +36,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="external-library">
+      <compilation-unit name="py_nested_access">
+        <output-dir compare="Clean-JSON">py_nested_access</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="external-library">
       <compilation-unit name="py_bigobj_roundtrip">
         <output-dir compare="Text">py_bigobj_roundtrip</output-dir>
       </compilation-unit>

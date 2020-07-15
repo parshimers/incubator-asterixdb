@@ -16,9 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-use externallibtest;
 
+use test;
 
-select value o from testds d
-order by d.id
-let o = roundtrip(d)[0][0];
+create function roundtrip(s) language python as "testlib","roundtrip:Tests";

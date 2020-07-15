@@ -251,13 +251,14 @@ public class MessageUnpackerToADM {
             out.putInt(0xDEADBEEF);
         }
         for (int i = 0; i < count; i++) {
-            int offs = out.position();
+            int offs = out.position()+out.arrayOffset();
             int relOffs = offs - startOffs;
             unpack(in, out, false);
-            out.putInt(offsetAryPos, relOffs);
-            offsetAryPos += 4;
             int hash = UTF8StringUtil.hash(out.array(), offs);
             out.putInt(offsetAryPos, hash);
+            offsetAryPos += 4;
+            out.putInt(offsetAryPos, relOffs);
+            offsetAryPos+=4;
             unpack(in, out, true);
         }
         out.putInt(totalSizeOffs, out.position() - startOffs);

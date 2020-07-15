@@ -16,9 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-use externallibtest;
+/*
+* Description  : Access a records nested records at each level.
+* Expected Res : Success
+* Date         : 04 Jun 2015
+*/
+
+use test;
 
 
-select value o from testds d
-order by d.id
-let o = roundtrip(d)[0][0];
+load  dataset Animals using localfs ((`path`=`asterix_nc1://data/classifications/animals.adm`),(`format`=`adm`));
+
