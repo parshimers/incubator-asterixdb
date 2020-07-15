@@ -24,7 +24,7 @@
              QueryFileExtension=".sqlpp">
 
   <test-group name="external-library-python">
-    <test-case FilePath="external-library">
+    <!--test-case FilePath="external-library">
       <compilation-unit name="mysentiment">
         <output-dir compare="Text">mysentiment</output-dir>
       </compilation-unit>
@@ -34,15 +34,15 @@
         <output-dir compare="Text">python-fn-escape</output-dir>
         <expected-error>ImportError: Module was not found in library</expected-error>
       </compilation-unit>
-    </test-case>
-    <test-case FilePath="external-library">
+    </test-case-->
+    <!--test-case FilePath="external-library">
       <compilation-unit name="py_nested_access">
         <output-dir compare="Clean-JSON">py_nested_access</output-dir>
       </compilation-unit>
-    </test-case>
+    </test-case-->
     <test-case FilePath="external-library">
       <compilation-unit name="py_bigobj_roundtrip">
-        <output-dir compare="Text">py_bigobj_roundtrip</output-dir>
+        <output-dir compare="Clean-JSON">py_bigobj_roundtrip</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>

@@ -21,12 +21,11 @@
 * Expected Res : Success
 * Date         : 04 Jun 2015
 */
-
 use test;
 
-
+select value [(
 select element result
 from  Animals as test
 with  result as roundtrip(test)[0][0].class.fullClassification.lower.lower.lower.lower.lower.lower
-order by result.id
+order by result.id )][0]
 ;

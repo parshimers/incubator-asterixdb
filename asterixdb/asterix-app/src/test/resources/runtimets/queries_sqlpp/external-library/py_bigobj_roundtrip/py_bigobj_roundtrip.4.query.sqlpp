@@ -18,7 +18,8 @@
  */
 use externallibtest;
 
+SET `compiler.sortmemory` "32MB";
 
-select value o from testds d
-order by d.id
-let o = roundtrip(d)[0][0];
+select value roundtrip(d)[0][0] from testds d
+let o = roundtrip(d)[0][0]
+order by o.name desc, o.id;
