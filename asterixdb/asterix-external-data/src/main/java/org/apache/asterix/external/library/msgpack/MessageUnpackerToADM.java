@@ -23,13 +23,12 @@ import java.nio.ByteBuffer;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.util.encoding.VarLenIntEncoderDecoder;
 import org.apache.hyracks.util.string.UTF8StringUtil;
-import org.msgpack.value.NilValue;
 
 public class MessageUnpackerToADM {
 
     public static void unpack(ByteBuffer in, ByteBuffer out, boolean tagged) {
         byte tag = NIL;
-        if(in != null) {
+        if (in != null) {
             tag = in.get();
         }
         if (isFixStr(tag)) {

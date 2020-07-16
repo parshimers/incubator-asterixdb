@@ -21,4 +21,4 @@ class Tests(object):
         return args
 
     def warning(self):
-        return ArithmeticError("oof")
+        raise ArithmeticError("oof")

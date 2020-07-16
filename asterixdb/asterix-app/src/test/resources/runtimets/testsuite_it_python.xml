@@ -39,9 +39,10 @@
         <output-dir compare="Clean-JSON">py_nested_access</output-dir>
       </compilation-unit>
     </test-case>
-    <test-case FilePath="external-library">
+    <test-case FilePath="external-library" check-warnings="true">
       <compilation-unit name="py_function_error">
         <output-dir compare="Clean-JSON">py_function_error</output-dir>
+        <expected-warn>ASX0201: External UDF returned exception. Returned exception was: ArithmeticError: oof</expected-warn>
       </compilation-unit>
     </test-case>
   </test-group>

@@ -106,9 +106,13 @@ public class PythonMessageBuilder {
         dataLength = 5 + 1 + lim;
         packHeader();
         //TODO: make this switch between fixarray/array16/array32
-        buf.put(ARRAY32);
-        buf.putInt(numArgs);
-        buf.put(args, 0, lim);
+        if (numArgs == 0) {
+            buf.put(NIL);
+        } else {
+            buf.put(ARRAY32);
+            buf.putInt(numArgs);
+            buf.put(args, 0, lim);
+        }
     }
 
     //this is used to send a serialized java inetaddress to the entrypoint so it can send it back

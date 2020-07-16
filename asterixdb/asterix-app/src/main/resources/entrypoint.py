@@ -78,8 +78,10 @@ class Wrapper(object):
         self.wrapped_fns[self.rmid] = wrapped_fn
 
     def nextTuple(self, *args, key=None):
-        fun = self.wrapped_fns[key]
         return self.wrapped_fns[key](*args)
+
+    def nextTuple(self, key=None):
+        return self.wrapped_fns[key]()
 
     def check_module_path(self, module):
         cwd = Path('.').resolve()
@@ -156,7 +158,12 @@ class Wrapper(object):
 
     def handle_call(self):
         self.flag = MessageFlags.NORMAL
-        result = self.nextTuple(self.unpacked_msg[1], key=self.rmid)
+        args = self.unpacked_msg[1]
+        result = None
+        if args is None:
+            result = self.nextTuple(key=self.rmid)
+        else:
+            result = self.nextTuple(args, key=self.rmid)
         self.packer.reset()
         self.response_buf.seek(0)
         body = msgpack.packb(result)

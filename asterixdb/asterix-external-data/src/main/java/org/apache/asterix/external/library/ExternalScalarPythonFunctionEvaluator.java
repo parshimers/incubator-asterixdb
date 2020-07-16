@@ -162,6 +162,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.task = task;
             this.ipcSys = ipcSys;
             this.warningCollector = warningCollector;
+            this.sourceLoc = sourceLoc;
 
         }
 
