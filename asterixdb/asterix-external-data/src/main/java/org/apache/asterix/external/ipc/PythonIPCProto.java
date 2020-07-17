@@ -25,7 +25,6 @@ import java.util.concurrent.Exchanger;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.hyracks.ipc.api.IPayloadSerializerDeserializer;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.Message;
 import org.msgpack.core.MessagePack;
@@ -40,7 +39,6 @@ public class PythonIPCProto {
     ExternalFunctionResultRouter router;
     IPCSystem ipcSys;
     Message outMsg;
-    IPayloadSerializerDeserializer serde = new ExternalFunctionResultRouter.NoOpNoSerJustDe();
     Long key;
     Exchanger<ByteBuffer> routerExch = new Exchanger<>();
 
@@ -55,12 +53,13 @@ public class PythonIPCProto {
     }
 
     public void start() {
-        this.key = router.insertRoute(ByteBuffer.allocate(1024 * 1024), routerExch);
+        this.key = router.insertRoute(recvBuffer, this::swapBuffer);
     }
 
     public void helo() throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
+        recvBuffer.limit(0);
         send.buf.clear();
         send.buf.position(0);
         send.hello();
@@ -74,6 +73,7 @@ public class PythonIPCProto {
     public void init(String module, String clazz, String fn) throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
+        recvBuffer.limit(0);
         send.buf.clear();
         send.buf.position(0);
         send.init(module, clazz, fn);
@@ -87,6 +87,7 @@ public class PythonIPCProto {
     public ByteBuffer call(ByteBuffer args, int numArgs) throws Exception {
         recvBuffer.clear();
         recvBuffer.position(0);
+        recvBuffer.limit(0);
         send.buf.clear();
         send.buf.position(0);
         send.call(args.array(), args.position(), numArgs);
@@ -104,15 +105,22 @@ public class PythonIPCProto {
     }
 
     public void receiveMsg() throws IOException, AsterixException {
+        Exception except = null;
         try {
-            ByteBuffer swap = routerExch.exchange(recvBuffer);
-            if (swap == null) {
-                Exception e = router.getException(key);
+            synchronized (recvBuffer) {
+                while (recvBuffer.limit() == 0) {
+                    recvBuffer.wait(100);
+                }
             }
-            recvBuffer = swap;
+            if (router.hasException(key)) {
+                except = router.getException(key);
+            }
         } catch (InterruptedException e) {
             //TODO: not this
             e.printStackTrace();
+        }
+        if (except != null) {
+            throw new AsterixException(ErrorCode.EXTERNAL_UDF_EXCEPTION, except);
         }
         recv.readHead(recvBuffer);
         if (recv.type == MessageType.ERROR) {
@@ -135,6 +143,10 @@ public class PythonIPCProto {
 
     public MessageType getResponseType() {
         return recv.type;
+    }
+
+    public void swapBuffer(ByteBuffer fresh) {
+        this.recvBuffer = fresh;
     }
 
 }
