@@ -80,9 +80,6 @@ class Wrapper(object):
     def nextTuple(self, *args, key=None):
         return self.wrapped_fns[key](*args)
 
-    def nextTuple(self, key=None):
-        return self.wrapped_fns[key]()
-
     def check_module_path(self, module):
         cwd = Path('.').resolve()
         module_path = Path(module.__file__).resolve()
