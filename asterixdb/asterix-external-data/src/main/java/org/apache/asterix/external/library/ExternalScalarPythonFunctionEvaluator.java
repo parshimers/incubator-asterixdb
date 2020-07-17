@@ -74,8 +74,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final ByteBuffer outputWrapper;
     private final IEvaluatorContext evaluatorContext;
     private static final String ENTRYPOINT = "entrypoint.py";
-    private static final String PY_NO_SITE_PKGS_OPT = "-S";
-    private static final String PY_NO_USER_PKGS_OPT = "-s";
 
     private final IPointable[] argValues;
 
@@ -184,8 +182,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.clazz = clazz;
             this.module = packageModule;
             int port = ipcSys.getSocketAddress().getPort();
-            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), PY_NO_SITE_PKGS_OPT,
-                    PY_NO_USER_PKGS_OPT, ENTRYPOINT, Integer.toString(port));
+            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), ENTRYPOINT, Integer.toString(port));
             pb.directory(new File(wd));
             p = pb.start();
             StreamGobbler outputGobbler = new StreamGobbler(p.getInputStream(), System.out::println);
