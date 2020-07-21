@@ -18,25 +18,17 @@
 package org.apache.asterix.external.ipc;
 
 public enum MessageType {
-    HELO((byte) 0),
-    QUIT((byte) 1),
-    INIT((byte) 2),
-    INIT_RSP((byte) 3),
-    CALL((byte) 4),
-    CALL_RSP((byte) 5),
-    ERROR((byte) 6);
+    HELO,
+    QUIT,
+    INIT,
+    INIT_RSP,
+    CALL,
+    CALL_RSP,
+    ERROR;
 
-    private final byte msg;
-
-    static final MessageType[] messageTypes = new MessageType[7];
+    static MessageType[] messageTypes;
     static {
-        for (MessageType m : values()) {
-            messageTypes[m.ordinal()] = m;
-        }
-    }
-
-    MessageType(byte b) {
-        this.msg = b;
+        messageTypes = values();
     }
 
     public static MessageType fromByte(byte b) {

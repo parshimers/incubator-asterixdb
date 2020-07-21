@@ -201,7 +201,7 @@ class Wrapper(object):
     def connect_sock(self, sock_name):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self.sock.connect(("127.0.0.1", int(port)))
+            self.sock.connect(("localhost", int(port)))
         except socket.error as msg:
             print(sys.stderr, msg)
 
@@ -226,7 +226,6 @@ class Wrapper(object):
                 self.type = MessageType(self.unpacked_msg[0])
                 completed = self.type_handler[self.type](self)
             except BaseException as e:
-                print("d'oh!")
                 completed = self.handle_error(e)
 
     def send_msg(self):

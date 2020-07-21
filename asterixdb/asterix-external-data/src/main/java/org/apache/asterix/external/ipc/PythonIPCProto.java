@@ -21,7 +21,6 @@ import static org.apache.hyracks.ipc.impl.Message.HEADER_SIZE;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.concurrent.Exchanger;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
@@ -31,8 +30,7 @@ import org.msgpack.core.MessagePack;
 
 public class PythonIPCProto {
 
-    public PythonMessageBuilder send;
-    public PythonMessageBuilder recv;
+    public PythonMessageBuilder messageBuilder;
     OutputStream sockOut;
     ByteBuffer headerBuffer = ByteBuffer.allocate(21);
     ByteBuffer recvBuffer = ByteBuffer.allocate(4096);
@@ -40,29 +38,27 @@ public class PythonIPCProto {
     IPCSystem ipcSys;
     Message outMsg;
     Long key;
-    Exchanger<ByteBuffer> routerExch = new Exchanger<>();
 
     public PythonIPCProto(OutputStream sockOut, ExternalFunctionResultRouter router, IPCSystem ipcSys)
             throws IOException {
         this.sockOut = sockOut;
-        send = new PythonMessageBuilder();
-        recv = new PythonMessageBuilder();
+        messageBuilder = new PythonMessageBuilder();
         this.router = router;
         this.ipcSys = ipcSys;
         this.outMsg = new Message(null);
     }
 
     public void start() {
-        this.key = router.insertRoute(recvBuffer, this::swapBuffer);
+        this.key = router.insertRoute(recvBuffer);
     }
 
     public void helo() throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
         recvBuffer.limit(0);
-        send.buf.clear();
-        send.buf.position(0);
-        send.hello();
+        messageBuilder.buf.clear();
+        messageBuilder.buf.position(0);
+        messageBuilder.hello();
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.HELO) {
@@ -74,9 +70,9 @@ public class PythonIPCProto {
         recvBuffer.clear();
         recvBuffer.position(0);
         recvBuffer.limit(0);
-        send.buf.clear();
-        send.buf.position(0);
-        send.init(module, clazz, fn);
+        messageBuilder.buf.clear();
+        messageBuilder.buf.position(0);
+        messageBuilder.init(module, clazz, fn);
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.INIT_RSP) {
@@ -88,9 +84,9 @@ public class PythonIPCProto {
         recvBuffer.clear();
         recvBuffer.position(0);
         recvBuffer.limit(0);
-        send.buf.clear();
-        send.buf.position(0);
-        send.call(args.array(), args.position(), numArgs);
+        messageBuilder.buf.clear();
+        messageBuilder.buf.position(0);
+        messageBuilder.call(args.array(), args.position(), numArgs);
         sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
@@ -100,7 +96,7 @@ public class PythonIPCProto {
     }
 
     public void quit() throws IOException {
-        send.quit();
+        messageBuilder.quit();
         router.removeRoute(key);
     }
 
@@ -116,14 +112,14 @@ public class PythonIPCProto {
                 except = router.getException(key);
             }
         } catch (InterruptedException e) {
-            //TODO: not this
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
+            throw new AsterixException(ErrorCode.EXTERNAL_UDF_EXCEPTION, e);
         }
         if (except != null) {
             throw new AsterixException(ErrorCode.EXTERNAL_UDF_EXCEPTION, except);
         }
-        recv.readHead(recvBuffer);
-        if (recv.type == MessageType.ERROR) {
+        messageBuilder.readHead(recvBuffer);
+        if (messageBuilder.type == MessageType.ERROR) {
             throw new AsterixException(ErrorCode.EXTERNAL_UDF_EXCEPTION,
                     MessagePack.newDefaultUnpacker(recvBuffer).unpackString());
         }
@@ -132,21 +128,17 @@ public class PythonIPCProto {
     public void sendMsg() throws IOException {
         headerBuffer.clear();
         headerBuffer.position(0);
-        headerBuffer.putInt(HEADER_SIZE + send.buf.position());
+        headerBuffer.putInt(HEADER_SIZE + messageBuilder.buf.position());
         headerBuffer.putLong(-1);
         headerBuffer.putLong(key);
         headerBuffer.put(Message.NORMAL);
         sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
-        sockOut.write(send.buf.array(), 0, send.buf.position());
+        sockOut.write(messageBuilder.buf.array(), 0, messageBuilder.buf.position());
         sockOut.flush();
     }
 
     public MessageType getResponseType() {
-        return recv.type;
-    }
-
-    public void swapBuffer(ByteBuffer fresh) {
-        this.recvBuffer = fresh;
+        return messageBuilder.type;
     }
 
 }

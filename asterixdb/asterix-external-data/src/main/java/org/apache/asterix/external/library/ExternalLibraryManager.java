@@ -101,8 +101,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         router = new ExternalFunctionResultRouter();
     }
 
-    public void initStorage(boolean resetStorageData) throws HyracksDataException {
+    public void initialize(boolean resetStorageData) throws HyracksDataException {
         try {
+            pythonIPC = new IPCSystem(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                    PlainSocketChannelFactory.INSTANCE, router, new ExternalFunctionResultRouter.NoOpNoSerJustDe());
+            pythonIPC.start();
             Path baseDirPath = baseDir.getFile().toPath();
             if (Files.isDirectory(baseDirPath)) {
                 if (resetStorageData) {
@@ -146,10 +149,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     @Override
-    public void start() throws IOException {
-        pythonIPC = new IPCSystem(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
-                PlainSocketChannelFactory.INSTANCE, router, new ExternalFunctionResultRouter.NoOpNoSerJustDe());
-        pythonIPC.start();
+    public void start() {
     }
 
     @Override
