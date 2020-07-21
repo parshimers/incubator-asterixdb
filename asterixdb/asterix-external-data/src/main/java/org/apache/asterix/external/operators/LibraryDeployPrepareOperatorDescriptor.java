@@ -22,6 +22,7 @@ package org.apache.asterix.external.operators;
 import static org.apache.asterix.external.library.ExternalLibraryManager.DESCRIPTOR_FILE_NAME;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -286,12 +287,16 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
 
             private void shiv(FileReference sourceFile, FileReference stageDir, FileReference contentsDir)
                     throws IOException {
-                FileReference pyro4 = stageDir.getChild("msgpack.pyz");
-                writeShim(pyro4);
+                FileReference msgpack = stageDir.getChild("msgpack.pyz");
+                writeShim(msgpack);
                 unzip(sourceFile, contentsDir);
-                unzip(pyro4, contentsDir);
+                File msgPackFolder = new File(contentsDir.getFile(), "ipc");
+                msgPackFolder.mkdirs();
+                FileReference msgPackFolderRef =
+                        new FileReference(msgpack.getDeviceHandle(), msgPackFolder.getAbsolutePath());
+                unzip(msgpack, msgPackFolderRef);
                 writeShim(contentsDir.getChild("entrypoint.py"));
-                Files.delete(pyro4.getFile().toPath());
+                Files.delete(msgpack.getFile().toPath());
             }
 
             private void writeShim(FileReference outputFile) throws IOException {
