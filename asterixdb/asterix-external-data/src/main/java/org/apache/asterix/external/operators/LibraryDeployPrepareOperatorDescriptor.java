@@ -290,10 +290,9 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                 FileReference msgpack = stageDir.getChild("msgpack.pyz");
                 writeShim(msgpack);
                 unzip(sourceFile, contentsDir);
-                File msgPackFolder = new File(contentsDir.getFile(), "ipc");
-                msgPackFolder.mkdirs();
+                File msgPackFolder = new File(contentsDir.getRelativePath(), "ipc");
                 FileReference msgPackFolderRef =
-                        new FileReference(msgpack.getDeviceHandle(), msgPackFolder.getAbsolutePath());
+                        new FileReference(contentsDir.getDeviceHandle(), msgPackFolder.getPath());
                 unzip(msgpack, msgPackFolderRef);
                 writeShim(contentsDir.getChild("entrypoint.py"));
                 Files.delete(msgpack.getFile().toPath());

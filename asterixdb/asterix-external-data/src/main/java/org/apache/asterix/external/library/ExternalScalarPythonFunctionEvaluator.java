@@ -19,17 +19,13 @@
 
 package org.apache.asterix.external.library;
 
-import java.io.BufferedReader;
 import java.io.DataOutput;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
@@ -120,20 +116,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         result.set(resultBuffer.getByteArray(), resultBuffer.getStartOffset(), resultBuffer.getLength());
     }
 
-    static class StreamGobbler implements Runnable {
-        private InputStream inputStream;
-        private Consumer<String> consumeInputLine;
-
-        public StreamGobbler(InputStream inputStream, Consumer<String> consumeInputLine) {
-            this.inputStream = inputStream;
-            this.consumeInputLine = consumeInputLine;
-        }
-
-        public void run() {
-            new BufferedReader(new InputStreamReader(inputStream)).lines().forEach(consumeInputLine);
-        }
-    }
-
     private static class PythonLibraryEvaluator extends AbstractStateObject implements IDeallocatable {
         Process p;
         IExternalFunctionInfo finfo;
@@ -185,10 +167,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), ENTRYPOINT, Integer.toString(port));
             pb.directory(new File(wd));
             p = pb.start();
-            StreamGobbler outputGobbler = new StreamGobbler(p.getInputStream(), System.out::println);
-            StreamGobbler errorGobbler = new StreamGobbler(p.getErrorStream(), System.out::println);
-            new Thread(outputGobbler).start();
-            new Thread(errorGobbler).start();
             proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);
             proto.start();
             proto.helo();
