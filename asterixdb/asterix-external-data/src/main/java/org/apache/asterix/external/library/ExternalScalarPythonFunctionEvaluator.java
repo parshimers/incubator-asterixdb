@@ -22,6 +22,7 @@ package org.apache.asterix.external.library;
 import java.io.DataOutput;
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
@@ -164,7 +165,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.clazz = clazz;
             this.module = packageModule;
             int port = ipcSys.getSocketAddress().getPort();
-            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), ENTRYPOINT, Integer.toString(port));
+            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), ENTRYPOINT,
+                    InetAddress.getLoopbackAddress().getHostAddress(), Integer.toString(port));
             pb.directory(new File(wd));
             p = pb.start();
             proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);

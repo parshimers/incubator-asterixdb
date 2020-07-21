@@ -198,10 +198,10 @@ class Wrapper(object):
         MessageType.CALL: handle_call
     }
 
-    def connect_sock(self, sock_name):
+    def connect_sock(self, addr, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self.sock.connect(("localhost", int(port)))
+            self.sock.connect((addr, int(port)))
         except socket.error as msg:
             print(sys.stderr, msg)
 
@@ -239,8 +239,9 @@ class Wrapper(object):
         self.disconnect_sock()
 
 
-port = str(sys.argv[1])
+addr = str(sys.argv[1])
+port = str(sys.argv[2])
 wrap = Wrapper()
-wrap.connect_sock(port)
+wrap.connect_sock(addr, port)
 signal.signal(signal.SIGTERM, wrap.disconnect_sock)
 wrap.recv_loop()
