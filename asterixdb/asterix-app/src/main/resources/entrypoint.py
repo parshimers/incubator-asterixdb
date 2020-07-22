@@ -241,6 +241,9 @@ class Wrapper(object):
 
 addr = str(sys.argv[1])
 port = str(sys.argv[2])
+paths = str(sys.argv[3:])
+for p in paths:
+    sys.path.insert(2,p)
 wrap = Wrapper()
 wrap.connect_sock(addr, port)
 signal.signal(signal.SIGTERM, wrap.disconnect_sock)

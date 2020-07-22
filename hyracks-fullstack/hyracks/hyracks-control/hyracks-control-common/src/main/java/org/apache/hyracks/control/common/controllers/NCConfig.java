@@ -91,7 +91,8 @@ public class NCConfig extends ControllerConfig {
         KEY_STORE_PASSWORD(STRING, (String) null),
         IO_WORKERS_PER_PARTITION(POSITIVE_INTEGER, 2),
         IO_QUEUE_SIZE(POSITIVE_INTEGER, 10),
-        PYTHON_HOME(STRING, "/usr/bin/python3");
+        PYTHON_HOME(STRING, "/usr/bin/python3"),
+        PYTHON_ADDITIONAL_PACKAGES(STRING, (String) null);
 
         private final IOptionType parser;
         private final String defaultValueDescription;
@@ -226,6 +227,8 @@ public class NCConfig extends ControllerConfig {
                     return "Length of the queue used for requests to write and read";
                 case PYTHON_HOME:
                     return "Path to python interpreter";
+                case PYTHON_ADDITIONAL_PACKAGES:
+                    return "Comma-separated additional paths to add to sys.path behind msgpack and library package paths";
                 default:
                     throw new IllegalStateException("Not yet implemented: " + this);
             }
