@@ -130,37 +130,24 @@ public class Message {
 
     public boolean write(ByteBuffer buffer) throws Exception {
         IPayloadSerializerDeserializer serde = ipcHandle.getIPCSystem().getSerializerDeserializer();
-        byte[] bytes = flag == ERROR ? serde.serializeException((Exception) payload) : serde.serializeObject(payload);
-        if (buffer.remaining() >= MSG_SIZE_SIZE + HEADER_SIZE + bytes.length) {
-            buffer.putInt(HEADER_SIZE + bytes.length);
-            buffer.putLong(messageId);
-            buffer.putLong(requestMessageId);
-            buffer.put(flag);
-            buffer.put(bytes);
-            return true;
-        }
-        return false;
+        return write(buffer, serde);
     }
 
     public boolean write(ByteBuffer buffer, IPayloadSerializerDeserializer serde) throws Exception {
         byte[] bytes = flag == ERROR ? serde.serializeException((Exception) payload) : serde.serializeObject(payload);
         if (buffer.remaining() >= MSG_SIZE_SIZE + HEADER_SIZE + bytes.length) {
-            buffer.putInt(HEADER_SIZE + bytes.length);
-            buffer.putLong(messageId);
-            buffer.putLong(requestMessageId);
-            buffer.put(flag);
+            writeHeader(buffer, bytes.length, messageId, requestMessageId, flag);
             buffer.put(bytes);
             return true;
         }
         return false;
     }
 
-    public static boolean writeHeader(ByteBuffer buffer, int dlen, long messageId, long requestMessageId, byte flag) {
+    public static void writeHeader(ByteBuffer buffer, int dlen, long messageId, long requestMessageId, byte flag) {
         buffer.putInt(HEADER_SIZE + dlen);
         buffer.putLong(messageId);
         buffer.putLong(requestMessageId);
         buffer.put(flag);
-        return false;
     }
 
     @Override

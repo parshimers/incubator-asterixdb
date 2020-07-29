@@ -15,21 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 import sys
-
-addr = str(sys.argv[1])
-port = str(sys.argv[2])
-paths = sys.argv[3:]
-for p in paths:
-    pathspec = p.split(':')
-    if len(pathspec) is 1:
-        sys.path.append(pathspec[0])
-    elif len(pathspec) is 2:
-        sys.path.insert(int(pathspec[0]),pathspec[1])
-    else:
-        raise ValueError("invalid path specifier")
-
+sys.path.insert(0, './site-packages/')
+sys.path.insert(len(sys.path)-1, './ipc/site-packages')
 from struct import *
 import signal
 import msgpack
@@ -251,6 +239,8 @@ class Wrapper(object):
         self.disconnect_sock()
 
 
+addr = str(sys.argv[1])
+port = str(sys.argv[2])
 wrap = Wrapper()
 wrap.connect_sock(addr, port)
 signal.signal(signal.SIGTERM, wrap.disconnect_sock)

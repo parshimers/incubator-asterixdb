@@ -34,6 +34,11 @@ import org.apache.hyracks.util.encoding.VarLenIntEncoderDecoder;
  */
 public class UTF8StringUtil {
 
+    public static final String LOW_SURROGATE_WITHOUT_HIGH_SURROGATE =
+            "Decoding error: got a low surrogate without a leading high surrogate";
+    public static final String HIGH_SURROGATE_WITHOUT_LOW_SURROGATE =
+            "Decoding error: got a high surrogate without a following low surrogate";
+
     private UTF8StringUtil() {
     }
 
@@ -90,6 +95,49 @@ public class UTF8StringUtil {
         }
     }
 
+    public static int codePointAt(byte[] b, int s) {
+        char c1 = charAt(b, s);
+
+        if (Character.isLowSurrogate(c1)) {
+            // In this case, the index s doesn't point to a correct position
+            throw new IllegalArgumentException(LOW_SURROGATE_WITHOUT_HIGH_SURROGATE);
+        }
+
+        if (Character.isHighSurrogate(c1)) {
+            // If c1 is the a high surrogate and also the last char in the byte array (that means the byte array is somehow illegal),
+            // then an exception will be thrown because there is no low surrogate (c2) available in the byte array
+            s += charSize(b, s);
+            char c2 = charAt(b, s);
+            if (Character.isLowSurrogate(c2)) {
+                return Character.toCodePoint(c1, c2);
+            } else {
+                throw new IllegalArgumentException(HIGH_SURROGATE_WITHOUT_LOW_SURROGATE);
+            }
+        }
+
+        return c1;
+    }
+
+    public static int codePointSize(byte[] b, int s) {
+        char c1 = charAt(b, s);
+        int size1 = charSize(b, s);
+
+        if (Character.isLowSurrogate(c1)) {
+            throw new IllegalArgumentException(LOW_SURROGATE_WITHOUT_HIGH_SURROGATE);
+        }
+
+        if (Character.isHighSurrogate(c1)) {
+            // Similar to the above codePointAt(),
+            // if c1 is the a high surrogate and also the last char in the byte array (that means the byte array is somehow illegal),
+            // then an exception will be thrown because there is no low surrogate available in the byte array
+            s += size1;
+            int size2 = charSize(b, s);
+            return size1 + size2;
+        }
+
+        return size1;
+    }
+
     public static boolean isCharStart(byte[] b, int s) {
         int c = b[s] & 0xff;
         return (c >> 6) != 2;
@@ -137,16 +185,11 @@ public class UTF8StringUtil {
         }
     }
 
+    // The result is the number of Java Chars (8 bytes) in the string
     public static int getStringLength(byte[] b, int s) {
         int len = getUTFLength(b, s);
         int pos = s + getNumBytesToStoreLength(len);
-        int end = pos + len;
-        int charCount = 0;
-        while (pos < end) {
-            charCount++;
-            pos += charSize(b, pos);
-        }
-        return charCount;
+        return getStringLength(b, pos, len);
     }
 
     public static int getStringLength(byte[] b, int offs, int len) {
@@ -160,6 +203,19 @@ public class UTF8StringUtil {
         return charCount;
     }
 
+    public static int getNumCodePoint(byte[] b, int s) {
+        int len = getUTFLength(b, s);
+        int pos = s + getNumBytesToStoreLength(len);
+        int end = pos + len;
+        int codePointCount = 0;
+        while (pos < end) {
+            codePointCount++;
+            pos += codePointSize(b, pos);
+        }
+
+        return codePointCount;
+    }
+
     public static int getUTFLength(byte[] b, int s) {
         return VarLenIntEncoderDecoder.decode(b, s);
     }
@@ -168,68 +224,14 @@ public class UTF8StringUtil {
         return VarLenIntEncoderDecoder.getBytesRequired(strlen);
     }
 
-    public static int UTF8ToCodePoint(byte[] b, int s) {
-        if (b[s] >> 7 == 0) {
-            // 1 byte
-            return b[s];
-        } else if ((b[s] & 0xe0) == 0xc0) { /*0xe0 = 0b1110000*/
-            // 2 bytes
-            return (b[s] & 0x1f) << 6 | /*0x3f = 0b00111111*/
-                    (b[s + 1] & 0x3f);
-        } else if ((b[s] & 0xf0) == 0xe0) {
-            // 3bytes
-            return (b[s] & 0xf) << 12 | (b[s + 1] & 0x3f) << 6 | (b[s + 2] & 0x3f);
-        } else if ((b[s] & 0xf8) == 0xf0) {
-            // 4bytes
-            return (b[s] & 0x7) << 18 | (b[s + 1] & 0x3f) << 12 | (b[s + 2] & 0x3f) << 6 | (b[s + 3] & 0x3f);
-        } else if ((b[s] & 0xfc) == 0xf8) {
-            // 5bytes
-            return (b[s] & 0x3) << 24 | (b[s + 1] & 0x3f) << 18 | (b[s + 2] & 0x3f) << 12 | (b[s + 3] & 0x3f) << 6
-                    | (b[s + 4] & 0x3f);
-        } else if ((b[s] & 0xfe) == 0xfc) {
-            // 6bytes
-            return (b[s] & 0x1) << 30 | (b[s + 1] & 0x3f) << 24 | (b[s + 2] & 0x3f) << 18 | (b[s + 3] & 0x3f) << 12
-                    | (b[s + 4] & 0x3f) << 6 | (b[s + 5] & 0x3f);
+    public static int codePointToUTF8(int codePoint, char[] tempChars, byte[] outputUTF8) {
+        int len = 0;
+        int numChars = Character.toChars(codePoint, tempChars, 0);
+        for (int i = 0; i < numChars; i++) {
+            len += writeToBytes(outputUTF8, len, tempChars[i]);
         }
-        return 0;
-    }
 
-    public static int codePointToUTF8(int c, byte[] outputUTF8) {
-        if (c < 0x80) {
-            outputUTF8[0] = (byte) (c & 0x7F /* mask 7 lsb: 0b1111111 */);
-            return 1;
-        } else if (c < 0x0800) {
-            outputUTF8[0] = (byte) (c >> 6 & 0x1F | 0xC0);
-            outputUTF8[1] = (byte) (c & 0x3F | 0x80);
-            return 2;
-        } else if (c < 0x010000) {
-            outputUTF8[0] = (byte) (c >> 12 & 0x0F | 0xE0);
-            outputUTF8[1] = (byte) (c >> 6 & 0x3F | 0x80);
-            outputUTF8[2] = (byte) (c & 0x3F | 0x80);
-            return 3;
-        } else if (c < 0x200000) {
-            outputUTF8[0] = (byte) (c >> 18 & 0x07 | 0xF0);
-            outputUTF8[1] = (byte) (c >> 12 & 0x3F | 0x80);
-            outputUTF8[2] = (byte) (c >> 6 & 0x3F | 0x80);
-            outputUTF8[3] = (byte) (c & 0x3F | 0x80);
-            return 4;
-        } else if (c < 0x4000000) {
-            outputUTF8[0] = (byte) (c >> 24 & 0x03 | 0xF8);
-            outputUTF8[1] = (byte) (c >> 18 & 0x3F | 0x80);
-            outputUTF8[2] = (byte) (c >> 12 & 0x3F | 0x80);
-            outputUTF8[3] = (byte) (c >> 6 & 0x3F | 0x80);
-            outputUTF8[4] = (byte) (c & 0x3F | 0x80);
-            return 5;
-        } else if (c < 0x80000000) {
-            outputUTF8[0] = (byte) (c >> 30 & 0x01 | 0xFC);
-            outputUTF8[1] = (byte) (c >> 24 & 0x3F | 0x80);
-            outputUTF8[2] = (byte) (c >> 18 & 0x3F | 0x80);
-            outputUTF8[3] = (byte) (c >> 12 & 0x3F | 0x80);
-            outputUTF8[4] = (byte) (c >> 6 & 0x3F | 0x80);
-            outputUTF8[5] = (byte) (c & 0x3F | 0x80);
-            return 6;
-        }
-        return 0;
+        return len;
     }
 
     /**

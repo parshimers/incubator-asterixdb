@@ -28,9 +28,12 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class PythonMessageBuilder {
     private static final int MAX_BUF_SIZE = 21 * 1024 * 1024; //21MB.
+    private static final Logger LOGGER = LogManager.getLogger();
     MessageType type;
     long dataLength;
     ByteBuffer buf;
@@ -60,7 +63,7 @@ public class PythonMessageBuilder {
         type = MessageType.fromByte(typ);
     }
 
-    public void hello() {
+    public void hello() throws IOException {
         this.type = MessageType.HELO;
         byte[] serAddr = serialize(new InetSocketAddress(InetAddress.getLoopbackAddress(), 1));
         dataLength = serAddr.length + 5;
@@ -117,18 +120,12 @@ public class PythonMessageBuilder {
 
     //this is used to send a serialized java inetaddress to the entrypoint so it can send it back
     //to the IPC subsystem, which needs it. don't use this for anything else.
-    private byte[] serialize(Object object) {
+    private byte[] serialize(Object object) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (ObjectOutputStream oos = getSerializationProvider().newObjectOutputStream(baos)) {
             oos.writeObject(object);
             oos.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
             baos.close();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
         return baos.toByteArray();
     }
