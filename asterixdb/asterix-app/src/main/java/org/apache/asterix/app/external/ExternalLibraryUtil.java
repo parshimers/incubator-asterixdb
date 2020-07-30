@@ -49,14 +49,14 @@ public class ExternalLibraryUtil {
 
     public static Triple<JobSpecification, JobSpecification, JobSpecification> buildCreateLibraryJobSpec(
             DataverseName dataverseName, String libraryName, ExternalFunctionLanguage language, URI downloadURI,
-            String authToken, Map<String, String> optionalParameters, MetadataProvider metadataProvider) {
+            String authToken, MetadataProvider metadataProvider) {
 
         ICcApplicationContext appCtx = metadataProvider.getApplicationContext();
 
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = getSplitsAndConstraints(appCtx);
 
         JobSpecification prepareJobSpec = createLibraryPrepareJobSpec(dataverseName, libraryName, language, downloadURI,
-                authToken, optionalParameters, appCtx, splitsAndConstraint);
+                authToken, appCtx, splitsAndConstraint);
 
         JobSpecification commitJobSpec =
                 createLibraryCommitJobSpec(dataverseName, libraryName, appCtx, splitsAndConstraint);
@@ -68,12 +68,11 @@ public class ExternalLibraryUtil {
     }
 
     private static JobSpecification createLibraryPrepareJobSpec(DataverseName dataverseName, String libraryName,
-            ExternalFunctionLanguage language, URI downloadURI, String authToken,
-            Map<String, String> optionalParameters, ICcApplicationContext appCtx,
+            ExternalFunctionLanguage language, URI downloadURI, String authToken, ICcApplicationContext appCtx,
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint) {
         JobSpecification jobSpec = RuntimeUtils.createJobSpecification(appCtx);
         IOperatorDescriptor opDesc = new LibraryDeployPrepareOperatorDescriptor(jobSpec, dataverseName, libraryName,
-                language, downloadURI, authToken, optionalParameters);
+                language, downloadURI, authToken);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(jobSpec, opDesc,
                 splitsAndConstraint.second);
         jobSpec.addRoot(opDesc);

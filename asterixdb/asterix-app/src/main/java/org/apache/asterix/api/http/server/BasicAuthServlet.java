@@ -25,6 +25,7 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
+import org.apache.hyracks.http.api.IServlet;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.AbstractServlet;
@@ -36,15 +37,16 @@ import org.mindrot.jbcrypt.BCrypt;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
-public abstract class BasicAuthServlet extends AbstractServlet {
+public abstract class BasicAuthServlet implements IServlet {
 
     private static final Logger LOGGER = LogManager.getLogger();
     public static String BASIC_AUTH_METHOD_NAME = "Basic";
     private Base64.Decoder b64Decoder;
     Map<String, String> storedCredentials;
+    private final IServlet delegate;
 
-    protected BasicAuthServlet(ConcurrentMap<String, Object> ctx, String... paths) {
-        super(ctx, paths);
+    protected BasicAuthServlet(ConcurrentMap<String, Object> ctx, IServlet delegate) {
+        this.delegate = delegate;
         b64Decoder = Base64.getDecoder();
         storedCredentials = (Map<String, String>) ctx.get(CREDENTIAL_MAP);
     }
@@ -56,7 +58,7 @@ public abstract class BasicAuthServlet extends AbstractServlet {
             if (!authorized) {
                 response.setStatus(HttpResponseStatus.UNAUTHORIZED);
             } else {
-                super.handle(request, response);
+                delegate.handle(request,response);
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARN, "Unhandled exception", e);

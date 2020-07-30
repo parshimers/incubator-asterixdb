@@ -33,7 +33,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -75,16 +74,13 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
     private final ExternalFunctionLanguage language;
     private final URI libLocation;
     private final String authToken;
-    private final Map<String, String> optionalParams;
 
     public LibraryDeployPrepareOperatorDescriptor(IOperatorDescriptorRegistry spec, DataverseName dataverseName,
-            String libraryName, ExternalFunctionLanguage language, URI libLocation, String authToken,
-            Map<String, String> optionalParams) {
+            String libraryName, ExternalFunctionLanguage language, URI libLocation, String authToken) {
         super(spec, dataverseName, libraryName);
         this.language = language;
         this.libLocation = libLocation;
         this.authToken = authToken;
-        this.optionalParams = optionalParams;
     }
 
     @Override

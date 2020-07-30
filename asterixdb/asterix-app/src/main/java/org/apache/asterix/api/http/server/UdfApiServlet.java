@@ -120,13 +120,6 @@ public class UdfApiServlet extends AbstractServlet {
         File baseDir = srvCtx.getServerCtx().getBaseDir();
         this.workingDir = baseDir.getAbsoluteFile().toPath().normalize().resolve(
                 Paths.get(ServerContext.APP_DIR_NAME, ExternalLibraryManager.LIBRARY_MANAGER_BASE_DIR_NAME, "tmp"));
-        if (!Files.exists(workingDir)) {
-            try {
-                Files.createDirectories(workingDir.getParent());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     @Override
@@ -138,6 +131,9 @@ public class UdfApiServlet extends AbstractServlet {
 
     private void initStorage() throws IOException {
         // prepare working directory
+        if (!Files.exists(workingDir)) {
+            FileUtil.forceMkdirs(workingDir.toFile());
+        }
         if (Files.isDirectory(workingDir)) {
             try {
                 FileUtils.cleanDirectory(workingDir.toFile());
@@ -192,7 +188,7 @@ public class UdfApiServlet extends AbstractServlet {
                 fileUpload.renameTo(libraryTempFile.toFile());
                 URI downloadURI = createDownloadURI(libraryTempFile);
                 CreateLibraryStatement stmt = new CreateLibraryStatement(libraryName.first, libraryName.second,
-                        language, downloadURI, true, sysAuthHeader, Collections.emptyMap());
+                        language, downloadURI, true, sysAuthHeader);
                 executeStatement(stmt, requestReference, request);
                 response.setStatus(HttpResponseStatus.OK);
             } catch (Exception e) {

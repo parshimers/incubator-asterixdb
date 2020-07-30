@@ -2271,7 +2271,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             // #. prepare to create library artifacts in NC.
             Triple<JobSpecification, JobSpecification, JobSpecification> jobSpecs =
                     ExternalLibraryUtil.buildCreateLibraryJobSpec(dataverseName, libraryName, language,
-                            cls.getLocation(), cls.getAuthToken(), cls.getOptionalParameters(), metadataProvider);
+                            cls.getLocation(), cls.getAuthToken(), metadataProvider);
             JobSpecification prepareJobSpec = jobSpecs.first;
             JobSpecification commitJobSpec = jobSpecs.second;
             abortJobSpec = jobSpecs.third;
