@@ -33,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -74,13 +75,16 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
     private final ExternalFunctionLanguage language;
     private final URI libLocation;
     private final String authToken;
+    private final Map<String, String> optionalParams;
 
     public LibraryDeployPrepareOperatorDescriptor(IOperatorDescriptorRegistry spec, DataverseName dataverseName,
-            String libraryName, ExternalFunctionLanguage language, URI libLocation, String authToken) {
+            String libraryName, ExternalFunctionLanguage language, URI libLocation, String authToken,
+            Map<String, String> optionalParams) {
         super(spec, dataverseName, libraryName);
         this.language = language;
         this.libLocation = libLocation;
         this.authToken = authToken;
+        this.optionalParams = optionalParams;
     }
 
     @Override
@@ -193,6 +197,7 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                         // retry 10 times at maximum for downloading binaries
                         HttpGet request = new HttpGet(libLocation);
                         request.setHeader(HttpHeaders.AUTHORIZATION, authToken);
+                        //                        optionalParams.forEach(request::setHeader);
                         int tried = 0;
                         Exception trace = null;
                         while (tried < DOWNLOAD_RETRY_COUNT) {
@@ -287,15 +292,15 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
 
             private void shiv(FileReference sourceFile, FileReference stageDir, FileReference contentsDir)
                     throws IOException {
-                FileReference msgpack = stageDir.getChild("msgpack.pyz");
-                writeShim(msgpack);
+                //                FileReference msgpack = stageDir.getChild("msgpack.pyz");
+                //                writeShim(msgpack);
                 unzip(sourceFile, contentsDir);
                 File msgPackFolder = new File(contentsDir.getRelativePath(), "ipc");
                 FileReference msgPackFolderRef =
                         new FileReference(contentsDir.getDeviceHandle(), msgPackFolder.getPath());
-                unzip(msgpack, msgPackFolderRef);
+                //                unzip(msgpack, msgPackFolderRef);
                 writeShim(contentsDir.getChild("entrypoint.py"));
-                Files.delete(msgpack.getFile().toPath());
+                //                Files.delete(msgpack.getFile().toPath());
             }
 
             private void writeShim(FileReference outputFile) throws IOException {

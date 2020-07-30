@@ -19,10 +19,7 @@
 package org.apache.asterix.app.external;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IClusterStateManager;
@@ -52,14 +49,14 @@ public class ExternalLibraryUtil {
 
     public static Triple<JobSpecification, JobSpecification, JobSpecification> buildCreateLibraryJobSpec(
             DataverseName dataverseName, String libraryName, ExternalFunctionLanguage language, URI downloadURI,
-            String authToken, MetadataProvider metadataProvider) {
+            String authToken, Map<String, String> optionalParameters, MetadataProvider metadataProvider) {
 
         ICcApplicationContext appCtx = metadataProvider.getApplicationContext();
 
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = getSplitsAndConstraints(appCtx);
 
         JobSpecification prepareJobSpec = createLibraryPrepareJobSpec(dataverseName, libraryName, language, downloadURI,
-                authToken, appCtx, splitsAndConstraint);
+                authToken, optionalParameters, appCtx, splitsAndConstraint);
 
         JobSpecification commitJobSpec =
                 createLibraryCommitJobSpec(dataverseName, libraryName, appCtx, splitsAndConstraint);
@@ -71,11 +68,12 @@ public class ExternalLibraryUtil {
     }
 
     private static JobSpecification createLibraryPrepareJobSpec(DataverseName dataverseName, String libraryName,
-            ExternalFunctionLanguage language, URI downloadURI, String authToken, ICcApplicationContext appCtx,
+            ExternalFunctionLanguage language, URI downloadURI, String authToken,
+            Map<String, String> optionalParameters, ICcApplicationContext appCtx,
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint) {
         JobSpecification jobSpec = RuntimeUtils.createJobSpecification(appCtx);
         IOperatorDescriptor opDesc = new LibraryDeployPrepareOperatorDescriptor(jobSpec, dataverseName, libraryName,
-                language, downloadURI, authToken);
+                language, downloadURI, authToken, optionalParameters);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(jobSpec, opDesc,
                 splitsAndConstraint.second);
         jobSpec.addRoot(opDesc);

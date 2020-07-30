@@ -17,7 +17,7 @@
 
 import sys
 sys.path.insert(0, './site-packages/')
-sys.path.insert(len(sys.path)-1, './ipc/site-packages')
+#sys.path.insert(len(sys.path)-1, './ipc/site-packages')
 from struct import *
 import signal
 import msgpack

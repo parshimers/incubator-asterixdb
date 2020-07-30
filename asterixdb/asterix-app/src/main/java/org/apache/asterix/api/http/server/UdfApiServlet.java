@@ -74,12 +74,12 @@ import org.apache.hyracks.control.common.context.ServerContext;
 import org.apache.hyracks.control.common.work.SynchronizableWork;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
+import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpScheme;
@@ -87,20 +87,20 @@ import io.netty.handler.codec.http.multipart.FileUpload;
 import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import io.netty.handler.codec.http.multipart.InterfaceHttpData;
 
-public class UdfApiServlet extends BasicAuthServlet {
+public class UdfApiServlet extends AbstractServlet {
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private final ICcApplicationContext appCtx;
+    protected final ICcApplicationContext appCtx;
     private final ClusterControllerService ccs;
     private final HttpScheme httpServerProtocol;
     private final int httpServerPort;
 
-    private final ILangCompilationProvider compilationProvider;
-    private final IStatementExecutorFactory statementExecutorFactory;
-    private final IStorageComponentProvider componentProvider;
-    private final IReceptionist receptionist;
-    private final Path workingDir;
+    protected final ILangCompilationProvider compilationProvider;
+    protected final IStatementExecutorFactory statementExecutorFactory;
+    protected final IStorageComponentProvider componentProvider;
+    protected final IReceptionist receptionist;
+    protected final Path workingDir;
     private Map<String, String> sysCredentials;
     private String sysAuthHeader;
 
@@ -120,24 +120,20 @@ public class UdfApiServlet extends BasicAuthServlet {
         File baseDir = srvCtx.getServerCtx().getBaseDir();
         this.workingDir = baseDir.getAbsoluteFile().toPath().normalize().resolve(
                 Paths.get(ServerContext.APP_DIR_NAME, ExternalLibraryManager.LIBRARY_MANAGER_BASE_DIR_NAME, "tmp"));
+        if (!Files.exists(workingDir)) {
+            try {
+                Files.createDirectories(workingDir.getParent());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
     public void init() throws IOException {
         super.init();
-        initAuth();
+        //initAuth();
         initStorage();
-    }
-
-    private void initAuth() {
-        // generate internal user
-        String sysUser;
-        do {
-            sysUser = generateRandomString(32);
-        } while (storedCredentials.containsKey(sysUser));
-        String sysPassword = generateRandomString(128);
-        this.sysCredentials = Collections.singletonMap(sysUser, hashPassword(sysPassword));
-        this.sysAuthHeader = createAuthHeader(sysUser, sysPassword);
     }
 
     private void initStorage() throws IOException {
@@ -196,8 +192,8 @@ public class UdfApiServlet extends BasicAuthServlet {
                 fileUpload.renameTo(libraryTempFile.toFile());
                 URI downloadURI = createDownloadURI(libraryTempFile);
                 CreateLibraryStatement stmt = new CreateLibraryStatement(libraryName.first, libraryName.second,
-                        language, downloadURI, true, sysAuthHeader);
-                executeStatement(stmt, requestReference);
+                        language, downloadURI, true, sysAuthHeader, Collections.emptyMap());
+                executeStatement(stmt, requestReference, request);
                 response.setStatus(HttpResponseStatus.OK);
             } catch (Exception e) {
                 response.setStatus(toHttpErrorStatus(e));
@@ -218,13 +214,12 @@ public class UdfApiServlet extends BasicAuthServlet {
         }
     }
 
-    private URI createDownloadURI(Path file) throws Exception {
+    protected URI createDownloadURI(Path file) throws Exception {
         String path = paths[0].substring(0, trims[0]) + '/' + file.getFileName();
         String host = getHyracksClientConnection().getHost();
         return new URI(httpServerProtocol.toString(), null, host, httpServerPort, path, null, null);
     }
 
-    @Override
     protected void delete(IServletRequest request, IServletResponse response) {
         IClusterManagementWork.ClusterState clusterState = appCtx.getClusterStateManager().getState();
         if (clusterState != IClusterManagementWork.ClusterState.ACTIVE) {
@@ -239,7 +234,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         try {
             IRequestReference requestReference = receptionist.welcome(request);
             LibraryDropStatement stmt = new LibraryDropStatement(libraryName.first, libraryName.second);
-            executeStatement(stmt, requestReference);
+            executeStatement(stmt, requestReference, request);
             response.setStatus(HttpResponseStatus.OK);
         } catch (Exception e) {
             response.setStatus(toHttpErrorStatus(e));
@@ -250,7 +245,8 @@ public class UdfApiServlet extends BasicAuthServlet {
         }
     }
 
-    private void executeStatement(Statement statement, IRequestReference requestReference) throws Exception {
+    protected void executeStatement(Statement statement, IRequestReference requestReference, IServletRequest request)
+            throws Exception {
         SessionOutput sessionOutput = new SessionOutput(new SessionConfig(SessionConfig.OutputFormat.ADM),
                 new PrintWriter(NullWriter.NULL_WRITER));
         ResponsePrinter printer = new ResponsePrinter(sessionOutput);
@@ -264,7 +260,6 @@ public class UdfApiServlet extends BasicAuthServlet {
         translator.compileAndExecute(getHyracksClientConnection(), requestParams);
     }
 
-    @Override
     protected void get(IServletRequest request, IServletResponse response) throws Exception {
         IClusterManagementWork.ClusterState clusterState = appCtx.getClusterStateManager().getState();
         if (clusterState != IClusterManagementWork.ClusterState.ACTIVE) {
@@ -287,7 +282,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         readFromFile(filePath, response);
     }
 
-    private IHyracksClientConnection getHyracksClientConnection() throws Exception { // NOSONAR
+    protected IHyracksClientConnection getHyracksClientConnection() throws Exception { // NOSONAR
         IHyracksClientConnection hcc = (IHyracksClientConnection) ctx.get(HYRACKS_CONNECTION_ATTR);
         if (hcc == null) {
             throw new RuntimeDataException(ErrorCode.PROPERTY_NOT_SET, HYRACKS_CONNECTION_ATTR);
@@ -295,13 +290,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         return hcc;
     }
 
-    @Override
-    protected Map<String, String> getStoredCredentials(IServletRequest request) {
-        return request.getHttpRequest().method().equals(HttpMethod.GET) ? sysCredentials
-                : super.getStoredCredentials(request);
-    }
-
-    private Pair<DataverseName, String> parseLibraryName(IServletRequest request) throws IllegalArgumentException {
+    protected Pair<DataverseName, String> parseLibraryName(IServletRequest request) throws IllegalArgumentException {
         String[] path = StringUtils.split(localPath(request), '/');
         int ln = path.length;
         if (ln < 2) {
@@ -312,7 +301,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         return new Pair<>(dataverseName, libraryName);
     }
 
-    private static ExternalFunctionLanguage getLanguageByFileExtension(String fileExtension) {
+    protected static ExternalFunctionLanguage getLanguageByFileExtension(String fileExtension) {
         switch (fileExtension) {
             case LibraryDescriptor.FILE_EXT_ZIP:
                 return JAVA;
@@ -323,7 +312,7 @@ public class UdfApiServlet extends BasicAuthServlet {
         }
     }
 
-    private HttpResponseStatus toHttpErrorStatus(Exception e) {
+    protected HttpResponseStatus toHttpErrorStatus(Exception e) {
         if (e instanceof IFormattedException) {
             IFormattedException fe = (IFormattedException) e;
             if (ErrorCode.ASTERIX.equals(fe.getComponent())) {

@@ -19,7 +19,6 @@
 
 package org.apache.asterix.external.library;
 
-import java.io.BufferedReader;
 import java.io.DataOutput;
 import java.io.File;
 import java.io.IOException;
@@ -118,20 +117,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         result.set(resultBuffer.getByteArray(), resultBuffer.getStartOffset(), resultBuffer.getLength());
     }
 
-    static class StreamGobbler implements Runnable {
-        private InputStream inputStream;
-        private Consumer<String> consumeInputLine;
-
-        public StreamGobbler(InputStream inputStream, Consumer<String> consumeInputLine) {
-            this.inputStream = inputStream;
-            this.consumeInputLine = consumeInputLine;
-        }
-
-        public void run() {
-            new BufferedReader(new InputStreamReader(inputStream)).lines().forEach(consumeInputLine);
-        }
-    }
-
     private static class PythonLibraryEvaluator extends AbstractStateObject implements IDeallocatable {
         Process p;
         IExternalFunctionInfo finfo;
@@ -188,6 +173,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             proto.start();
             proto.helo();
             proto.init(packageModule, clazz, fn);
+            int foo = 0;
         }
 
         ByteBuffer callPython(ByteBuffer arguments, int numArgs) throws Exception {

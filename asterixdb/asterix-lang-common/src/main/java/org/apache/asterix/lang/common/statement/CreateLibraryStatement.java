@@ -20,6 +20,7 @@
 package org.apache.asterix.lang.common.statement;
 
 import java.net.URI;
+import java.util.Map;
 
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
@@ -35,15 +36,17 @@ public final class CreateLibraryStatement extends AbstractStatement {
     private final URI location;
     private final boolean replaceIfExists;
     private final String authToken;
+    private final Map<String, String> optionalParameters;
 
     public CreateLibraryStatement(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage lang,
-            URI location, boolean replaceIfExists, String authToken) {
+            URI location, boolean replaceIfExists, String authToken, Map<String, String> optionalParameters) {
         this.dataverseName = dataverseName;
         this.libraryName = libraryName;
         this.lang = lang;
         this.location = location;
         this.replaceIfExists = replaceIfExists;
         this.authToken = authToken;
+        this.optionalParameters = optionalParameters;
     }
 
     public DataverseName getDataverseName() {
@@ -68,6 +71,10 @@ public final class CreateLibraryStatement extends AbstractStatement {
 
     public String getAuthToken() {
         return authToken;
+    }
+
+    public Map<String, String> getOptionalParameters() {
+        return optionalParameters;
     }
 
     @Override
