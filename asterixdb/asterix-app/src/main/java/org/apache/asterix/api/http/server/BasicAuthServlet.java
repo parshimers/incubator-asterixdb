@@ -18,37 +18,62 @@
  */
 package org.apache.asterix.api.http.server;
 
-import static org.apache.asterix.api.http.server.ServletConstants.CREDENTIAL_MAP;
+import static org.apache.asterix.api.http.server.ServletConstants.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hyracks.http.api.IServlet;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
-import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.mindrot.jbcrypt.BCrypt;
 
 import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
-public abstract class BasicAuthServlet implements IServlet {
+public class BasicAuthServlet implements IServlet {
 
     private static final Logger LOGGER = LogManager.getLogger();
     public static String BASIC_AUTH_METHOD_NAME = "Basic";
     private Base64.Decoder b64Decoder;
     Map<String, String> storedCredentials;
+    Map<String, String> ephemeralCredentials;
+    private String sysAuthHeader;
     private final IServlet delegate;
+    private ConcurrentMap<String, Object> ctx;
 
-    protected BasicAuthServlet(ConcurrentMap<String, Object> ctx, IServlet delegate) {
+    public BasicAuthServlet(ConcurrentMap<String, Object> ctx, IServlet delegate) {
         this.delegate = delegate;
         b64Decoder = Base64.getDecoder();
         storedCredentials = (Map<String, String>) ctx.get(CREDENTIAL_MAP);
+        this.ctx = ctx;
+        // generate internal user
+        String sysUser;
+        do {
+            sysUser = generateRandomString(32);
+        } while (storedCredentials.containsKey(sysUser));
+        String sysPassword = generateRandomString(128);
+        ephemeralCredentials = Collections.singletonMap(sysUser, hashPassword(sysPassword));
+        sysAuthHeader = createAuthHeader(sysUser, sysPassword);
+        ctx.put(SYS_AUTH_HEADER, sysAuthHeader);
+    }
+
+    @Override
+    public String[] getPaths() {
+        return delegate.getPaths();
+    }
+
+    @Override
+    public ConcurrentMap<String, Object> ctx() {
+        return ctx;
     }
 
     @Override
@@ -58,7 +83,7 @@ public abstract class BasicAuthServlet implements IServlet {
             if (!authorized) {
                 response.setStatus(HttpResponseStatus.UNAUTHORIZED);
             } else {
-                delegate.handle(request,response);
+                delegate.handle(request, response);
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARN, "Unhandled exception", e);
@@ -106,7 +131,7 @@ public abstract class BasicAuthServlet implements IServlet {
     }
 
     protected Map<String, String> getStoredCredentials(IServletRequest request) {
-        return storedCredentials;
+        return request.getHttpRequest().method().equals(HttpMethod.GET) ? ephemeralCredentials : storedCredentials;
     }
 
     public static String hashPassword(String password) {
@@ -117,5 +142,9 @@ public abstract class BasicAuthServlet implements IServlet {
         String auth = user + ":" + password;
         byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.ISO_8859_1));
         return "Basic " + new String(encodedAuth);
+    }
+
+    private static String generateRandomString(int size) {
+        return RandomStringUtils.randomAlphanumeric(size);
     }
 }

@@ -19,6 +19,7 @@
 package org.apache.asterix.api.http.server;
 
 import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
+import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
 import static org.apache.asterix.common.functions.ExternalFunctionLanguage.JAVA;
 import static org.apache.asterix.common.functions.ExternalFunctionLanguage.PYTHON;
 
@@ -32,7 +33,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.app.result.ResponsePrinter;
@@ -63,7 +63,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.NullWriter;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.application.ICCServiceContext;
@@ -101,8 +100,7 @@ public class UdfApiServlet extends AbstractServlet {
     protected final IStorageComponentProvider componentProvider;
     protected final IReceptionist receptionist;
     protected final Path workingDir;
-    private Map<String, String> sysCredentials;
-    private String sysAuthHeader;
+    protected String sysAuthHeader;
 
     public UdfApiServlet(ConcurrentMap<String, Object> ctx, String[] paths, ICcApplicationContext appCtx,
             ILangCompilationProvider compilationProvider, IStatementExecutorFactory statementExecutorFactory,
@@ -124,12 +122,15 @@ public class UdfApiServlet extends AbstractServlet {
 
     @Override
     public void init() throws IOException {
-        super.init();
-        //initAuth();
+        initAuth();
         initStorage();
     }
 
-    private void initStorage() throws IOException {
+    protected void initAuth() {
+        sysAuthHeader = (String) ctx.get(SYS_AUTH_HEADER);
+    }
+
+    protected void initStorage() throws IOException {
         // prepare working directory
         if (!Files.exists(workingDir)) {
             FileUtil.forceMkdirs(workingDir.toFile());
@@ -320,10 +321,6 @@ public class UdfApiServlet extends AbstractServlet {
             }
         }
         return HttpResponseStatus.INTERNAL_SERVER_ERROR;
-    }
-
-    private static String generateRandomString(int size) {
-        return RandomStringUtils.randomAlphanumeric(size);
     }
 
     protected void readFromFile(Path filePath, IServletResponse response) throws Exception {

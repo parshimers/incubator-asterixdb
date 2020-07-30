@@ -37,22 +37,7 @@ import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.api.http.IQueryWebServerRegistrant;
-import org.apache.asterix.api.http.server.ActiveStatsApiServlet;
-import org.apache.asterix.api.http.server.ApiServlet;
-import org.apache.asterix.api.http.server.CcQueryCancellationServlet;
-import org.apache.asterix.api.http.server.ClusterApiServlet;
-import org.apache.asterix.api.http.server.ClusterControllerDetailsApiServlet;
-import org.apache.asterix.api.http.server.ConnectorApiServlet;
-import org.apache.asterix.api.http.server.DiagnosticsApiServlet;
-import org.apache.asterix.api.http.server.NodeControllerDetailsApiServlet;
-import org.apache.asterix.api.http.server.QueryResultApiServlet;
-import org.apache.asterix.api.http.server.QueryServiceServlet;
-import org.apache.asterix.api.http.server.QueryStatusApiServlet;
-import org.apache.asterix.api.http.server.RebalanceApiServlet;
-import org.apache.asterix.api.http.server.ServletConstants;
-import org.apache.asterix.api.http.server.ShutdownApiServlet;
-import org.apache.asterix.api.http.server.UdfApiServlet;
-import org.apache.asterix.api.http.server.VersionApiServlet;
+import org.apache.asterix.api.http.server.*;
 import org.apache.asterix.app.active.ActiveNotificationHandler;
 import org.apache.asterix.app.cc.CCExtensionManager;
 import org.apache.asterix.app.config.ConfigValidator;
@@ -350,9 +335,10 @@ public class CCApplication extends BaseCCApplication {
             case Servlets.ACTIVE_STATS:
                 return new ActiveStatsApiServlet(appCtx, ctx, paths);
             case Servlets.UDF:
-                return new UdfApiServlet(ctx, paths, appCtx, ccExtensionManager.getCompilationProvider(SQLPP),
-                        getStatementExecutorFactory(), componentProvider, server.getScheme(),
-                        server.getAddress().getPort());
+                return new BasicAuthServlet(ctx,
+                        new UdfApiServlet(ctx, paths, appCtx, ccExtensionManager.getCompilationProvider(SQLPP),
+                                getStatementExecutorFactory(), componentProvider, server.getScheme(),
+                                server.getAddress().getPort()));
             default:
                 throw new IllegalStateException(key);
         }
