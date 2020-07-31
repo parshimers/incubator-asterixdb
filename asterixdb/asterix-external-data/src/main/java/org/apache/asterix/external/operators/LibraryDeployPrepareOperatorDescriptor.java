@@ -288,27 +288,33 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
 
             private void shiv(FileReference sourceFile, FileReference stageDir, FileReference contentsDir)
                     throws IOException {
-                //                FileReference msgpack = stageDir.getChild("msgpack.pyz");
-                //                writeShim(msgpack);
+                FileReference msgpack = stageDir.getChild("msgpack.pyz");
+                if (writeShim(msgpack, true)) {
+                    File msgPackFolder = new File(contentsDir.getRelativePath(), "ipc");
+                    FileReference msgPackFolderRef =
+                            new FileReference(contentsDir.getDeviceHandle(), msgPackFolder.getPath());
+                    unzip(msgpack, msgPackFolderRef);
+                    Files.delete(msgpack.getFile().toPath());
+                }
                 unzip(sourceFile, contentsDir);
-                File msgPackFolder = new File(contentsDir.getRelativePath(), "ipc");
-                FileReference msgPackFolderRef =
-                        new FileReference(contentsDir.getDeviceHandle(), msgPackFolder.getPath());
-                //                unzip(msgpack, msgPackFolderRef);
-                writeShim(contentsDir.getChild("entrypoint.py"));
-                //                Files.delete(msgpack.getFile().toPath());
+                writeShim(contentsDir.getChild("entrypoint.py"), false);
             }
 
-            private void writeShim(FileReference outputFile) throws IOException {
+            private boolean writeShim(FileReference outputFile, boolean optional) throws IOException {
                 InputStream is = getClass().getClassLoader().getResourceAsStream(outputFile.getFile().getName());
                 if (is == null) {
-                    throw new IOException("Classpath does not contain necessary Python resources!");
+                    if (!optional) {
+                        throw new IOException("Classpath does not contain necessary Python resources!");
+                    } else {
+                        return false;
+                    }
                 }
                 try {
                     writeAndForce(outputFile, is);
                 } finally {
                     is.close();
                 }
+                return true;
             }
 
             private void writeDescriptor(FileReference descFile, LibraryDescriptor desc) throws IOException {

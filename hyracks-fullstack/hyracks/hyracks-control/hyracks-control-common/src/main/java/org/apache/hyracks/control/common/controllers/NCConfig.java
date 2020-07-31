@@ -91,8 +91,9 @@ public class NCConfig extends ControllerConfig {
         KEY_STORE_PASSWORD(STRING, (String) null),
         IO_WORKERS_PER_PARTITION(POSITIVE_INTEGER, 2),
         IO_QUEUE_SIZE(POSITIVE_INTEGER, 10),
-        PYTHON_HOME(STRING, "/usr/bin/python3"),
-        PYTHON_ADDITIONAL_PACKAGES(STRING, (String) null);
+        PYTHON_HOME(STRING, "/usr/bin/env"),
+        PYTHON_ADDITIONAL_PACKAGES(STRING, "./ipc/site-packages/"),
+        PYTHON_ARGS(STRING, (String) null);
 
         private final IOptionType parser;
         private final String defaultValueDescription;
@@ -229,6 +230,8 @@ public class NCConfig extends ControllerConfig {
                     return "Path to python interpreter";
                 case PYTHON_ADDITIONAL_PACKAGES:
                     return "Comma-separated additional paths to add to sys.path behind msgpack and library package paths";
+                case PYTHON_ARGS:
+                    return "Python args to pass to interpreter";
                 default:
                     throw new IllegalStateException("Not yet implemented: " + this);
             }

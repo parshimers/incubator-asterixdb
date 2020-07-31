@@ -24,6 +24,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -79,10 +82,22 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         super(finfo, args, argTypes, ctx);
 
         File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
+        List<String> addtlSitePkgs = new ArrayList<>();
+        addtlSitePkgs.add("0:./site-packages/");
+        String addlSitePackagesRaw =
+                ctx.getServiceContext().getAppConfig().getString((NCConfig.Option.PYTHON_ADDITIONAL_PACKAGES));
+        if (addlSitePackagesRaw != null) {
+            addtlSitePkgs.addAll(Arrays.asList(addlSitePackagesRaw.split(",")));
+        }
+        List<String> pythonArgs = Collections.emptyList();
+        String pythonArgsRaw = ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_ARGS);
+        if (pythonArgsRaw != null) {
+            pythonArgs = Arrays.asList(pythonArgsRaw.trim().split(" "));
+        }
         DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
             libraryEvaluator = PythonLibraryEvaluator.getInstance(dataverseName, finfo, libraryManager, router, ipcSys,
-                    pythonPath, ctx.getTaskContext(), ctx.getWarningCollector(), sourceLoc);
+                    pythonPath, addtlSitePkgs, pythonArgs, ctx.getTaskContext(), ctx.getWarningCollector(), sourceLoc);
         } catch (IOException | AsterixException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
@@ -128,17 +143,22 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         String module;
         String clazz;
         String fn;
+        List<String> addtlSitePkgs;
+        List<String> pythonArgs;
         TaskAttemptId task;
         IWarningCollector warningCollector;
         SourceLocation sourceLoc;
 
         private PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, IExternalFunctionInfo finfo,
-                ILibraryManager libMgr, File pythonHome, ExternalFunctionResultRouter router, IPCSystem ipcSys,
-                TaskAttemptId task, IWarningCollector warningCollector, SourceLocation sourceLoc) {
+                ILibraryManager libMgr, File pythonHome, List<String> addtlSitePkgs, List<String> pythonArgs,
+                ExternalFunctionResultRouter router, IPCSystem ipcSys, TaskAttemptId task,
+                IWarningCollector warningCollector, SourceLocation sourceLoc) {
             super(jobId, evaluatorId);
             this.finfo = finfo;
             this.libMgr = libMgr;
             this.pythonHome = pythonHome;
+            this.addtlSitePkgs = addtlSitePkgs;
+            this.pythonArgs = pythonArgs;
             this.router = router;
             this.task = task;
             this.ipcSys = ipcSys;
@@ -165,8 +185,19 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             this.clazz = clazz;
             this.module = packageModule;
             int port = ipcSys.getSocketAddress().getPort();
-            ProcessBuilder pb = new ProcessBuilder(pythonHome.getAbsolutePath(), ENTRYPOINT,
-                    InetAddress.getLoopbackAddress().getHostAddress(), Integer.toString(port));
+            List<String> args = new ArrayList<>();
+            args.add(pythonHome.getAbsolutePath());
+            if (pythonHome.getAbsolutePath().equals("/usr/bin/env")) {
+                args.add("python3");
+            }
+            args.addAll(pythonArgs);
+            args.add(ENTRYPOINT);
+            args.add(InetAddress.getLoopbackAddress().getHostAddress());
+            args.add(Integer.toString(port));
+            if (addtlSitePkgs != null) {
+                args.addAll(addtlSitePkgs);
+            }
+            ProcessBuilder pb = new ProcessBuilder(args.toArray(new String[0]));
             pb.directory(new File(wd));
             p = pb.start();
             proto = new PythonIPCProto(p.getOutputStream(), router, ipcSys);
@@ -191,8 +222,12 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         public void deallocate() {
             boolean dead = false;
             try {
-                p.destroy();
-                dead = p.waitFor(100, TimeUnit.MILLISECONDS);
+                if (p != null) {
+                    p.destroy();
+                    dead = p.waitFor(100, TimeUnit.MILLISECONDS);
+                } else {
+                    dead = true;
+                }
             } catch (InterruptedException e) {
                 //gonna kill it anyway
             }
@@ -203,13 +238,14 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         private static PythonLibraryEvaluator getInstance(DataverseName dataverseName, IExternalFunctionInfo finfo,
                 ILibraryManager libMgr, ExternalFunctionResultRouter router, IPCSystem ipcSys, File pythonHome,
-                IHyracksTaskContext ctx, IWarningCollector warningCollector, SourceLocation sourceLoc)
-                throws IOException, AsterixException {
+                List<String> addtlSitePkgs, List<String> pythonArgs, IHyracksTaskContext ctx,
+                IWarningCollector warningCollector, SourceLocation sourceLoc) throws IOException, AsterixException {
             PythonLibraryEvaluatorId evaluatorId = new PythonLibraryEvaluatorId(dataverseName, finfo.getLibrary());
             PythonLibraryEvaluator evaluator = (PythonLibraryEvaluator) ctx.getStateObject(evaluatorId);
             if (evaluator == null) {
                 evaluator = new PythonLibraryEvaluator(ctx.getJobletContext().getJobId(), evaluatorId, finfo, libMgr,
-                        pythonHome, router, ipcSys, ctx.getTaskAttemptId(), warningCollector, sourceLoc);
+                        pythonHome, addtlSitePkgs, pythonArgs, router, ipcSys, ctx.getTaskAttemptId(), warningCollector,
+                        sourceLoc);
                 ctx.registerDeallocatable(evaluator);
                 evaluator.initialize();
                 ctx.setStateObject(evaluator);

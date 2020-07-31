@@ -20,6 +20,7 @@ package org.apache.asterix.api.http.server;
 
 import static org.apache.asterix.api.http.server.ServletConstants.*;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
@@ -69,6 +70,11 @@ public class BasicAuthServlet implements IServlet {
     @Override
     public String[] getPaths() {
         return delegate.getPaths();
+    }
+
+    @Override
+    public void init() throws IOException {
+        delegate.init();
     }
 
     @Override
