@@ -26,6 +26,7 @@ import static org.apache.hyracks.control.common.config.OptionTypes.STRING;
 import static org.apache.hyracks.control.common.config.OptionTypes.STRING_ARRAY;
 import static org.apache.hyracks.control.common.config.OptionTypes.UNSIGNED_INTEGER;
 
+import java.io.File;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -91,8 +92,8 @@ public class NCConfig extends ControllerConfig {
         KEY_STORE_PASSWORD(STRING, (String) null),
         IO_WORKERS_PER_PARTITION(POSITIVE_INTEGER, 2),
         IO_QUEUE_SIZE(POSITIVE_INTEGER, 10),
-        PYTHON_HOME(STRING, "/usr/bin/env"),
-        PYTHON_ADDITIONAL_PACKAGES(STRING, "./ipc/site-packages/"),
+        PYTHON_HOME(STRING, "python3"),
+        PYTHON_ADDITIONAL_PACKAGES(STRING, "."+ File.separator+"ipc"+File.separator+"site-packages"),
         PYTHON_ARGS(STRING, (String) null);
 
         private final IOptionType parser;
