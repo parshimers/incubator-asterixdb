@@ -187,6 +187,9 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             int port = ipcSys.getSocketAddress().getPort();
             List<String> args = new ArrayList<>();
             args.add(pythonHome.getAbsolutePath());
+            if (pythonHome.getAbsolutePath().equals("/usr/bin/env")) {
+                args.add("python3");
+            }
             args.addAll(pythonArgs);
             args.add(ENTRYPOINT);
             args.add(InetAddress.getLoopbackAddress().getHostAddress());
