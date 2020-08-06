@@ -23,7 +23,7 @@ import java.io.OutputStream;
 
 public interface ILifeCycleComponent {
 
-    public void start() throws IOException;
+    public void start();
 
     public void dumpState(OutputStream os) throws IOException;
 

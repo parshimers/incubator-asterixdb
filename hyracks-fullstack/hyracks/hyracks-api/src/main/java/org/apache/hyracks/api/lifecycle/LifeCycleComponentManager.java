@@ -69,7 +69,7 @@ public class LifeCycleComponentManager implements ILifeCycleComponentManager {
     }
 
     @Override
-    public void startAll() throws IOException {
+    public void startAll() {
         for (ILifeCycleComponent component : components) {
             component.start();
         }
