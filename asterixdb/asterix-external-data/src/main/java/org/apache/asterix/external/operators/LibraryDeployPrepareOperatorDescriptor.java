@@ -193,7 +193,6 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                         // retry 10 times at maximum for downloading binaries
                         HttpGet request = new HttpGet(libLocation);
                         request.setHeader(HttpHeaders.AUTHORIZATION, authToken);
-                        //                        optionalParams.forEach(request::setHeader);
                         int tried = 0;
                         Exception trace = null;
                         while (tried < DOWNLOAD_RETRY_COUNT) {

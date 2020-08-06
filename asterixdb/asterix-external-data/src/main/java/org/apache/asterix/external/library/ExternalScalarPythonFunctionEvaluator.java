@@ -83,7 +83,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
         List<String> addtlSitePkgs = new ArrayList<>();
-        addtlSitePkgs.add("0:./site-packages/");
+        addtlSitePkgs.add("0:site-packages");
         String addlSitePackagesRaw =
                 ctx.getServiceContext().getAppConfig().getString((NCConfig.Option.PYTHON_ADDITIONAL_PACKAGES));
         if (addlSitePackagesRaw != null) {
