@@ -59,11 +59,7 @@ public class StartLifecycleComponentsTask implements INCLifecycleTask {
             LOGGER.info("Configured:" + lccm);
         }
         serviceCtx.setStateDumpHandler(new AsterixStateDumpHandler(serviceCtx.getNodeId(), lccm.getDumpPath(), lccm));
-        try {
-            lccm.startAll();
-        } catch (IOException e) {
-            throw new HyracksDataException("Failed to start lifecycle component", e);
-        }
+        lccm.startAll();
     }
 
     @Override
