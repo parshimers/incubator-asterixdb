@@ -20,6 +20,7 @@
 package org.apache.asterix.external.operators;
 
 import static org.apache.asterix.external.library.ExternalLibraryManager.DESCRIPTOR_FILE_NAME;
+import static org.apache.hyracks.control.common.controllers.NCConfig.Option.USE_BUNDLED_MSGPACK;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -161,7 +162,9 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                             // shouldn't happen
                             throw new IOException("Unexpected file type: " + fileExt);
                         }
-                        shiv(targetFile, stageDir, contentsDir);
+                        boolean extractMsgPack = ctx.getJobletContext().getServiceContext().getAppConfig()
+                                .getBoolean(USE_BUNDLED_MSGPACK);
+                        shiv(targetFile, stageDir, contentsDir, extractMsgPack);
                         break;
                     default:
                         // shouldn't happen
@@ -285,10 +288,11 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                 }
             }
 
-            private void shiv(FileReference sourceFile, FileReference stageDir, FileReference contentsDir)
-                    throws IOException {
+            private void shiv(FileReference sourceFile, FileReference stageDir, FileReference contentsDir,
+                    boolean writeMsgpack) throws IOException {
                 FileReference msgpack = stageDir.getChild("msgpack.pyz");
-                if (writeShim(msgpack, true)) {
+                writeShim(msgpack, writeMsgpack);
+                if (writeMsgpack) {
                     File msgPackFolder = new File(contentsDir.getRelativePath(), "ipc");
                     FileReference msgPackFolderRef =
                             new FileReference(contentsDir.getDeviceHandle(), msgPackFolder.getPath());

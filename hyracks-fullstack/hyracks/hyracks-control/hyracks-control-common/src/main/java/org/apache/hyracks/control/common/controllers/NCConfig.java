@@ -18,6 +18,7 @@
  */
 package org.apache.hyracks.control.common.controllers;
 
+import static org.apache.hyracks.control.common.config.OptionTypes.BOOLEAN;
 import static org.apache.hyracks.control.common.config.OptionTypes.INTEGER;
 import static org.apache.hyracks.control.common.config.OptionTypes.INTEGER_BYTE_UNIT;
 import static org.apache.hyracks.control.common.config.OptionTypes.LONG;
@@ -92,9 +93,12 @@ public class NCConfig extends ControllerConfig {
         KEY_STORE_PASSWORD(STRING, (String) null),
         IO_WORKERS_PER_PARTITION(POSITIVE_INTEGER, 2),
         IO_QUEUE_SIZE(POSITIVE_INTEGER, 10),
-        PYTHON_HOME(STRING, "/usr/bin/env"),
-        PYTHON_ADDITIONAL_PACKAGES(STRING, "." + File.separator + "ipc" + File.separator + "site-packages"),
-        PYTHON_ARGS(STRING, (String) null);
+        PYTHON_HOME(STRING, "(String) null/usr/bin/env"),
+        PYTHON_ADDITIONAL_PACKAGES(
+                STRING_ARRAY,
+                new String[] { "." + File.separator + "ipc" + File.separator + "site-packages" }),
+        USE_BUNDLED_MSGPACK(BOOLEAN, false),
+        PYTHON_ARGS(STRING_ARRAY, (String[]) null);
 
         private final IOptionType parser;
         private final String defaultValueDescription;
@@ -231,6 +235,8 @@ public class NCConfig extends ControllerConfig {
                     return "Path to python interpreter";
                 case PYTHON_ADDITIONAL_PACKAGES:
                     return "Comma-separated additional paths to add to sys.path behind msgpack and library package paths";
+                case USE_BUNDLED_MSGPACK:
+                    return "True to include bundled msgpack on Python sys.path, false to use system-provided msgpack";
                 case PYTHON_ARGS:
                     return "Python args to pass to interpreter";
                 default:

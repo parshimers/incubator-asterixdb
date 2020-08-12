@@ -33,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.app.result.ResponsePrinter;
@@ -141,10 +142,11 @@ public class UdfApiServlet extends AbstractServlet {
             } catch (IOException e) {
                 LOGGER.warn("Could not clean directory: " + workingDir, e);
             }
-        } else {
-            Files.deleteIfExists(workingDir);
-            FileUtil.forceMkdirs(workingDir.toFile());
         }
+    }
+
+    protected Map<String, String> addtlHttpHeaders(IServletRequest request) {
+        return Collections.emptyMap();
     }
 
     @Override
@@ -250,7 +252,7 @@ public class UdfApiServlet extends AbstractServlet {
         ResultProperties resultProperties = new ResultProperties(IStatementExecutor.ResultDelivery.IMMEDIATE, 1);
         IRequestParameters requestParams = new RequestParameters(requestReference, "", null, resultProperties,
                 new IStatementExecutor.Stats(), new IStatementExecutor.StatementProperties(), null, null,
-                Collections.emptyMap(), Collections.emptyMap(), false);
+                addtlHttpHeaders(request), Collections.emptyMap(), false);
         MetadataManager.INSTANCE.init();
         IStatementExecutor translator = statementExecutorFactory.create(appCtx, Collections.singletonList(statement),
                 sessionOutput, compilationProvider, componentProvider, printer);
