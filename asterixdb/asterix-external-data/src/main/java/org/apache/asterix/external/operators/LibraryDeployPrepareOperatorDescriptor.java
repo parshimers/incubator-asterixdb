@@ -306,11 +306,7 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
             private boolean writeShim(FileReference outputFile, boolean optional) throws IOException {
                 InputStream is = getClass().getClassLoader().getResourceAsStream(outputFile.getFile().getName());
                 if (is == null) {
-                    if (!optional) {
-                        throw new IOException("Classpath does not contain necessary Python resources!");
-                    } else {
-                        return false;
-                    }
+                    throw new IOException("Classpath does not contain necessary Python resources!");
                 }
                 try {
                     writeAndForce(outputFile, is);

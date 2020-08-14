@@ -47,6 +47,7 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import org.apache.hyracks.api.config.IApplicationConfig;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -73,16 +74,20 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final ByteBuffer outputWrapper;
     private final IEvaluatorContext evaluatorContext;
     private static final String ENTRYPOINT = "entrypoint.py";
+    private static final String SITE_PACKAGES = "site-packages";
 
     private final IPointable[] argValues;
 
     ExternalScalarPythonFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
             IAType[] argTypes, IEvaluatorContext ctx, SourceLocation sourceLoc) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
-
-        File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
+        IApplicationConfig cfg = ctx.getServiceContext().getAppConfig();
+        File pythonPath = new File(cfg.getString(NCConfig.Option.PYTHON_HOME));
         List<String> addtlSitePkgs = new ArrayList<>();
-        addtlSitePkgs.add("0:site-packages");
+        addtlSitePkgs.add("0:" + SITE_PACKAGES);
+        if (cfg.getBoolean(NCConfig.Option.USE_BUNDLED_MSGPACK)) {
+            addtlSitePkgs.add("ipc" + File.separator + SITE_PACKAGES + File.separator);
+        }
         String[] addlSitePackagesRaw =
                 ctx.getServiceContext().getAppConfig().getStringArray((NCConfig.Option.PYTHON_ADDITIONAL_PACKAGES));
         if (addlSitePackagesRaw != null) {

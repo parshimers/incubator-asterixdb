@@ -27,7 +27,6 @@ import static org.apache.hyracks.control.common.config.OptionTypes.STRING;
 import static org.apache.hyracks.control.common.config.OptionTypes.STRING_ARRAY;
 import static org.apache.hyracks.control.common.config.OptionTypes.UNSIGNED_INTEGER;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,9 +93,7 @@ public class NCConfig extends ControllerConfig {
         IO_WORKERS_PER_PARTITION(POSITIVE_INTEGER, 2),
         IO_QUEUE_SIZE(POSITIVE_INTEGER, 10),
         PYTHON_HOME(STRING, "(String) null/usr/bin/env"),
-        PYTHON_ADDITIONAL_PACKAGES(
-                STRING_ARRAY,
-                new String[] { "." + File.separator + "ipc" + File.separator + "site-packages" }),
+        PYTHON_ADDITIONAL_PACKAGES(STRING_ARRAY, (String[]) null),
         USE_BUNDLED_MSGPACK(BOOLEAN, false),
         PYTHON_ARGS(STRING_ARRAY, (String[]) null);
 
