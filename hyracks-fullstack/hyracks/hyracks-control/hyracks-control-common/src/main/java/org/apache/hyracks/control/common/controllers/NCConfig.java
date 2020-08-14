@@ -92,9 +92,9 @@ public class NCConfig extends ControllerConfig {
         KEY_STORE_PASSWORD(STRING, (String) null),
         IO_WORKERS_PER_PARTITION(POSITIVE_INTEGER, 2),
         IO_QUEUE_SIZE(POSITIVE_INTEGER, 10),
-        PYTHON_HOME(STRING, "(String) null/usr/bin/env"),
+        PYTHON_HOME(STRING, "/usr/bin/env"),
         PYTHON_ADDITIONAL_PACKAGES(STRING_ARRAY, (String[]) null),
-        USE_BUNDLED_MSGPACK(BOOLEAN, false),
+        USE_BUNDLED_MSGPACK(BOOLEAN, true),
         PYTHON_ARGS(STRING_ARRAY, (String[]) null);
 
         private final IOptionType parser;
