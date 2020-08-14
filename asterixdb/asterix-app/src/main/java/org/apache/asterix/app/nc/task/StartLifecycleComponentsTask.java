@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.app.nc.task;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 

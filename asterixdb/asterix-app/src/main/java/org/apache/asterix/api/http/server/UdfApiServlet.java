@@ -233,7 +233,7 @@ public class UdfApiServlet extends AbstractServlet {
         try {
             IRequestReference requestReference = receptionist.welcome(request);
             LibraryDropStatement stmt = new LibraryDropStatement(libraryName.first, libraryName.second, false);
-            executeStatement(stmt, requestReference);
+            executeStatement(stmt, requestReference, request);
             response.setStatus(HttpResponseStatus.OK);
         } catch (Exception e) {
             response.setStatus(toHttpErrorStatus(e));

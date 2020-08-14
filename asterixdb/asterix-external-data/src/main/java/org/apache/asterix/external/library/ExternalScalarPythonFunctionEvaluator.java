@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.WarningUtil;
-import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
@@ -84,20 +83,19 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         File pythonPath = new File(ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_HOME));
         List<String> addtlSitePkgs = new ArrayList<>();
         addtlSitePkgs.add("0:site-packages");
-        String addlSitePackagesRaw =
-                ctx.getServiceContext().getAppConfig().getString((NCConfig.Option.PYTHON_ADDITIONAL_PACKAGES));
+        String[] addlSitePackagesRaw =
+                ctx.getServiceContext().getAppConfig().getStringArray((NCConfig.Option.PYTHON_ADDITIONAL_PACKAGES));
         if (addlSitePackagesRaw != null) {
-            addtlSitePkgs.addAll(Arrays.asList(addlSitePackagesRaw.split(",")));
+            addtlSitePkgs.addAll(Arrays.asList(addlSitePackagesRaw));
         }
         List<String> pythonArgs = Collections.emptyList();
-        String pythonArgsRaw = ctx.getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_ARGS);
+        String[] pythonArgsRaw = ctx.getServiceContext().getAppConfig().getStringArray(NCConfig.Option.PYTHON_ARGS);
         if (pythonArgsRaw != null) {
-            pythonArgs = Arrays.asList(pythonArgsRaw.trim().split(" "));
+            addtlSitePkgs.addAll(Arrays.asList(pythonArgsRaw));
         }
-        DataverseName dataverseName = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
         try {
             libraryEvaluator = PythonLibraryEvaluator.getInstance(finfo, libraryManager, router, ipcSys, pythonPath,
-                    ctx.getTaskContext(), ctx.getWarningCollector(), sourceLoc);
+                    ctx.getTaskContext(), addtlSitePkgs, pythonArgs, ctx.getWarningCollector(), sourceLoc);
         } catch (IOException | AsterixException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
@@ -239,7 +237,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
         private static PythonLibraryEvaluator getInstance(IExternalFunctionInfo finfo, ILibraryManager libMgr,
                 ExternalFunctionResultRouter router, IPCSystem ipcSys, File pythonHome, IHyracksTaskContext ctx,
-                IWarningCollector warningCollector, SourceLocation sourceLoc) throws IOException, AsterixException {
+                List<String> addtlSitePkgs, List<String> pythonArgs, IWarningCollector warningCollector,
+                SourceLocation sourceLoc) throws IOException, AsterixException {
             PythonLibraryEvaluatorId evaluatorId =
                     new PythonLibraryEvaluatorId(finfo.getLibraryDataverseName(), finfo.getLibraryName());
             PythonLibraryEvaluator evaluator = (PythonLibraryEvaluator) ctx.getStateObject(evaluatorId);

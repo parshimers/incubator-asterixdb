@@ -291,8 +291,8 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
             private void shiv(FileReference sourceFile, FileReference stageDir, FileReference contentsDir,
                     boolean writeMsgpack) throws IOException {
                 FileReference msgpack = stageDir.getChild("msgpack.pyz");
-                writeShim(msgpack, writeMsgpack);
                 if (writeMsgpack) {
+                    writeShim(msgpack, writeMsgpack);
                     File msgPackFolder = new File(contentsDir.getRelativePath(), "ipc");
                     FileReference msgPackFolderRef =
                             new FileReference(contentsDir.getDeviceHandle(), msgPackFolder.getPath());
