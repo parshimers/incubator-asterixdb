@@ -1,0 +1,5 @@
+- name: Deploy binaries
+  synchronize:
+    src: "../"
+    dest: "{{ datadir }}"
+    archive: false
