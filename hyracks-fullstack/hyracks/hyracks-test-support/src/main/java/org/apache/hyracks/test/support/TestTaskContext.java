@@ -200,4 +200,5 @@ public class TestTaskContext implements IHyracksTaskContext {
     public IThreadStats getThreadStats() {
         return threadStats;
     }
+
 }

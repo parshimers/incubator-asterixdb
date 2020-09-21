@@ -21,6 +21,7 @@ package org.apache.hyracks.api.job.profiling;
 import java.io.Serializable;
 import java.util.Map;
 
+import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.IPassableTimer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IWritable;
@@ -59,13 +60,12 @@ public interface IStatsCollector extends IWritable, Serializable {
      * @param newHolder the timer that is starting execution
      * @return the current nanoTime when the clock was taken from the other operator
      */
-    long takeClock(IPassableTimer newHolder);
+    long takeClock(IPassableTimer newHolder, ActivityId root);
 
     /**
      * Resume an operator's timer, when a downstream operator has finished execution of
      * the method the upstream operator called
      * @param currHolder the timer that needs to be paused
      */
-    void giveClock(IPassableTimer currHolder);
-
+    void giveClock(IPassableTimer currHolder, ActivityId root);
 }

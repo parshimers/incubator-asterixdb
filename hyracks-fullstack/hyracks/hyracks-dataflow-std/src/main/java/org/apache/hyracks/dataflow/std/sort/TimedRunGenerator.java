@@ -21,6 +21,7 @@ package org.apache.hyracks.dataflow.std.sort;
 import java.util.List;
 
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.TimedFrameWriter;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.dataflow.common.io.GeneratedRunFileReader;
@@ -29,8 +30,8 @@ public class TimedRunGenerator extends TimedFrameWriter implements IRunGenerator
 
     private final IRunGenerator runGenerator;
 
-    private TimedRunGenerator(IRunGenerator runGenerator, IStatsCollector collector, String name) {
-        super(runGenerator, collector, name);
+    private TimedRunGenerator(IRunGenerator runGenerator, IStatsCollector collector, String name, ActivityId root) {
+        super(runGenerator, collector, name, root);
         this.runGenerator = runGenerator;
     }
 
@@ -44,8 +45,9 @@ public class TimedRunGenerator extends TimedFrameWriter implements IRunGenerator
         return runGenerator.getSorter();
     }
 
-    public static IRunGenerator time(IRunGenerator runGenerator, IHyracksTaskContext ctx, String name) {
+    public static IRunGenerator time(IRunGenerator runGenerator, IHyracksTaskContext ctx, String name,
+            ActivityId root) {
         return runGenerator instanceof TimedRunGenerator ? runGenerator
-                : new TimedRunGenerator(runGenerator, ctx.getStatsCollector(), name);
+                : new TimedRunGenerator(runGenerator, ctx.getStatsCollector(), name, root);
     }
 }

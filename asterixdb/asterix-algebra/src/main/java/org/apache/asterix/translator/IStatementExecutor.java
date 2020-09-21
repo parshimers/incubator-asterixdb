@@ -55,11 +55,15 @@ import org.apache.hyracks.api.result.ResultSetId;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
 
 /**
  * An interface that takes care of executing a list of statements that are submitted through an Asterix API
  */
 public interface IStatementExecutor {
+    char UNIT_SEPARATOR = 31;
+    char END_OF_BLOCK = 23;
 
     /**
      * Specifies result delivery of executed statements
@@ -201,12 +205,37 @@ public interface IStatementExecutor {
 
         private void writeObject(ObjectOutputStream out) throws IOException {
             ObjectMapper om = new ObjectMapper();
-            out.writeUTF(om.writeValueAsString(profile));
+            java.lang.String prof = om.writeValueAsString(profile);
+            //split the string if it is >=64K to avoid writeUTF limit
+            List<String> pieces;
+            if (prof.length() > 65534L) {
+                pieces = Lists.newArrayList(Splitter.fixedLength(32768).split(prof));
+            } else {
+                pieces = Lists.newArrayList(prof);
+            }
+
+            for (int i = 0; i < pieces.size(); i++) {
+                out.writeChar(UNIT_SEPARATOR);
+                out.writeUTF(pieces.get(i));
+            }
+            out.writeChar(END_OF_BLOCK);
+
         }
 
         private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
             ObjectMapper om = new ObjectMapper();
-            JsonNode inNode = om.readTree(in.readUTF());
+            StringBuilder objSplits = new StringBuilder();
+            char cmd = in.readChar();
+            if (cmd == UNIT_SEPARATOR) {
+                for (; cmd != END_OF_BLOCK && cmd == UNIT_SEPARATOR; cmd = in.readChar()) {
+                    objSplits.append(in.readUTF());
+                }
+            } else {
+                objSplits.append(cmd);
+                objSplits.append(in.readUTF());
+            }
+
+            JsonNode inNode = om.readTree(objSplits.toString());
             if (!inNode.isObject()) {
                 throw new IOException("Deserialization error");
             }

@@ -34,16 +34,19 @@ public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
     final ICounter counter;
     final IStatsCollector collector;
     final String name;
+    protected final ActivityId root;
 
-    public TimedFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, ICounter counter) {
+    public TimedFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, ICounter counter,
+            ActivityId root) {
         this.writer = writer;
         this.collector = collector;
         this.name = name;
         this.counter = counter;
+        this.root = root;
     }
 
-    protected TimedFrameWriter(IFrameWriter writer, IStatsCollector collector, String name) {
-        this(writer, collector, name, collector.getOrAddOperatorStats(name).getTimeCounter());
+    protected TimedFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, ActivityId root) {
+        this(writer, collector, name, collector.getOrAddOperatorStats(name).getTimeCounter(), root);
     }
 
     @Override
@@ -93,14 +96,14 @@ public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
 
     private void stopClock() {
         pause();
-        collector.giveClock(this);
+        collector.giveClock(this, root);
     }
 
     private void startClock() {
         if (frameStart > 0) {
             return;
         }
-        frameStart = collector.takeClock(this);
+        frameStart = collector.takeClock(this, root);
     }
 
     @Override
@@ -122,9 +125,9 @@ public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
         }
     }
 
-    public static IFrameWriter time(IFrameWriter writer, IHyracksTaskContext ctx, String name)
+    public static IFrameWriter time(IFrameWriter writer, IHyracksTaskContext ctx, String name, ActivityId root)
             throws HyracksDataException {
         return writer instanceof TimedFrameWriter ? writer
-                : new TimedFrameWriter(writer, ctx.getStatsCollector(), name);
+                : new TimedFrameWriter(writer, ctx.getStatsCollector(), name, root);
     }
 }
