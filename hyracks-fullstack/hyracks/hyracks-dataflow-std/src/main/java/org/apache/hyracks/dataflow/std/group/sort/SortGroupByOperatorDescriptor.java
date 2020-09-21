@@ -148,7 +148,8 @@ public class SortGroupByOperatorDescriptor extends AbstractSorterOperatorDescrip
                         recordDescriptorProvider.getInputRecordDescriptor(this.getActivityId(), 0), framesLimit,
                         groupFields, keyNormalizerFactories, comparatorFactories, partialAggregatorFactory,
                         partialAggRecordDesc, ALG);
-                return profile ? TimedRunGenerator.time(runGen, ctx, "GroupBy (Sort Runs)") : runGen;
+                return profile ? TimedRunGenerator.time(runGen, ctx, "GroupBy (Sort Runs)", this.getActivityId())
+                        : runGen;
             }
         };
     }

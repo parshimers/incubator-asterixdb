@@ -109,8 +109,9 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
         for (Entry<ActivityId, IActivity> entry : startActivities.entrySet()) {
             IOperatorNodePushable opPushable = null;
             if (profile) {
-                opPushable = TimedOperatorNodePushable
-                        .time(entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions), ctx);
+                opPushable = TimedOperatorNodePushable.time(
+                        entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions), ctx,
+                        entry.getKey());
             } else {
                 opPushable = entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
             }
@@ -142,7 +143,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
             if (destOp == null) {
                 if (profile) {
                     destOp = TimedOperatorNodePushable.time(channel.getRight().getLeft().createPushRuntime(ctx,
-                            recordDescProvider, partition, nPartitions), ctx);
+                            recordDescProvider, partition, nPartitions), ctx, destId);
                 } else {
                     destOp = channel.getRight().getLeft().createPushRuntime(ctx, recordDescProvider, partition,
                             nPartitions);

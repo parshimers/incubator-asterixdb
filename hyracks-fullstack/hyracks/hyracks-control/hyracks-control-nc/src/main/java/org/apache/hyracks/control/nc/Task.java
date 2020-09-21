@@ -44,6 +44,7 @@ import org.apache.hyracks.api.comm.PartitionChannel;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.context.IHyracksJobletContext;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.dataflow.state.IStateObject;
@@ -130,6 +131,8 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
     private final Set<IThreadStatsCollector> threadStatsCollectors = new HashSet<>();
 
     private final Map<Long, IThreadStats> perThreadStats = new HashMap<>();
+
+    private final Map<IOperatorNodePushable, ActivityId> rootOperators = new HashMap<>();
 
     public Task(Joblet joblet, Set<JobFlag> jobFlags, TaskAttemptId taskId, String displayName,
             ExecutorService executor, NodeControllerService ncs,
@@ -568,4 +571,5 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
     private boolean isRuntimeProfilingEnabled() {
         return getJobFlags().contains(JobFlag.PROFILE_RUNTIME);
     }
+
 }

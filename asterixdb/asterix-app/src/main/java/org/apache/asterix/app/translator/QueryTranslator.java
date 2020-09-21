@@ -436,6 +436,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         handleViewDropStatement(metadataProvider, stmt);
                         break;
                     case LOAD:
+                        if (stats.getProfileType() == Stats.ProfileType.FULL) {
+                            this.jobFlags.add(JobFlag.PROFILE_RUNTIME);
+                        }
                         handleLoadStatement(metadataProvider, stmt, hcc);
                         break;
                     case INSERT:
@@ -445,6 +448,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                             metadataProvider.setResultAsyncMode(resultDelivery == ResultDelivery.ASYNC
                                     || resultDelivery == ResultDelivery.DEFERRED);
                             metadataProvider.setMaxResultReads(maxResultReads);
+                        }
+                        if (stats.getProfileType() == Stats.ProfileType.FULL) {
+                            this.jobFlags.add(JobFlag.PROFILE_RUNTIME);
                         }
                         handleInsertUpsertStatement(metadataProvider, stmt, hcc, resultSet, resultDelivery, outMetadata,
                                 stats, requestParameters, stmtParams, stmtRewriter);

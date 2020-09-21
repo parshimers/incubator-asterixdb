@@ -27,7 +27,9 @@ import org.apache.hyracks.api.comm.IFrameTupleAccessor;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.EnforceFrameWriter;
+import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
 import org.apache.hyracks.api.dataflow.TimedFrameWriter;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -67,7 +69,9 @@ public class NestedPlansRunningAggregatorFactory extends AbstractAggregatorDescr
                 new RunningAggregatorOutput(ctx, subplans, keyFieldIdx.length + decorFieldIdx.length, writer);
         IFrameWriter fw = outputWriter;
         if (profile) {
-            fw = TimedFrameWriter.time(outputWriter, ctx, "Aggregate Writer");
+            //TODO: how to pass activity here without breaking interfaces?...
+            fw = TimedFrameWriter.time(outputWriter, ctx, "Aggregate Writer",
+                    new ActivityId(new OperatorDescriptorId(-1), -1));
         } else if (enforce) {
             fw = EnforceFrameWriter.enforce(outputWriter);
         }

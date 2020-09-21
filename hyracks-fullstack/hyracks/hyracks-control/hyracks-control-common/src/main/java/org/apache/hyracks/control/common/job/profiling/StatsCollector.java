@@ -26,7 +26,10 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.IPassableTimer;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
@@ -36,7 +39,7 @@ public class StatsCollector implements IStatsCollector {
     private static final long serialVersionUID = 6858817639895434578L;
 
     private final Map<String, IOperatorStats> operatorStatsMap = new LinkedHashMap<>();
-    private transient Deque<IPassableTimer> clockHolder = new ArrayDeque<>();
+    private ConcurrentMap<ActivityId, Deque<IPassableTimer>> clockHolders = new ConcurrentHashMap<>();
 
     @Override
     public void add(IOperatorStats operatorStats) {
@@ -91,8 +94,9 @@ public class StatsCollector implements IStatsCollector {
     }
 
     @Override
-    public long takeClock(IPassableTimer newHolder) {
+    public long takeClock(IPassableTimer newHolder, ActivityId root) {
         if (newHolder != null) {
+            Deque<IPassableTimer> clockHolder = clockHolders.getOrDefault(root, new ArrayDeque<>());
             if (clockHolder.peek() != null) {
                 clockHolder.peek().pause();
             }
@@ -102,10 +106,13 @@ public class StatsCollector implements IStatsCollector {
     }
 
     @Override
-    public void giveClock(IPassableTimer currHolder) {
-        clockHolder.removeLastOccurrence(currHolder);
-        if (clockHolder.peek() != null) {
-            clockHolder.peek().resume();
+    public void giveClock(IPassableTimer currHolder, ActivityId root) {
+        Deque<IPassableTimer> clockHolder = clockHolders.get(root);
+        if (clockHolder != null) {
+            clockHolder.removeLastOccurrence(currHolder);
+            if (clockHolder.peek() != null) {
+                clockHolder.peek().resume();
+            }
         }
     }
 

@@ -65,7 +65,7 @@ public class TopKSorterOperatorDescriptor extends AbstractSorterOperatorDescript
                 final boolean profile = ctx.getJobFlags().contains(JobFlag.PROFILE_RUNTIME);
                 IRunGenerator runGen = new HybridTopKSortRunGenerator(ctx, framesLimit, topK, sortFields,
                         keyNormalizerFactories, comparatorFactories, outRecDescs[0]);
-                return profile ? TimedRunGenerator.time(runGen, ctx, "TopKSort (Sort)") : runGen;
+                return profile ? TimedRunGenerator.time(runGen, ctx, "TopKSort (Sort)", this.getActivityId()) : runGen;
 
             }
         };
