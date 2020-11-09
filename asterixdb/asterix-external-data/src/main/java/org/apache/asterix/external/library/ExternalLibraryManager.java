@@ -21,15 +21,20 @@ package org.apache.asterix.external.library;
 import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
@@ -37,6 +42,9 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -275,6 +283,16 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
 
     private static Pair<DataverseName, String> getKey(DataverseName dataverseName, String libraryName) {
         return new Pair<>(dataverseName, libraryName);
+    }
+
+
+    private File zipAllLibs() throws IOException {
+        File storageFile = storageDir.getFile();
+        FileOutputStream out =  new FileOutputStream(new File(storageDir.getFile(),Long.toString(System.currentTimeMillis())+".zip"));
+        try(ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)){
+            ArchiveEntry storageZipDir = zipOut.createArchiveEntry(storageFile, storageFile.getName());
+            zipOut.putArchiveEntry(storageZipDir);
+        }
     }
 
     @Override
