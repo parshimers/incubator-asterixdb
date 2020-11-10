@@ -22,6 +22,7 @@ import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHA
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -30,9 +31,13 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
@@ -46,6 +51,7 @@ import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
@@ -286,14 +292,35 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
 
-    private File zipAllLibs() throws IOException {
-        File storageFile = storageDir.getFile();
-        FileOutputStream out =  new FileOutputStream(new File(storageDir.getFile(),Long.toString(System.currentTimeMillis())+".zip"));
-        try(ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)){
-            ArchiveEntry storageZipDir = zipOut.createArchiveEntry(storageFile, storageFile.getName());
-            zipOut.putArchiveEntry(storageZipDir);
-        }
+    private Path zipAllLibs() throws IOException {
+        Path outZip = Paths.get(storageDir.getFile(,System.currentTimeMillis()+".zip");
+        FileOutputStream out =  new FileOutputStream(outZip.toFile());
+        ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out);
+        traverseZip(zipOut,storageDirPath,storageDirPath);
+        zipOut.finish();
+        out.close();
+        return outZip;
     }
+
+    private static void traverseZip(ZipArchiveOutputStream zipOut, Path currPath, Path root) throws IOException {
+        ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), root.relativize(currPath).toString());
+        zipOut.putArchiveEntry(e);
+        if(currPath.toFile().isFile()){
+            FileInputStream fileRead = new FileInputStream(currPath.toFile());
+            IOUtils.copy(fileRead,zipOut);
+            fileRead.close();
+            zipOut.closeArchiveEntry();
+        }
+        else {
+            zipOut.closeArchiveEntry();
+            List<Path> dirs = Files.list(currPath).collect(Collectors.toList());
+            for(Path p: dirs){
+                traverseZip(zipOut,p,root);
+            }
+        }
+
+    }
+
 
     @Override
     public void dropLibraryPath(FileReference fileRef) throws HyracksDataException {
