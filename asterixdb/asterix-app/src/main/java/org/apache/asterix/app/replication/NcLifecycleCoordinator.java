@@ -18,11 +18,16 @@
  */
 package org.apache.asterix.app.replication;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,6 +36,7 @@ import org.apache.asterix.app.nc.task.CheckpointTask;
 import org.apache.asterix.app.nc.task.ExportMetadataNodeTask;
 import org.apache.asterix.app.nc.task.LocalRecoveryTask;
 import org.apache.asterix.app.nc.task.MetadataBootstrapTask;
+import org.apache.asterix.app.nc.task.RetrieveLibrariesTask;
 import org.apache.asterix.app.nc.task.StartLifecycleComponentsTask;
 import org.apache.asterix.app.nc.task.StartReplicationServiceTask;
 import org.apache.asterix.app.nc.task.UpdateNodeStatusTask;
@@ -51,11 +57,16 @@ import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.client.NodeStatus;
+import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.control.IGatekeeper;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.control.cc.ClusterControllerService;
+import org.apache.hyracks.control.common.config.ConfigManager;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import static org.apache.asterix.common.config.ExternalProperties.Option.NC_API_PORT;
 
 public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
 
@@ -66,12 +77,14 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     protected final ICCMessageBroker messageBroker;
     private final boolean replicationEnabled;
     private final IGatekeeper gatekeeper;
+    private final Random rand;
 
     public NcLifecycleCoordinator(ICCServiceContext serviceCtx, boolean replicationEnabled) {
         this.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
         this.replicationEnabled = replicationEnabled;
         this.gatekeeper =
                 ((ClusterControllerService) serviceCtx.getControllerService()).getApplication().getGatekeeper();
+        this.rand = new Random();
     }
 
     @Override
@@ -203,6 +216,25 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
+        if(!clusterManager.getParticipantNodes(true).isEmpty()){
+            Set<String> nodes = clusterManager.getParticipantNodes(true);
+            int randomIdx = rand.nextInt(nodes.size());
+            Iterator<String> randomIter = nodes.iterator();
+            for(int i=0; i< randomIdx; i++){
+                randomIter.next();
+            }
+            //TODO: encryption?
+            Map<IOption, Object> config = clusterManager.getNcConfiguration().get(randomIter.next());
+            String host = (String) config.get(NCConfig.Option.PUBLIC_ADDRESS);
+            int port = (Integer) config.get(NC_API_PORT);
+            //TODO: no no N O
+            try {
+                URI udfReplica = new URI("http://"+host+":"+port+"/allLibraries");
+                tasks.add(new RetrieveLibrariesTask(udfReplica));
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+            }
+        }
         if (metadataNode) {
             tasks.add(new ExportMetadataNodeTask(true));
             tasks.add(new BindMetadataNodeTask());
