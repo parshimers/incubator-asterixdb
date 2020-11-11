@@ -33,6 +33,8 @@ public interface ILibraryManager {
 
     // deployment helpers
 
+    FileReference getStorageDir();
+
     FileReference getLibraryDir(DataverseName dataverseName, String libraryName) throws HyracksDataException;
 
     FileReference getDistributionDir();

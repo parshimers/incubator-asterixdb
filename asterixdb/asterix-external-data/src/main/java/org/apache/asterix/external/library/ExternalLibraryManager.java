@@ -184,6 +184,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         }
     }
 
+    @Override
+    public FileReference getStorageDir() {
+        return storageDir;
+    }
+
     private FileReference getDataverseDir(DataverseName dataverseName) throws HyracksDataException {
         return getChildFileRef(storageDir, dataverseName.getCanonicalForm());
     }
@@ -292,8 +297,8 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
 
-    private Path zipAllLibs() throws IOException {
-        Path outZip = Paths.get(storageDir.getFile(,System.currentTimeMillis()+".zip");
+    public Path zipAllLibs() throws IOException {
+        Path outZip = Paths.get(storageDir.getAbsolutePath(),System.currentTimeMillis()+".zip");
         FileOutputStream out =  new FileOutputStream(outZip.toFile());
         ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out);
         traverseZip(zipOut,storageDirPath,storageDirPath);

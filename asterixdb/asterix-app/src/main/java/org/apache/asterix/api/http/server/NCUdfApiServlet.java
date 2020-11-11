@@ -18,6 +18,7 @@
  */
 package org.apache.asterix.api.http.server;
 
+import static org.apache.asterix.api.http.server.ServletConstants.ASTERIX_APP_CONTEXT_INFO_ATTR;
 import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
 import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
 import static org.apache.asterix.common.functions.ExternalFunctionLanguage.JAVA;
@@ -52,6 +53,7 @@ import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.messaging.api.MessageFuture;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
+import org.apache.asterix.external.library.ExternalLibraryManager;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -93,6 +95,7 @@ public class NCUdfApiServlet extends AbstractServlet {
     protected String sysAuthHeader;
 
     private static final Logger LOGGER = LogManager.getLogger();
+    public static final String GET_ALL_UDF_ENDPOINT="/allLibraries";
 
     public NCUdfApiServlet(ConcurrentMap<String, Object> ctx, String[] paths, IApplicationContext appCtx,
             ILangCompilationProvider compilationProvider, HttpScheme httpServerProtocol, int httpServerPort) {
@@ -185,6 +188,11 @@ public class NCUdfApiServlet extends AbstractServlet {
     @Override
     protected void get(IServletRequest request, IServletResponse response) throws Exception {
         String localPath = localPath(request);
+        if(localPath.equals(GET_ALL_UDF_ENDPOINT)){
+            Path zippedLibs = ((ExternalLibraryManager)appCtx.getLibraryManager()).zipAllLibs();
+            readFromFile(zippedLibs,response);
+            return;
+        }
         while (localPath.startsWith("/")) {
             localPath = localPath.substring(1);
         }
