@@ -1,4 +1,38 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.asterix.app.nc.task;
+
+import static org.apache.hyracks.api.util.IoUtil.flushDirectory;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import org.apache.asterix.common.api.INCLifecycleTask;
 import org.apache.asterix.common.api.INcApplicationContext;
@@ -17,33 +51,16 @@ import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.service.IControllerService;
-import org.apache.hyracks.control.nc.io.IOManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
-import java.nio.channels.Channels;
-import java.nio.channels.WritableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-
-import static org.apache.hyracks.api.util.IoUtil.flushDirectory;
-
-public class RetrieveLibrariesTask implements INCLifecycleTask  {
+public class RetrieveLibrariesTask implements INCLifecycleTask {
     private static final Logger LOGGER = LogManager.getLogger();
     private final URI libraryURI;
     private String authToken;
     private byte[] copyBuffer;
 
-    public RetrieveLibrariesTask(URI libraryURI, String authToken){
+    public RetrieveLibrariesTask(URI libraryURI, String authToken) {
         this.libraryURI = libraryURI;
         this.authToken = authToken;
     }
@@ -119,7 +136,6 @@ public class RetrieveLibrariesTask implements INCLifecycleTask  {
         }
     }
 
-
     private void unzip(FileReference sourceFile, INcApplicationContext appCtx) throws IOException {
         boolean logTraceEnabled = LOGGER.isTraceEnabled();
         Set<Path> newDirs = new HashSet<>();
@@ -156,7 +172,8 @@ public class RetrieveLibrariesTask implements INCLifecycleTask  {
         }
     }
 
-    private void writeAndForce(FileReference outputFile, InputStream dataStream, IIOManager ioManager) throws IOException {
+    private void writeAndForce(FileReference outputFile, InputStream dataStream, IIOManager ioManager)
+            throws IOException {
         outputFile.getFile().createNewFile();
         IFileHandle fHandle = ioManager.open(outputFile, IIOManager.FileReadWriteMode.READ_WRITE,
                 IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
@@ -184,7 +201,7 @@ public class RetrieveLibrariesTask implements INCLifecycleTask  {
         FileReference targetFile = appContext.getLibraryManager().getStorageDir().getChild("replicate.zip");
         try {
             download(appContext, targetFile);
-            unzip(targetFile,appContext);
+            unzip(targetFile, appContext);
         } catch (IOException e) {
             e.printStackTrace();
         }

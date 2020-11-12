@@ -21,14 +21,12 @@ package org.apache.asterix.external.library;
 import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,9 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
@@ -47,7 +42,6 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
-import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.io.FileUtils;
@@ -296,12 +290,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         return new Pair<>(dataverseName, libraryName);
     }
 
-
     public Path zipAllLibs() throws IOException {
-        Path outZip = Paths.get(storageDir.getAbsolutePath(),System.currentTimeMillis()+".zip");
-        FileOutputStream out =  new FileOutputStream(outZip.toFile());
+        Path outZip = Paths.get(storageDir.getAbsolutePath(), System.currentTimeMillis() + ".zip");
+        FileOutputStream out = new FileOutputStream(outZip.toFile());
         ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out);
-        traverseZip(zipOut,storageDirPath,storageDirPath);
+        traverseZip(zipOut, storageDirPath, storageDirPath);
         zipOut.finish();
         out.close();
         return outZip;
@@ -310,22 +303,20 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     private static void traverseZip(ZipArchiveOutputStream zipOut, Path currPath, Path root) throws IOException {
         ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), root.relativize(currPath).toString());
         zipOut.putArchiveEntry(e);
-        if(currPath.toFile().isFile()){
+        if (currPath.toFile().isFile()) {
             FileInputStream fileRead = new FileInputStream(currPath.toFile());
-            IOUtils.copy(fileRead,zipOut);
+            IOUtils.copy(fileRead, zipOut);
             fileRead.close();
             zipOut.closeArchiveEntry();
-        }
-        else {
+        } else {
             zipOut.closeArchiveEntry();
             List<Path> dirs = Files.list(currPath).collect(Collectors.toList());
-            for(Path p: dirs){
-                traverseZip(zipOut,p,root);
+            for (Path p : dirs) {
+                traverseZip(zipOut, p, root);
             }
         }
 
     }
-
 
     @Override
     public void dropLibraryPath(FileReference fileRef) throws HyracksDataException {

@@ -18,11 +18,15 @@
  */
 package org.apache.asterix.app.replication;
 
+import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
+import static org.apache.asterix.common.config.ExternalProperties.Option.NC_API_PORT;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -61,12 +65,9 @@ import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.control.IGatekeeper;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.control.cc.ClusterControllerService;
-import org.apache.hyracks.control.common.config.ConfigManager;
 import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import static org.apache.asterix.common.config.ExternalProperties.Option.NC_API_PORT;
 
 public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
 
@@ -78,6 +79,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     private final boolean replicationEnabled;
     private final IGatekeeper gatekeeper;
     private final Random rand;
+    Map<String, Map<String, Object>> nodeSecretsMap;
 
     public NcLifecycleCoordinator(ICCServiceContext serviceCtx, boolean replicationEnabled) {
         this.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
@@ -85,6 +87,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         this.gatekeeper =
                 ((ClusterControllerService) serviceCtx.getControllerService()).getApplication().getGatekeeper();
         this.rand = new Random();
+        this.nodeSecretsMap = new HashMap<>();
     }
 
     @Override
@@ -127,6 +130,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
 
     private void process(RegistrationTasksRequestMessage msg) throws HyracksDataException {
         final String nodeId = msg.getNodeId();
+        nodeSecretsMap.put(nodeId, msg.getSecrets());
         List<INCLifecycleTask> tasks = buildNCRegTasks(msg.getNodeId(), msg.getNodeStatus(), msg.getState());
         RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId, tasks);
         try {
@@ -216,21 +220,23 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
-        if(!clusterManager.getParticipantNodes(true).isEmpty()){
-            Set<String> nodes = clusterManager.getParticipantNodes(true);
+        Set<String> nodes = clusterManager.getParticipantNodes(true);
+        if (!nodes.isEmpty()) {
             int randomIdx = rand.nextInt(nodes.size());
             Iterator<String> randomIter = nodes.iterator();
-            for(int i=0; i< randomIdx; i++){
+            for (int i = 0; i < randomIdx; i++) {
                 randomIter.next();
             }
             //TODO: encryption?
-            Map<IOption, Object> config = clusterManager.getNcConfiguration().get(randomIter.next());
+            String node = randomIter.next();
+            Map<IOption, Object> config = clusterManager.getNcConfiguration().get(node);
             String host = (String) config.get(NCConfig.Option.PUBLIC_ADDRESS);
             int port = (Integer) config.get(NC_API_PORT);
             //TODO: no no N O
             try {
-                URI udfReplica = new URI("http://"+host+":"+port+"/allLibraries");
-                tasks.add(new RetrieveLibrariesTask(udfReplica));
+                URI udfReplica = new URI("http://" + host + ":" + port + "/allLibraries");
+                String sysAuthHeader = (String) nodeSecretsMap.get(node).get(SYS_AUTH_HEADER);
+                tasks.add(new RetrieveLibrariesTask(udfReplica, sysAuthHeader));
             } catch (URISyntaxException e) {
                 e.printStackTrace();
             }
