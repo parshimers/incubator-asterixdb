@@ -23,5 +23,10 @@
         <output-dir compare="Text">resync_failed_replica</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="failover">
+      <compilation-unit name="external-library-recovery">
+        <output-dir compare="Text">external-library-recovery</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
 </test-suite>

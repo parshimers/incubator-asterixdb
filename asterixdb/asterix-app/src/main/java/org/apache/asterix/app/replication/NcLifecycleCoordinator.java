@@ -18,11 +18,20 @@
  */
 package org.apache.asterix.app.replication;
 
+import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
+import static org.apache.asterix.common.config.ExternalProperties.Option.NC_API_PORT;
+
+import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,6 +40,7 @@ import org.apache.asterix.app.nc.task.CheckpointTask;
 import org.apache.asterix.app.nc.task.ExportMetadataNodeTask;
 import org.apache.asterix.app.nc.task.LocalRecoveryTask;
 import org.apache.asterix.app.nc.task.MetadataBootstrapTask;
+import org.apache.asterix.app.nc.task.RetrieveLibrariesTask;
 import org.apache.asterix.app.nc.task.StartLifecycleComponentsTask;
 import org.apache.asterix.app.nc.task.StartReplicationServiceTask;
 import org.apache.asterix.app.nc.task.UpdateNodeStatusTask;
@@ -49,29 +59,49 @@ import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.asterix.common.replication.INcLifecycleCoordinator;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.metadata.MetadataManager;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHeaders;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.client.NodeStatus;
+import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.control.IGatekeeper;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.control.cc.ClusterControllerService;
+import org.apache.hyracks.control.common.controllers.NCConfig;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
 
     private static final Logger LOGGER = LogManager.getLogger();
+    private static final int FETCH_RETRY_COUNT = 10;
     protected IClusterStateManager clusterManager;
     protected volatile String metadataNodeId;
     protected Set<String> pendingStartupCompletionNodes = Collections.synchronizedSet(new HashSet<>());
     protected final ICCMessageBroker messageBroker;
     private final boolean replicationEnabled;
     private final IGatekeeper gatekeeper;
+    private final Random rand;
+    Map<String, Map<String, Object>> nodeSecretsMap;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public NcLifecycleCoordinator(ICCServiceContext serviceCtx, boolean replicationEnabled) {
         this.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
         this.replicationEnabled = replicationEnabled;
         this.gatekeeper =
                 ((ClusterControllerService) serviceCtx.getControllerService()).getApplication().getGatekeeper();
+        this.rand = new Random();
+        this.nodeSecretsMap = new HashMap<>();
     }
 
     @Override
@@ -114,6 +144,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
 
     private void process(RegistrationTasksRequestMessage msg) throws HyracksDataException {
         final String nodeId = msg.getNodeId();
+        nodeSecretsMap.put(nodeId, msg.getSecrets());
         List<INCLifecycleTask> tasks = buildNCRegTasks(msg.getNodeId(), msg.getNodeStatus(), msg.getState());
         RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId, tasks);
         try {
@@ -186,12 +217,12 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
     }
 
-    protected List<INCLifecycleTask> buildIdleNcRegTasks(String nodeId, boolean metadataNode, SystemState state) {
+    protected List<INCLifecycleTask> buildIdleNcRegTasks(String newNodeId, boolean metadataNode, SystemState state) {
         final List<INCLifecycleTask> tasks = new ArrayList<>();
         tasks.add(new UpdateNodeStatusTask(NodeStatus.BOOTING));
         if (state == SystemState.CORRUPTED) {
             // need to perform local recovery for node partitions
-            LocalRecoveryTask rt = new LocalRecoveryTask(Arrays.stream(clusterManager.getNodePartitions(nodeId))
+            LocalRecoveryTask rt = new LocalRecoveryTask(Arrays.stream(clusterManager.getNodePartitions(newNodeId))
                     .map(ClusterPartition::getPartitionId).collect(Collectors.toSet()));
             tasks.add(rt);
         }
@@ -203,6 +234,19 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
+        Set<String> nodes = clusterManager.getParticipantNodes(true);
+        nodes.remove(newNodeId);
+        if (nodes.size() > 0) {
+            int randomIdx = rand.nextInt(nodes.size());
+            Iterator<String> randomIter = nodes.iterator();
+            for (int i = 0; i < randomIdx; i++) {
+                randomIter.next();
+            }
+            String referenceNodeId = randomIter.next();
+            if (!isUdfStateConsistent(referenceNodeId, newNodeId)) {
+                tasks.add(getLibraryTask(referenceNodeId, newNodeId));
+            }
+        }
         if (metadataNode) {
             tasks.add(new ExportMetadataNodeTask(true));
             tasks.add(new BindMetadataNodeTask());
@@ -220,6 +264,23 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
     }
 
+    protected Map<String, String> getNCAuthToken(String node) {
+        return Collections.singletonMap(HttpHeaders.AUTHORIZATION,
+                (String) nodeSecretsMap.get(node).get(SYS_AUTH_HEADER));
+    }
+
+    protected URI getNCUdfListingURL(Map<IOption, Object> nodeConfig) {
+        String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
+        int port = (Integer) nodeConfig.get(NC_API_PORT);
+        return URI.create("http://" + host + ":" + port + "/admin/udf/list");
+    }
+
+    protected URI getNCUdfRetrievalURL(Map<IOption, Object> nodeConfig) {
+        String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
+        int port = (Integer) nodeConfig.get(NC_API_PORT);
+        return URI.create("http://" + host + ":" + port + "/admin/udf/all");
+    }
+
     private void requestMetadataNodeTakeover(String node) throws HyracksDataException {
         MetadataNodeRequestMessage msg =
                 new MetadataNodeRequestMessage(true, clusterManager.getMetadataPartition().getPartitionId());
@@ -228,5 +289,76 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
+    }
+
+    private boolean isUdfStateConsistent(String existingNode, String incomingNode) {
+        Map<IOption, Object> existingConfig = clusterManager.getNcConfiguration().get(existingNode);
+        Map<IOption, Object> incomingConfig = clusterManager.getNcConfiguration().get(incomingNode);
+        try {
+            String existingList = getUdfState(getNCUdfListingURL(existingConfig), getNCAuthToken(existingNode));
+            String incomingList = getUdfState(getNCUdfListingURL(incomingConfig), getNCAuthToken(incomingNode));
+            LOGGER.info("existing:" + existingList);
+            LOGGER.info("incoming:" + incomingList);
+            if (incomingList != null && existingList != null) {
+                JsonNode existing = OBJECT_MAPPER.readTree(existingList);
+                JsonNode incoming = OBJECT_MAPPER.readTree(incomingList);
+                return existing != null && incoming != null && existing.equals(incoming);
+            } else {
+                return incomingList == existingList;
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.ERROR, e);
+            //fall through
+        }
+        return false;
+    }
+
+    private String getUdfState(URI state, Map<String, String> addtlHeaders) throws IOException {
+        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+        // retry 10 times at maximum for downloading binaries
+        try {
+            HttpGet request = new HttpGet(state);
+            for (Map.Entry<String, String> e : addtlHeaders.entrySet()) {
+                request.setHeader(e.getKey(), e.getValue());
+            }
+            int tried = 0;
+            Exception trace = null;
+            while (tried < FETCH_RETRY_COUNT) {
+                tried++;
+                CloseableHttpResponse response = null;
+                try {
+                    response = httpClient.execute(request);
+                    if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                        throw new IOException("Http Error: " + response.getStatusLine().getStatusCode());
+                    }
+                    HttpEntity e = response.getEntity();
+                    if (e == null) {
+                        throw new IOException("No response");
+                    }
+                    return IOUtils.toString(e.getContent(), "UTF-8");
+                } catch (IOException e) {
+                    LOGGER.error("Unable to download library", e);
+                    trace = e;
+                } finally {
+                    if (response != null) {
+                        try {
+                            response.close();
+                        } catch (IOException e) {
+                            LOGGER.warn("Failed to close", e);
+                        }
+                    }
+                }
+            }
+            LOGGER.error(trace);
+        } finally {
+            httpClient.close();
+        }
+        return null;
+    }
+
+    protected RetrieveLibrariesTask getLibraryTask(String referenceNodeId, String newNodeId) {
+        Map<IOption, Object> referenceConfig = clusterManager.getNcConfiguration().get(referenceNodeId);
+        return new RetrieveLibrariesTask(getNCUdfRetrievalURL(referenceConfig),
+                getNCAuthToken(newNodeId).get(HttpHeaders.AUTHORIZATION));
     }
 }

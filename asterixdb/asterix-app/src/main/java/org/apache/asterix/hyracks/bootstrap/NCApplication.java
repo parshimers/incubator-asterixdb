@@ -19,6 +19,7 @@
 package org.apache.asterix.hyracks.bootstrap;
 
 import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
+import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
 import static org.apache.asterix.common.utils.Servlets.QUERY_RESULT;
 import static org.apache.asterix.common.utils.Servlets.QUERY_SERVICE;
 import static org.apache.asterix.common.utils.Servlets.QUERY_STATUS;
@@ -109,8 +110,9 @@ public class NCApplication extends BaseNCApplication {
     private INcApplicationContext runtimeContext;
     private String nodeId;
     private boolean stopInitiated;
-    private boolean startupCompleted;
+    protected boolean startupCompleted;
     protected WebManager webManager;
+    private HttpServer apiServer;
 
     @Override
     public void registerConfig(IConfigManager configManager) {
@@ -203,8 +205,8 @@ public class NCApplication extends BaseNCApplication {
         final ExternalProperties externalProperties = getApplicationContext().getExternalProperties();
         final HttpServerConfig config =
                 HttpServerConfigBuilder.custom().setMaxRequestSize(externalProperties.getMaxWebRequestSize()).build();
-        HttpServer apiServer = new HttpServer(webManager.getBosses(), webManager.getWorkers(),
-                externalProperties.getNcApiPort(), config);
+        apiServer = new HttpServer(webManager.getBosses(), webManager.getWorkers(), externalProperties.getNcApiPort(),
+                config);
         apiServer.setAttribute(ServletConstants.SERVICE_CONTEXT_ATTR, ncServiceCtx);
         apiServer.setAttribute(HYRACKS_CONNECTION_ATTR, getApplicationContext().getHcc());
         apiServer.addServlet(new StorageApiServlet(apiServer.ctx(), getApplicationContext(), Servlets.STORAGE));
@@ -283,8 +285,12 @@ public class NCApplication extends BaseNCApplication {
         final NodeStatus currentStatus = ncs.getNodeStatus();
         final SystemState systemState = isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId)
                 ? getCurrentSystemState() : SystemState.HEALTHY;
+        final HashMap<String, Object> httpSecrets = new HashMap<>();
+        if (apiServer != null) {
+            httpSecrets.put(SYS_AUTH_HEADER, apiServer.ctx().get(SYS_AUTH_HEADER));
+        }
         RegistrationTasksRequestMessage.send(ccId, (NodeControllerService) ncServiceCtx.getControllerService(),
-                currentStatus, systemState);
+                currentStatus, systemState, httpSecrets);
     }
 
     @Override
@@ -329,11 +335,11 @@ public class NCApplication extends BaseNCApplication {
         };
     }
 
-    private boolean isPendingStartupTasks(NodeStatus nodeStatus, CcId primaryCc, CcId registeredCc) {
+    protected boolean isPendingStartupTasks(NodeStatus nodeStatus, CcId primaryCc, CcId registeredCc) {
         return nodeStatus == NodeStatus.IDLE && (primaryCc == null || primaryCc.equals(registeredCc));
     }
 
-    private SystemState getCurrentSystemState() {
+    protected SystemState getCurrentSystemState() {
         final NodeProperties nodeProperties = runtimeContext.getNodeProperties();
         IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
         SystemState state = recoveryMgr.getSystemState();

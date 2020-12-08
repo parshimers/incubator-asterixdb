@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.asterix.app.external.ExternalUDFLibrarian;
 import org.apache.asterix.test.base.RetainLogsRule;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
@@ -56,6 +57,7 @@ public class ReplicationIT {
     private static File reportPath = new File("target", "failsafe-reports");
     private static final TestExecutor testExecutor = new TestExecutor();
     private static HyracksVirtualCluster cluster;
+    private static ExternalUDFLibrarian librarian;
 
     static {
         final Map<String, InetSocketAddress> ncEndPoints = new HashMap<>();
@@ -65,6 +67,8 @@ public class ReplicationIT {
         ncEndPoints.put("asterix_nc2", InetSocketAddress.createUnresolved(ip, 19005));
         replicationAddress.put("asterix_nc1", InetSocketAddress.createUnresolved(ip, 2001));
         replicationAddress.put("asterix_nc2", InetSocketAddress.createUnresolved(ip, 2002));
+        librarian = new ExternalUDFLibrarian();
+        testExecutor.setLibrarian(librarian);
         testExecutor.setNcEndPoints(ncEndPoints);
         testExecutor.setNcReplicationAddress(replicationAddress);
     }
