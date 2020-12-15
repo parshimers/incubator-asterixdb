@@ -24,6 +24,7 @@ import static org.apache.asterix.common.utils.Servlets.QUERY_RESULT;
 import static org.apache.asterix.common.utils.Servlets.QUERY_SERVICE;
 import static org.apache.asterix.common.utils.Servlets.QUERY_STATUS;
 import static org.apache.asterix.common.utils.Servlets.UDF;
+import static org.apache.asterix.common.utils.Servlets.UDF_RECOVERY;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +40,7 @@ import org.apache.asterix.algebra.base.ILangExtension;
 import org.apache.asterix.api.http.server.BasicAuthServlet;
 import org.apache.asterix.api.http.server.NCQueryServiceServlet;
 import org.apache.asterix.api.http.server.NCUdfApiServlet;
+import org.apache.asterix.api.http.server.NCUdfRecoveryServlet;
 import org.apache.asterix.api.http.server.NetDiagnosticsApiServlet;
 import org.apache.asterix.api.http.server.QueryResultApiServlet;
 import org.apache.asterix.api.http.server.QueryStatusApiServlet;
@@ -84,6 +86,7 @@ import org.apache.asterix.utils.RedactionUtil;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.application.IServiceContext;
 import org.apache.hyracks.api.client.NodeStatus;
 import org.apache.hyracks.api.config.IConfigManager;
@@ -219,9 +222,15 @@ public class NCApplication extends BaseNCApplication {
         apiServer.setAttribute(ServletConstants.CREDENTIAL_MAP,
                 parseCredentialMap(((NodeControllerService) ncServiceCtx.getControllerService()).getConfiguration()
                         .getCredentialFilePath()));
+        Pair<Map<String, String>, Map<String, String>> auth = BasicAuthServlet.generateSysAuthHeader(apiServer.ctx());
         apiServer.addServlet(new BasicAuthServlet(apiServer.ctx(),
                 new NCUdfApiServlet(apiServer.ctx(), new String[] { UDF }, getApplicationContext(),
-                        sqlppCompilationProvider, apiServer.getScheme(), apiServer.getAddress().getPort())));
+                        sqlppCompilationProvider, apiServer.getScheme(), apiServer.getAddress().getPort()),
+                auth.getFirst(), auth.getSecond()));
+        apiServer.addServlet(new BasicAuthServlet(
+                apiServer.ctx(), new NCUdfRecoveryServlet(apiServer.ctx(), new String[] { UDF_RECOVERY },
+                        getApplicationContext(), apiServer.getScheme(), apiServer.getAddress().getPort()),
+                auth.getFirst(), auth.getSecond()));
         apiServer.addServlet(new QueryStatusApiServlet(apiServer.ctx(), getApplicationContext(), QUERY_STATUS));
         apiServer.addServlet(new QueryResultApiServlet(apiServer.ctx(), getApplicationContext(), QUERY_RESULT));
         webManager.add(apiServer);

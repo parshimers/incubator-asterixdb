@@ -70,7 +70,6 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
             Path zippedLibs = libraryManager.zipAllLibs();
             readFromFile(zippedLibs, response);
         } else if (localPath.equals(GET_UDF_LIST_ENDPOINT)) {
-
             Set<Pair<DataverseName, String>> libs = libraryManager.getLibraryListing();
             ObjectNode resp = OBJECT_MAPPER.createObjectNode();
             for (Pair<DataverseName, String> lib : libs) {

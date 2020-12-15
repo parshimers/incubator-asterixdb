@@ -272,13 +272,13 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     protected URI getNCUdfListingURL(Map<IOption, Object> nodeConfig) {
         String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
         int port = (Integer) nodeConfig.get(NC_API_PORT);
-        return URI.create("http://" + host + ":" + port + "/admin/udf/list");
+        return URI.create("http://" + host + ":" + port + "/admin/library/list");
     }
 
     protected URI getNCUdfRetrievalURL(Map<IOption, Object> nodeConfig) {
         String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
         int port = (Integer) nodeConfig.get(NC_API_PORT);
-        return URI.create("http://" + host + ":" + port + "/admin/udf/all");
+        return URI.create("http://" + host + ":" + port + "/admin/library/all");
     }
 
     private void requestMetadataNodeTakeover(String node) throws HyracksDataException {
