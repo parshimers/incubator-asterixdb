@@ -21,7 +21,7 @@ package org.apache.asterix.api.http.server;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.common.api.IApplicationContext;
@@ -70,7 +70,7 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
             Path zippedLibs = libraryManager.zipAllLibs();
             readFromFile(zippedLibs, response);
         } else if (localPath.equals(GET_UDF_LIST_ENDPOINT)) {
-            Set<Pair<DataverseName, String>> libs = libraryManager.getLibraryListing();
+            List<Pair<DataverseName, String>> libs = libraryManager.getLibraryListing();
             ObjectNode resp = OBJECT_MAPPER.createObjectNode();
             for (Pair<DataverseName, String> lib : libs) {
                 //TODO: slash is not a correct separator, but it is a sin we already commit with the path

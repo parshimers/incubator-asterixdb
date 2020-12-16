@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -225,8 +226,19 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     @Override
-    public Set<Pair<DataverseName, String>> getLibraryListing() {
-        return libraries.keySet();
+    public List<Pair<DataverseName, String>> getLibraryListing() throws IOException {
+        List<Pair<DataverseName, String>> libs = new ArrayList<>();
+        for (Path dvPath : Files.list(storageDirPath).collect(Collectors.toList())) {
+            DataverseName dv = DataverseName.createFromCanonicalForm(dvPath.getFileName().toString());
+            for (Path libPath : Files.list(dvPath).collect(Collectors.toList())) {
+                String libName = libPath.getFileName().toString();
+                FileReference revDir = findLibraryRevDir(dv, libName);
+                if (revDir != null) {
+                    libs.add(new Pair(dv, libName));
+                }
+            }
+        }
+        return libs;
     }
 
     @Override
@@ -339,7 +351,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     public Path zipAllLibs() throws IOException {
-        Path outDir = Paths.get(storageDir.getAbsolutePath(), DISTRIBUTION_DIR);
+        Path outDir = Paths.get(baseDir.getAbsolutePath(), DISTRIBUTION_DIR);
         FileUtil.forceMkdirs(outDir.toFile());
         Path outZip = Paths.get(outDir.toFile().getAbsolutePath(), "all_" + System.currentTimeMillis() + ".zip");
         FileOutputStream out = new FileOutputStream(outZip.toFile());
@@ -539,6 +551,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         }
     }
 
+    //TODO: something better than synchronized, but still avoids reallocating the buffer per call
     @Override
     public synchronized void writeAndForce(FileReference outputFile, InputStream dataStream) throws IOException {
         outputFile.getFile().createNewFile();

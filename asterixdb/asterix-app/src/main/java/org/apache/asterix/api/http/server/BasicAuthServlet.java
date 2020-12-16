@@ -48,25 +48,8 @@ public class BasicAuthServlet implements IServlet {
     private Base64.Decoder b64Decoder;
     Map<String, String> storedCredentials;
     Map<String, String> ephemeralCredentials;
-    private String sysAuthHeader;
     private final IServlet delegate;
     private ConcurrentMap<String, Object> ctx;
-
-    public BasicAuthServlet(ConcurrentMap<String, Object> ctx, IServlet delegate) {
-        this.delegate = delegate;
-        b64Decoder = Base64.getDecoder();
-        storedCredentials = (Map<String, String>) ctx.get(CREDENTIAL_MAP);
-        this.ctx = ctx;
-        // generate internal user
-        String sysUser;
-        do {
-            sysUser = generateRandomString(32);
-        } while (storedCredentials.containsKey(sysUser));
-        String sysPassword = generateRandomString(128);
-        ephemeralCredentials = Collections.singletonMap(sysUser, hashPassword(sysPassword));
-        sysAuthHeader = createAuthHeader(sysUser, sysPassword);
-        ctx.put(SYS_AUTH_HEADER, sysAuthHeader);
-    }
 
     public BasicAuthServlet(ConcurrentMap<String, Object> ctx, IServlet delegate, Map<String, String> storedCredentials,
             Map<String, String> ephemeralCredentials) {

@@ -18,11 +18,15 @@
  */
 package org.apache.asterix.app.replication;
 
+import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_ALL_UDF_ENDPOINT;
+import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_UDF_LIST_ENDPOINT;
 import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
 import static org.apache.asterix.common.config.ExternalProperties.Option.NC_API_PORT;
+import static org.apache.asterix.common.utils.Servlets.UDF_RECOVERY;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,6 +69,7 @@ import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.api.application.ICCServiceContext;
@@ -80,6 +85,8 @@ import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.netty.handler.codec.http.HttpScheme;
 
 public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
 
@@ -244,7 +251,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
             }
             String referenceNodeId = randomIter.next();
             if (!isUdfStateConsistent(referenceNodeId, newNodeId)) {
-                tasks.add(getLibraryTask(referenceNodeId, newNodeId));
+                tasks.add(getLibraryTask(referenceNodeId));
             }
         }
         if (metadataNode) {
@@ -269,16 +276,26 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
                 (String) nodeSecretsMap.get(node).get(SYS_AUTH_HEADER));
     }
 
-    protected URI getNCUdfListingURL(Map<IOption, Object> nodeConfig) {
+    private URI constructNCRecoveryUri(Map<IOption, Object> nodeConfig, String path) {
         String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
         int port = (Integer) nodeConfig.get(NC_API_PORT);
-        return URI.create("http://" + host + ":" + port + "/admin/library/list");
+        String recoveryPath = UDF_RECOVERY.substring(0, UDF_RECOVERY.length() - 1) + path;
+        URIBuilder builder = new URIBuilder().setScheme(HttpScheme.HTTP.toString()).setHost(host).setPort(port)
+                .setPath(recoveryPath);
+        try {
+            return builder.build();
+        } catch (URISyntaxException e) {
+            LOGGER.error("Could not find URL for NC recovery", e);
+        }
+        return null;
+    }
+
+    protected URI getNCUdfListingURL(Map<IOption, Object> nodeConfig) {
+        return constructNCRecoveryUri(nodeConfig, GET_UDF_LIST_ENDPOINT);
     }
 
     protected URI getNCUdfRetrievalURL(Map<IOption, Object> nodeConfig) {
-        String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
-        int port = (Integer) nodeConfig.get(NC_API_PORT);
-        return URI.create("http://" + host + ":" + port + "/admin/library/all");
+        return constructNCRecoveryUri(nodeConfig, GET_ALL_UDF_ENDPOINT);
     }
 
     private void requestMetadataNodeTakeover(String node) throws HyracksDataException {
@@ -297,8 +314,8 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         try {
             String existingList = getUdfState(getNCUdfListingURL(existingConfig), getNCAuthToken(existingNode));
             String incomingList = getUdfState(getNCUdfListingURL(incomingConfig), getNCAuthToken(incomingNode));
-            LOGGER.info("existing:" + existingList);
-            LOGGER.info("incoming:" + incomingList);
+            LOGGER.debug("Existing libraries: " + existingList);
+            LOGGER.debug("Incoming libraries:" + incomingList);
             if (incomingList != null && existingList != null) {
                 JsonNode existing = OBJECT_MAPPER.readTree(existingList);
                 JsonNode incoming = OBJECT_MAPPER.readTree(incomingList);
@@ -313,6 +330,8 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         return false;
     }
 
+    //TODO: this could be refactored with the UDF download code so it could either write to a file
+    //      or return a string instead of having to dupe a lot of the download logic
     private String getUdfState(URI state, Map<String, String> addtlHeaders) throws IOException {
         CloseableHttpClient httpClient = HttpClientBuilder.create().build();
         // retry 10 times at maximum for downloading binaries
@@ -356,9 +375,9 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         return null;
     }
 
-    protected RetrieveLibrariesTask getLibraryTask(String referenceNodeId, String newNodeId) {
+    protected RetrieveLibrariesTask getLibraryTask(String referenceNodeId) {
         Map<IOption, Object> referenceConfig = clusterManager.getNcConfiguration().get(referenceNodeId);
         return new RetrieveLibrariesTask(getNCUdfRetrievalURL(referenceConfig),
-                getNCAuthToken(newNodeId).get(HttpHeaders.AUTHORIZATION));
+                getNCAuthToken(referenceNodeId).get(HttpHeaders.AUTHORIZATION));
     }
 }

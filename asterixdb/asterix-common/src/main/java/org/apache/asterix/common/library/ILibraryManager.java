@@ -22,7 +22,7 @@ package org.apache.asterix.common.library;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.Set;
+import java.util.List;
 
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
@@ -34,7 +34,7 @@ import org.apache.hyracks.ipc.impl.IPCSystem;
 
 public interface ILibraryManager {
 
-    Set<Pair<DataverseName, String>> getLibraryListing();
+    List<Pair<DataverseName, String>> getLibraryListing() throws IOException;
 
     String getLibraryHash(DataverseName dataverseName, String libraryName) throws IOException;
 
