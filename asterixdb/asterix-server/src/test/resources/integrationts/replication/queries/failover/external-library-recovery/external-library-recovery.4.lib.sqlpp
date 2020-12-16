@@ -16,4 +16,4 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-install Default testlib admin admin ../asterix-app/target/TweetSent.pyz
+install Default testlib admin admin ../asterix-server/target/TweetSent.pyz
