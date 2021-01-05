@@ -21,7 +21,9 @@ package org.apache.asterix.api.http.server;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.common.api.IApplicationContext;
@@ -71,16 +73,14 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
             readFromFile(zippedLibs, response);
         } else if (localPath.equals(GET_UDF_LIST_ENDPOINT)) {
             List<Pair<DataverseName, String>> libs = libraryManager.getLibraryListing();
-            ObjectNode resp = OBJECT_MAPPER.createObjectNode();
+            Map<String,Map<String,String>> dvToLibHashes = new HashMap<>();
             for (Pair<DataverseName, String> lib : libs) {
-                //TODO: slash is not a correct separator, but it is a sin we already commit with the path
-                resp.put(lib.first.getCanonicalForm() + "/" + lib.getSecond(),
-                        libraryManager.getLibraryHash(lib.first, lib.second));
+                dvToLibHashes.computeIfAbsent(lib.first.getCanonicalForm(),h -> new HashMap()).put(lib.getSecond(),libraryManager.getLibraryHash(lib.first,lib.second));
             }
             response.setStatus(HttpResponseStatus.OK);
             HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, request);
             PrintWriter responseWriter = response.writer();
-            JSONUtil.writeNode(responseWriter, resp);
+            JSONUtil.writeNode(responseWriter, OBJECT_MAPPER.valueToTree(dvToLibHashes));
             responseWriter.flush();
 
         }
