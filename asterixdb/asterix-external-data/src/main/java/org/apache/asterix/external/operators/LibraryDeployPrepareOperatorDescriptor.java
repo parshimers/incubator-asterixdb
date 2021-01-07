@@ -24,7 +24,6 @@ import static org.apache.hyracks.control.common.controllers.NCConfig.Option.PYTH
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -46,8 +45,6 @@ import org.apache.hyracks.api.job.IOperatorDescriptorRegistry;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import javax.xml.bind.DatatypeConverter;
 
 public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOperatorDescriptor {
 
@@ -123,8 +120,7 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                     LOGGER.debug("Downloading library from {} into {}", libLocation, targetFile);
                 }
                 MessageDigest digest = libraryManager.download(targetFile, authToken, libLocation);
-                DatatypeConverter
-
+                String hash = DigestUtils.md5Hex(digest.digest());
                 // extract from the archive
                 FileReference contentsDir = stageDir.getChild(ExternalLibraryManager.CONTENTS_DIR_NAME);
                 mkdir(contentsDir);

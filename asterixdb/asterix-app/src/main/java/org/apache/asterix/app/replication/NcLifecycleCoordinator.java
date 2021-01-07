@@ -270,10 +270,12 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     }
 
     protected RetrieveLibrariesTask getLibraryTask(String newNodeId, Set<String> referenceNodes) {
-        List<Pair<URI,String>> referenceNodeLocAndAuth = new ArrayList<>();
-        for(String node: referenceNodes){
-            referenceNodeLocAndAuth.add(new Pair<>(constructNCRecoveryUri(node),getNCAuthToken(node).get(HttpHeaders.AUTHORIZATION)));
+        List<Pair<URI, String>> referenceNodeLocAndAuth = new ArrayList<>();
+        for (String node : referenceNodes) {
+            referenceNodeLocAndAuth
+                    .add(new Pair<>(constructNCRecoveryUri(node), getNCAuthToken(node).get(HttpHeaders.AUTHORIZATION)));
         }
-        return new RetrieveLibrariesTask(referenceNodeLocAndAuth, new Pair<>(constructNCRecoveryUri(newNodeId),getNCAuthToken(newNodeId).get(HttpHeaders.AUTHORIZATION)));
+        return new RetrieveLibrariesTask(referenceNodeLocAndAuth, new Pair<>(constructNCRecoveryUri(newNodeId),
+                getNCAuthToken(newNodeId).get(HttpHeaders.AUTHORIZATION)));
     }
 }

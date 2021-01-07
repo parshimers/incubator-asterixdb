@@ -18,6 +18,9 @@
  */
 package org.apache.asterix.app.external;
 
+import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_ALL_UDF_ENDPOINT;
+import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_UDF_LIST_ENDPOINT;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -25,7 +28,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-import io.netty.handler.codec.http.HttpScheme;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
@@ -50,9 +52,7 @@ import org.apache.hyracks.dataflow.std.file.IFileSplitProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_ALL_UDF_ENDPOINT;
-import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_UDF_LIST_ENDPOINT;
-import static org.apache.asterix.common.utils.Servlets.UDF_RECOVERY;
+import io.netty.handler.codec.http.HttpScheme;
 
 public class ExternalLibraryUtil {
 
@@ -149,7 +149,7 @@ public class ExternalLibraryUtil {
         return splits.toArray(new FileSplit[0]);
     }
 
-    public static URI constructPartialNCRecoveryURI(String host, int port){
+    public static URI constructPartialNCRecoveryURI(String host, int port) {
         URIBuilder builder = new URIBuilder().setScheme(HttpScheme.HTTP.toString()).setHost(host).setPort(port);
         try {
             return builder.build();
@@ -159,8 +159,8 @@ public class ExternalLibraryUtil {
         return null;
     }
 
-    public static URI getNCUdfRetrievalURL(URI baseURL){
-        URIBuilder builder =  new URIBuilder(baseURL).setPath(GET_ALL_UDF_ENDPOINT);
+    public static URI getNCUdfRetrievalURL(URI baseURL) {
+        URIBuilder builder = new URIBuilder(baseURL).setPath(GET_ALL_UDF_ENDPOINT);
         try {
             return builder.build();
         } catch (URISyntaxException e) {
@@ -169,8 +169,8 @@ public class ExternalLibraryUtil {
         return null;
     }
 
-    public static URI getNCUdfListingURL(URI baseURL){
-        URIBuilder builder =  new URIBuilder(baseURL).setPath(GET_UDF_LIST_ENDPOINT);
+    public static URI getNCUdfListingURL(URI baseURL) {
+        URIBuilder builder = new URIBuilder(baseURL).setPath(GET_UDF_LIST_ENDPOINT);
         try {
             return builder.build();
         } catch (URISyntaxException e) {

@@ -38,8 +38,6 @@ import org.apache.hyracks.util.JSONUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpScheme;
 
@@ -73,9 +71,10 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
             readFromFile(zippedLibs, response);
         } else if (localPath.equals(GET_UDF_LIST_ENDPOINT)) {
             List<Pair<DataverseName, String>> libs = libraryManager.getLibraryListing();
-            Map<String,Map<String,String>> dvToLibHashes = new HashMap<>();
+            Map<String, Map<String, String>> dvToLibHashes = new HashMap<>();
             for (Pair<DataverseName, String> lib : libs) {
-                dvToLibHashes.computeIfAbsent(lib.first.getCanonicalForm(),h -> new HashMap()).put(lib.getSecond(),libraryManager.getLibraryHash(lib.first,lib.second));
+                dvToLibHashes.computeIfAbsent(lib.first.getCanonicalForm(), h -> new HashMap()).put(lib.getSecond(),
+                        libraryManager.getLibraryHash(lib.first, lib.second));
             }
             response.setStatus(HttpResponseStatus.OK);
             HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, request);

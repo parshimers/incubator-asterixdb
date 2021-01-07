@@ -18,6 +18,8 @@
  */
 package org.apache.asterix.app.nc.task;
 
+import static org.apache.asterix.app.external.ExternalLibraryUtil.getNCUdfListingURL;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
@@ -27,8 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.common.api.INCLifecycleTask;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -40,8 +40,8 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.service.IControllerService;
@@ -49,7 +49,8 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import static org.apache.asterix.app.external.ExternalLibraryUtil.getNCUdfListingURL;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RetrieveLibrariesTask implements INCLifecycleTask {
 
@@ -57,12 +58,12 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
     private static final int FETCH_RETRY_COUNT = 10;
     private static final Logger LOGGER = LogManager.getLogger();
     private final String libraryZipName;
-    private final List<Pair<URI,String>> nodes;
-    private final Pair<URI,String> thisNode;
+    private final List<Pair<URI, String>> nodes;
+    private final Pair<URI, String> thisNode;
     private final Random rand;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public RetrieveLibrariesTask(List<Pair<URI,String>> nodes, Pair<URI,String> thisNode) {
+    public RetrieveLibrariesTask(List<Pair<URI, String>> nodes, Pair<URI, String> thisNode) {
         this.libraryZipName = "all_libraries_" + System.currentTimeMillis() + ".zip";
         this.nodes = nodes;
         this.thisNode = thisNode;
@@ -74,35 +75,38 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
         INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         if (nodes.size() > 0) {
             int randomIdx = rand.nextInt(nodes.size());
-            Iterator<Pair<URI,String>> randomIter = nodes.iterator();
+            Iterator<Pair<URI, String>> randomIter = nodes.iterator();
             for (int i = 0; i < randomIdx; i++) {
                 randomIter.next();
             }
-            Pair<URI,String> referenceNode = randomIter.next();
+            Pair<URI, String> referenceNode = randomIter.next();
             if (!isUdfStateConsistent(referenceNode, thisNode)) {
-                retrieveLibrary(referenceNode.getFirst(),referenceNode.getSecond(),appContext);
+                retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
             }
         }
     }
 
-    private void retrieveLibrary(URI libraryURI, String authToken, INcApplicationContext appContext) throws HyracksDataException {
+    private void retrieveLibrary(URI libraryURI, String authToken, INcApplicationContext appContext)
+            throws HyracksDataException {
         ILibraryManager libraryManager = appContext.getLibraryManager();
         FileReference targetFile = appContext.getLibraryManager().getStorageDir().getChild(libraryZipName);
         try {
             libraryManager.download(targetFile, authToken, libraryURI);
             Path outputDirPath = libraryManager.getStorageDir().getFile().toPath().toAbsolutePath().normalize();
             FileReference outPath = appContext.getIoManager().resolveAbsolutePath(outputDirPath.toString());
-            libraryManager.unzip(targetFile,outPath);
+            libraryManager.unzip(targetFile, outPath);
         } catch (IOException e) {
             LOGGER.error("Unable to retrieve UDFs from " + libraryURI.toString() + " before timeout");
             throw HyracksDataException.create(e);
         }
     }
 
-    private boolean isUdfStateConsistent(Pair<URI,String> existingNode, Pair<URI,String> incomingNode) {
+    private boolean isUdfStateConsistent(Pair<URI, String> existingNode, Pair<URI, String> incomingNode) {
         try {
-            String existingList = getUdfState(getNCUdfListingURL(existingNode.first), Collections.singletonMap(HttpHeaders.AUTHORIZATION,existingNode.second));
-            String incomingList = getUdfState(getNCUdfListingURL(incomingNode.first), Collections.singletonMap(HttpHeaders.AUTHORIZATION,incomingNode.second));
+            String existingList = getUdfState(getNCUdfListingURL(existingNode.first),
+                    Collections.singletonMap(HttpHeaders.AUTHORIZATION, existingNode.second));
+            String incomingList = getUdfState(getNCUdfListingURL(incomingNode.first),
+                    Collections.singletonMap(HttpHeaders.AUTHORIZATION, incomingNode.second));
             LOGGER.debug("Existing libraries: " + existingList);
             LOGGER.debug("Incoming libraries:" + incomingList);
             if (incomingList != null && existingList != null) {
@@ -123,7 +127,7 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
     //      or return a string instead of having to dupe a lot of the download logic
     private String getUdfState(URI state, Map<String, String> addtlHeaders) throws IOException {
         // retry 10 times at maximum for downloading binaries
-        try(CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
             HttpGet request = new HttpGet(state);
             for (Map.Entry<String, String> e : addtlHeaders.entrySet()) {
                 request.setHeader(e.getKey(), e.getValue());

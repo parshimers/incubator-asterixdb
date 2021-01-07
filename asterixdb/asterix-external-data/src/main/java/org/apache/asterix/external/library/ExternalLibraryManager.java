@@ -33,10 +33,10 @@ import java.net.URI;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.FileVisitResult;
-import java.nio.file.SimpleFileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestOutputStream;
@@ -357,27 +357,26 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         byte[] copyBuf = new byte[4096];
         Path outDir = Paths.get(baseDir.getAbsolutePath(), DISTRIBUTION_DIR);
         FileUtil.forceMkdirs(outDir.toFile());
-        Path outZip = Files.createTempFile(outDir.toFile().getAbsolutePath(), "all_" + System.currentTimeMillis() + ".zip");
-        try(FileOutputStream out = new FileOutputStream(outZip.toFile());
-        ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)) {
+        Path outZip =
+                Files.createTempFile(outDir.toFile().getAbsolutePath(), "all_" + System.currentTimeMillis() + ".zip");
+        try (FileOutputStream out = new FileOutputStream(outZip.toFile());
+                ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)) {
             Files.walkFileTree(outZip, new SimpleFileVisitor<Path>() {
-                        @Override
-                        public FileVisitResult visitFile(Path currPath, BasicFileAttributes attrs) throws IOException {
-                            ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), outZip.relativize(currPath).toString());
-                            zipOut.putArchiveEntry(e);
-                            try (FileInputStream fileRead = new FileInputStream(currPath.toFile())) {
-                                IOUtils.copyLarge(fileRead, zipOut, copyBuf);
-                                zipOut.closeArchiveEntry();
-                            }
-                            return FileVisitResult.CONTINUE;
-                        }
+                @Override
+                public FileVisitResult visitFile(Path currPath, BasicFileAttributes attrs) throws IOException {
+                    ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), outZip.relativize(currPath).toString());
+                    zipOut.putArchiveEntry(e);
+                    try (FileInputStream fileRead = new FileInputStream(currPath.toFile())) {
+                        IOUtils.copyLarge(fileRead, zipOut, copyBuf);
+                        zipOut.closeArchiveEntry();
                     }
-            );
+                    return FileVisitResult.CONTINUE;
+                }
+            });
             zipOut.finish();
         }
         return outZip;
     }
-
 
     @Override
     public void dropLibraryPath(FileReference fileRef) throws HyracksDataException {
