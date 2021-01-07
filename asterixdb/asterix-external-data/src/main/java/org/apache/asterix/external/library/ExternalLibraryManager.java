@@ -32,10 +32,15 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+import java.nio.file.FileVisitResult;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -53,6 +58,7 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.io.FileUtils;
@@ -248,9 +254,6 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
             return null;
         }
         LibraryDescriptor desc = getLibraryDescriptor(revDir);
-        if (desc == null) {
-            return null;
-        }
         return desc.getHash();
     }
 
@@ -351,36 +354,30 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     public Path zipAllLibs() throws IOException {
+        byte[] copyBuf = new byte[4096];
         Path outDir = Paths.get(baseDir.getAbsolutePath(), DISTRIBUTION_DIR);
         FileUtil.forceMkdirs(outDir.toFile());
-        Path outZip = Paths.get(outDir.toFile().getAbsolutePath(), "all_" + System.currentTimeMillis() + ".zip");
-        FileOutputStream out = new FileOutputStream(outZip.toFile());
-        ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out);
-        traverseZip(zipOut, storageDirPath, storageDirPath);
-        zipOut.finish();
-        out.close();
+        Path outZip = Files.createTempFile(outDir.toFile().getAbsolutePath(), "all_" + System.currentTimeMillis() + ".zip");
+        try(FileOutputStream out = new FileOutputStream(outZip.toFile());
+        ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)) {
+            Files.walkFileTree(outZip, new SimpleFileVisitor<Path>() {
+                        @Override
+                        public FileVisitResult visitFile(Path currPath, BasicFileAttributes attrs) throws IOException {
+                            ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), outZip.relativize(currPath).toString());
+                            zipOut.putArchiveEntry(e);
+                            try (FileInputStream fileRead = new FileInputStream(currPath.toFile())) {
+                                IOUtils.copyLarge(fileRead, zipOut, copyBuf);
+                                zipOut.closeArchiveEntry();
+                            }
+                            return FileVisitResult.CONTINUE;
+                        }
+                    }
+            );
+            zipOut.finish();
+        }
         return outZip;
     }
 
-    private static void traverseZip(ZipArchiveOutputStream zipOut, Path currPath, Path root) throws IOException {
-        ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), root.relativize(currPath).toString());
-        zipOut.putArchiveEntry(e);
-        if (currPath.toFile().isFile()) {
-            FileInputStream fileRead = new FileInputStream(currPath.toFile());
-            IOUtils.copy(fileRead, zipOut);
-            fileRead.close();
-            zipOut.closeArchiveEntry();
-        } else {
-            zipOut.closeArchiveEntry();
-            List<Path> dirs = Files.list(currPath).collect(Collectors.toList());
-            for (Path p : dirs) {
-                if (!p.equals(currPath)) {
-                    traverseZip(zipOut, p, root);
-                }
-            }
-        }
-
-    }
 
     @Override
     public void dropLibraryPath(FileReference fileRef) throws HyracksDataException {
@@ -445,7 +442,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     @Override
-    public void download(FileReference targetFile, String authToken, URI libLocation) throws HyracksException {
+    public MessageDigest download(FileReference targetFile, String authToken, URI libLocation) throws HyracksException {
         try {
             targetFile.getFile().createNewFile();
         } catch (IOException e) {
@@ -453,6 +450,8 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         }
         IFileHandle fHandle = ioManager.open(targetFile, IIOManager.FileReadWriteMode.READ_WRITE,
                 IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+
+        MessageDigest digest = DigestUtils.getDigest("MD5");
         try {
             CloseableHttpClient httpClient = HttpClientBuilder.create().build();
             try {
@@ -474,11 +473,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                             throw new IOException("No response");
                         }
                         WritableByteChannel outChannel = ioManager.newWritableChannel(fHandle);
-                        OutputStream outStream = Channels.newOutputStream(outChannel);
+                        OutputStream outStream = new DigestOutputStream(Channels.newOutputStream(outChannel), digest);
                         e.writeTo(outStream);
                         outStream.flush();
                         ioManager.sync(fHandle, true);
-                        return;
+                        return digest;
                     } catch (IOException e) {
                         LOGGER.error("Unable to download library", e);
                         trace = e;
@@ -516,7 +515,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     @Override
-    public synchronized void unzip(FileReference sourceFile, FileReference outputDir) throws IOException {
+    public void unzip(FileReference sourceFile, FileReference outputDir) throws IOException {
         boolean logTraceEnabled = LOGGER.isTraceEnabled();
         Set<Path> newDirs = new HashSet<>();
         Path outputDirPath = outputDir.getFile().toPath().toAbsolutePath().normalize();
@@ -542,7 +541,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                     if (logTraceEnabled) {
                         LOGGER.trace("Extracting file {}", entryOutputFileRef);
                     }
-                    writeAndForce(entryOutputFileRef, in);
+                    writeAndForce(entryOutputFileRef, in, new byte[4096]);
                 }
             }
         }
@@ -553,14 +552,14 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
 
     //TODO: something better than synchronized, but still avoids reallocating the buffer per call
     @Override
-    public synchronized void writeAndForce(FileReference outputFile, InputStream dataStream) throws IOException {
+    public void writeAndForce(FileReference outputFile, InputStream dataStream, byte[] copyBuffer) throws IOException {
         outputFile.getFile().createNewFile();
         IFileHandle fHandle = ioManager.open(outputFile, IIOManager.FileReadWriteMode.READ_WRITE,
                 IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
         try {
             WritableByteChannel outChannel = ioManager.newWritableChannel(fHandle);
             OutputStream outputStream = Channels.newOutputStream(outChannel);
-            IOUtils.copyLarge(dataStream, outputStream, getCopyBuffer());
+            IOUtils.copyLarge(dataStream, outputStream, copyBuffer);
             outputStream.flush();
             ioManager.sync(fHandle, true);
         } finally {
@@ -568,10 +567,4 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         }
     }
 
-    private byte[] getCopyBuffer() {
-        if (copyBuffer == null) {
-            copyBuffer = new byte[4096];
-        }
-        return copyBuffer;
-    }
 }

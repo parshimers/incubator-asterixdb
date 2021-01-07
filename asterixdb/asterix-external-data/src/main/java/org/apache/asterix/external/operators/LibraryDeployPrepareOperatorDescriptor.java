@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.LibraryDescriptor;
@@ -46,6 +47,8 @@ import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.xml.bind.DatatypeConverter;
+
 public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
@@ -55,6 +58,8 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
     private final ExternalFunctionLanguage language;
     private final URI libLocation;
     private final String authToken;
+
+    private final byte[] copyBuf = new byte[4096];
 
     public LibraryDeployPrepareOperatorDescriptor(IOperatorDescriptorRegistry spec, DataverseName dataverseName,
             String libraryName, ExternalFunctionLanguage language, URI libLocation, String authToken) {
@@ -117,12 +122,8 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("Downloading library from {} into {}", libLocation, targetFile);
                 }
-                libraryManager.download(targetFile, authToken, libLocation);
-
-                String hash;
-                try (FileInputStream lib = new FileInputStream(targetFile.getFile())) {
-                    hash = DigestUtils.md5Hex(lib);
-                }
+                MessageDigest digest = libraryManager.download(targetFile, authToken, libLocation);
+                DatatypeConverter
 
                 // extract from the archive
                 FileReference contentsDir = stageDir.getChild(ExternalLibraryManager.CONTENTS_DIR_NAME);
@@ -186,7 +187,7 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                     throw new IOException("Classpath does not contain necessary Python resources!");
                 }
                 try {
-                    libraryManager.writeAndForce(outputFile, is);
+                    libraryManager.writeAndForce(outputFile, is, copyBuf);
                 } finally {
                     is.close();
                 }
@@ -195,7 +196,7 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
 
             private void writeDescriptor(FileReference descFile, LibraryDescriptor desc) throws IOException {
                 byte[] bytes = libraryManager.serializeLibraryDescriptor(desc);
-                libraryManager.writeAndForce(descFile, new ByteArrayInputStream(bytes));
+                libraryManager.writeAndForce(descFile, new ByteArrayInputStream(bytes), copyBuf);
             }
 
         };

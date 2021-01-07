@@ -330,10 +330,8 @@ public class NodeControllerService implements IControllerService {
         NetworkAddress netAddress = netManager.getPublicNetworkAddress();
         NetworkAddress messagingAddress =
                 messagingNetManager != null ? messagingNetManager.getPublicNetworkAddress() : null;
-        getApplicationContext();
         nodeRegistration = new NodeRegistration(ncAddress, id, ncConfig, netAddress, resultAddress, hbSchema,
                 messagingAddress, application.getCapacity());
-
         ncData = new NodeControllerData(nodeRegistration);
     }
 

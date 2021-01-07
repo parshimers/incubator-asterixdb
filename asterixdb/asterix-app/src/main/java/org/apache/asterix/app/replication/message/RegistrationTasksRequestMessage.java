@@ -41,7 +41,7 @@ public class RegistrationTasksRequestMessage implements INCLifecycleMessage, ICc
     protected final SystemState state;
     protected final String nodeId;
     protected final NodeStatus nodeStatus;
-    protected final HashMap<String, Object> secrets;
+    protected final Map<String, Object> secrets;
 
     public RegistrationTasksRequestMessage(String nodeId, NodeStatus nodeStatus, SystemState state,
             Map<String, Object> secretsEphemeral) {

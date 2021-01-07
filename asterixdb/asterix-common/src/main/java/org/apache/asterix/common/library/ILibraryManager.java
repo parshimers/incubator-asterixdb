@@ -22,6 +22,7 @@ package org.apache.asterix.common.library;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.security.MessageDigest;
 import java.util.List;
 
 import org.apache.asterix.common.metadata.DataverseName;
@@ -58,9 +59,9 @@ public interface ILibraryManager {
 
     IPCSystem getIPCI();
 
-    void download(FileReference targetFile, String authToken, URI libLocation) throws HyracksException;
+    MessageDigest download(FileReference targetFile, String authToken, URI libLocation) throws HyracksException;
 
     void unzip(FileReference sourceFile, FileReference outputDir) throws IOException;
 
-    void writeAndForce(FileReference outputFile, InputStream dataStream) throws IOException;
+    void writeAndForce(FileReference outputFile, InputStream dataStream, byte[] copyBuf) throws IOException;
 }
