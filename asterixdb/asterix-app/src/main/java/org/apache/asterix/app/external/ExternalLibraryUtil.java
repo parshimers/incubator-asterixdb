@@ -19,6 +19,7 @@
 package org.apache.asterix.app.external;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -36,6 +37,7 @@ import org.apache.asterix.external.operators.LibraryDeployPrepareOperatorDescrip
 import org.apache.asterix.external.operators.LibraryUndeployOperatorDescriptor;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.runtime.utils.RuntimeUtils;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -44,8 +46,14 @@ import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.io.FileSplit;
 import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.dataflow.std.file.IFileSplitProvider;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import io.netty.handler.codec.http.HttpScheme;
 
 public class ExternalLibraryUtil {
+
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private ExternalLibraryUtil() {
     }
@@ -137,4 +145,15 @@ public class ExternalLibraryUtil {
         }
         return splits.toArray(new FileSplit[0]);
     }
+
+    public static URI constructPartialNCRecoveryURI(String host, int port) {
+        URIBuilder builder = new URIBuilder().setScheme(HttpScheme.HTTP.toString()).setHost(host).setPort(port);
+        try {
+            return builder.build();
+        } catch (URISyntaxException e) {
+            LOGGER.error("Could not find URL for NC recovery", e);
+        }
+        return null;
+    }
+
 }

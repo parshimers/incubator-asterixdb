@@ -20,16 +20,37 @@ package org.apache.asterix.external.library;
 
 import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static org.apache.hyracks.api.util.IoUtil.flushDirectory;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
@@ -37,10 +58,24 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHeaders;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.FileReference;
+import org.apache.hyracks.api.io.IFileHandle;
+import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 import org.apache.hyracks.api.util.IoUtil;
@@ -77,6 +112,8 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
 
     public static final String DISTRIBUTION_DIR = "dist";
 
+    private static final int DOWNLOAD_RETRY_COUNT = 10;
+
     private static final Logger LOGGER = LogManager.getLogger(ExternalLibraryManager.class);
 
     private final NodeControllerService ncs;
@@ -91,8 +128,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     private final Map<Pair<DataverseName, String>, ILibrary> libraries = new HashMap<>();
     private IPCSystem pythonIPC;
     private final ExternalFunctionResultRouter router;
+    private final IIOManager ioManager;
+    private byte[] copyBuffer;
 
-    public ExternalLibraryManager(NodeControllerService ncs, IPersistedResourceRegistry reg, FileReference appDir) {
+    public ExternalLibraryManager(NodeControllerService ncs, IPersistedResourceRegistry reg, FileReference appDir,
+            IIOManager ioManager) {
         this.ncs = ncs;
         this.reg = reg;
         baseDir = appDir.getChild(LIBRARY_MANAGER_BASE_DIR_NAME);
@@ -103,6 +143,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         trashDirPath = trashDir.getFile().toPath().normalize();
         objectMapper = createObjectMapper();
         router = new ExternalFunctionResultRouter();
+        this.ioManager = ioManager;
     }
 
     public void initialize(boolean resetStorageData) throws HyracksDataException {
@@ -116,7 +157,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                     FileUtils.cleanDirectory(baseDir.getFile());
                     Files.createDirectory(storageDirPath);
                     Files.createDirectory(trashDirPath);
-                    IoUtil.flushDirectory(baseDirPath);
+                    flushDirectory(baseDirPath);
                 } else {
                     boolean createdDirs = false;
                     if (!Files.isDirectory(storageDirPath)) {
@@ -133,7 +174,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                     }
                     //TODO:clean all rev_0 if their rev_1 exist
                     if (createdDirs) {
-                        IoUtil.flushDirectory(baseDirPath);
+                        flushDirectory(baseDirPath);
                     }
                 }
             } else {
@@ -141,11 +182,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                 Files.createDirectory(storageDirPath);
                 Files.createDirectory(trashDirPath);
                 // flush app dir's parent because we might've created app dir there
-                IoUtil.flushDirectory(baseDirPath.getParent().getParent());
+                flushDirectory(baseDirPath.getParent().getParent());
                 // flush app dir (base dir's parent) because we might've created base dir there
-                IoUtil.flushDirectory(baseDirPath.getParent());
+                flushDirectory(baseDirPath.getParent());
                 // flush base dir because we created storage/trash dirs there
-                IoUtil.flushDirectory(baseDirPath);
+                flushDirectory(baseDirPath);
             }
         } catch (IOException e) {
             throw HyracksDataException.create(e);
@@ -170,6 +211,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         }
     }
 
+    @Override
+    public FileReference getStorageDir() {
+        return storageDir;
+    }
+
     private FileReference getDataverseDir(DataverseName dataverseName) throws HyracksDataException {
         return getChildFileRef(storageDir, dataverseName.getCanonicalForm());
     }
@@ -183,6 +229,32 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     @Override
     public FileReference getDistributionDir() {
         return distDir;
+    }
+
+    @Override
+    public List<Pair<DataverseName, String>> getLibraryListing() throws IOException {
+        List<Pair<DataverseName, String>> libs = new ArrayList<>();
+        for (Path dvPath : Files.list(storageDirPath).collect(Collectors.toList())) {
+            DataverseName dv = DataverseName.createFromCanonicalForm(dvPath.getFileName().toString());
+            for (Path libPath : Files.list(dvPath).collect(Collectors.toList())) {
+                String libName = libPath.getFileName().toString();
+                FileReference revDir = findLibraryRevDir(dv, libName);
+                if (revDir != null) {
+                    libs.add(new Pair(dv, libName));
+                }
+            }
+        }
+        return libs;
+    }
+
+    @Override
+    public String getLibraryHash(DataverseName dataverseName, String libraryName) throws IOException {
+        FileReference revDir = findLibraryRevDir(dataverseName, libraryName);
+        if (revDir == null) {
+            return null;
+        }
+        LibraryDescriptor desc = getLibraryDescriptor(revDir);
+        return desc.getHash();
     }
 
     @Override
@@ -208,10 +280,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
             throw new HyracksDataException("Cannot find library: " + dataverseName + '.' + libraryName);
         }
         try {
-            FileReference descFile = libRevDir.getChild(DESCRIPTOR_FILE_NAME);
-            byte[] descData = Files.readAllBytes(descFile.getFile().toPath());
-            LibraryDescriptor desc = deserializeLibraryDescriptor(descData);
-            ExternalFunctionLanguage libLang = desc.getLanguage();
+            ExternalFunctionLanguage libLang = getLibraryDescriptor(libRevDir).getLanguage();
             switch (libLang) {
                 case JAVA:
                     return new JavaLibrary(libContentsDir.getFile());
@@ -238,6 +307,13 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     private LibraryDescriptor deserializeLibraryDescriptor(byte[] data) throws IOException {
         JsonNode jsonNode = objectMapper.readValue(data, JsonNode.class);
         return (LibraryDescriptor) reg.deserialize(jsonNode);
+    }
+
+    private LibraryDescriptor getLibraryDescriptor(FileReference revDir) throws IOException {
+        FileReference descFile = revDir.getChild(DESCRIPTOR_FILE_NAME);
+        byte[] descData = Files.readAllBytes(descFile.getFile().toPath());
+        return deserializeLibraryDescriptor(descData);
+
     }
 
     private FileReference findLibraryRevDir(DataverseName dataverseName, String libraryName)
@@ -275,6 +351,31 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
 
     private static Pair<DataverseName, String> getKey(DataverseName dataverseName, String libraryName) {
         return new Pair<>(dataverseName, libraryName);
+    }
+
+    public Path zipAllLibs() throws IOException {
+        byte[] copyBuf = new byte[4096];
+        Path outDir = Paths.get(baseDir.getAbsolutePath(), DISTRIBUTION_DIR);
+        FileUtil.forceMkdirs(outDir.toFile());
+        Path outZip =
+                Files.createTempFile(outDir.toFile().getAbsolutePath(), "all_" + System.currentTimeMillis() + ".zip");
+        try (FileOutputStream out = new FileOutputStream(outZip.toFile());
+                ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)) {
+            Files.walkFileTree(outZip, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path currPath, BasicFileAttributes attrs) throws IOException {
+                    ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), outZip.relativize(currPath).toString());
+                    zipOut.putArchiveEntry(e);
+                    try (FileInputStream fileRead = new FileInputStream(currPath.toFile())) {
+                        IOUtils.copyLarge(fileRead, zipOut, copyBuf);
+                        zipOut.closeArchiveEntry();
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            zipOut.finish();
+        }
+        return outZip;
     }
 
     @Override
@@ -338,4 +439,131 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
             }
         }
     }
+
+    @Override
+    public MessageDigest download(FileReference targetFile, String authToken, URI libLocation) throws HyracksException {
+        try {
+            targetFile.getFile().createNewFile();
+        } catch (IOException e) {
+            throw HyracksDataException.create(e);
+        }
+        IFileHandle fHandle = ioManager.open(targetFile, IIOManager.FileReadWriteMode.READ_WRITE,
+                IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+
+        MessageDigest digest = DigestUtils.getDigest("MD5");
+        try {
+            CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+            try {
+                // retry 10 times at maximum for downloading binaries
+                HttpGet request = new HttpGet(libLocation);
+                request.setHeader(HttpHeaders.AUTHORIZATION, authToken);
+                int tried = 0;
+                Exception trace = null;
+                while (tried < DOWNLOAD_RETRY_COUNT) {
+                    tried++;
+                    CloseableHttpResponse response = null;
+                    try {
+                        response = httpClient.execute(request);
+                        if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                            throw new IOException("Http Error: " + response.getStatusLine().getStatusCode());
+                        }
+                        HttpEntity e = response.getEntity();
+                        if (e == null) {
+                            throw new IOException("No response");
+                        }
+                        WritableByteChannel outChannel = ioManager.newWritableChannel(fHandle);
+                        OutputStream outStream = new DigestOutputStream(Channels.newOutputStream(outChannel), digest);
+                        e.writeTo(outStream);
+                        outStream.flush();
+                        ioManager.sync(fHandle, true);
+                        return digest;
+                    } catch (IOException e) {
+                        LOGGER.error("Unable to download library", e);
+                        trace = e;
+                        try {
+                            ioManager.truncate(fHandle, 0);
+                        } catch (IOException e2) {
+                            throw HyracksDataException.create(e2);
+                        }
+                    } finally {
+                        if (response != null) {
+                            try {
+                                response.close();
+                            } catch (IOException e) {
+                                LOGGER.warn("Failed to close", e);
+                            }
+                        }
+                    }
+                }
+
+                throw HyracksDataException.create(trace);
+            } finally {
+                try {
+                    httpClient.close();
+                } catch (IOException e) {
+                    LOGGER.warn("Failed to close", e);
+                }
+            }
+        } finally {
+            try {
+                ioManager.close(fHandle);
+            } catch (HyracksDataException e) {
+                LOGGER.warn("Failed to close", e);
+            }
+        }
+    }
+
+    @Override
+    public void unzip(FileReference sourceFile, FileReference outputDir) throws IOException {
+        boolean logTraceEnabled = LOGGER.isTraceEnabled();
+        Set<Path> newDirs = new HashSet<>();
+        Path outputDirPath = outputDir.getFile().toPath().toAbsolutePath().normalize();
+        try (ZipFile zipFile = new ZipFile(sourceFile.getFile())) {
+            Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                Path entryOutputPath = outputDirPath.resolve(entry.getName()).toAbsolutePath().normalize();
+                if (!entryOutputPath.startsWith(outputDirPath)) {
+                    throw new IOException("Malformed ZIP archive: " + entry.getName());
+                }
+                Path entryOutputDir = entryOutputPath.getParent();
+                Files.createDirectories(entryOutputDir);
+                // remember new directories so we can flush them later
+                for (Path p = entryOutputDir; !p.equals(outputDirPath); p = p.getParent()) {
+                    newDirs.add(p);
+                }
+                try (InputStream in = zipFile.getInputStream(entry)) {
+                    FileReference entryOutputFileRef = ioManager.resolveAbsolutePath(entryOutputPath.toString());
+                    if (logTraceEnabled) {
+                        LOGGER.trace("Extracting file {}", entryOutputFileRef);
+                    }
+                    writeAndForce(entryOutputFileRef, in, new byte[4096]);
+                }
+            }
+        }
+        for (Path newDir : newDirs) {
+            flushDirectory(newDir);
+        }
+    }
+
+    //TODO: something better than synchronized, but still avoids reallocating the buffer per call
+    @Override
+    public void writeAndForce(FileReference outputFile, InputStream dataStream, byte[] copyBuffer) throws IOException {
+        outputFile.getFile().createNewFile();
+        IFileHandle fHandle = ioManager.open(outputFile, IIOManager.FileReadWriteMode.READ_WRITE,
+                IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+        try {
+            WritableByteChannel outChannel = ioManager.newWritableChannel(fHandle);
+            OutputStream outputStream = Channels.newOutputStream(outChannel);
+            IOUtils.copyLarge(dataStream, outputStream, copyBuffer);
+            outputStream.flush();
+            ioManager.sync(fHandle, true);
+        } finally {
+            ioManager.close(fHandle);
+        }
+    }
+
 }

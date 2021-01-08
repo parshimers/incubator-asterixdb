@@ -332,7 +332,6 @@ public class NodeControllerService implements IControllerService {
                 messagingNetManager != null ? messagingNetManager.getPublicNetworkAddress() : null;
         nodeRegistration = new NodeRegistration(ncAddress, id, ncConfig, netAddress, resultAddress, hbSchema,
                 messagingAddress, application.getCapacity());
-
         ncData = new NodeControllerData(nodeRegistration);
     }
 
