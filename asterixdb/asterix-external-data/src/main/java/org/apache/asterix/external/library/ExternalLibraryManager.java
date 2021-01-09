@@ -357,14 +357,14 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         byte[] copyBuf = new byte[4096];
         Path outDir = Paths.get(baseDir.getAbsolutePath(), DISTRIBUTION_DIR);
         FileUtil.forceMkdirs(outDir.toFile());
-        Path outZip =
-                Files.createTempFile(outDir.toFile().getAbsolutePath(), "all_" + System.currentTimeMillis() + ".zip");
+        Path outZip = Files.createTempFile(outDir, "all_" + System.currentTimeMillis(), ".zip");
         try (FileOutputStream out = new FileOutputStream(outZip.toFile());
                 ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)) {
-            Files.walkFileTree(outZip, new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(storageDirPath.normalize().toAbsolutePath(), new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path currPath, BasicFileAttributes attrs) throws IOException {
-                    ZipArchiveEntry e = new ZipArchiveEntry(currPath.toFile(), outZip.relativize(currPath).toString());
+                    ZipArchiveEntry e =
+                            new ZipArchiveEntry(currPath.toFile(), storageDirPath.relativize(currPath).toString());
                     zipOut.putArchiveEntry(e);
                     try (FileInputStream fileRead = new FileInputStream(currPath.toFile())) {
                         IOUtils.copyLarge(fileRead, zipOut, copyBuf);
