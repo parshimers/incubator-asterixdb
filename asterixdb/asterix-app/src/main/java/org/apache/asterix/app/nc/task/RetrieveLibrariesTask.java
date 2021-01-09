@@ -18,10 +18,13 @@
  */
 package org.apache.asterix.app.nc.task;
 
-import static org.apache.asterix.app.external.ExternalLibraryUtil.getNCUdfListingURL;
+import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_ALL_UDF_ENDPOINT;
+import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_UDF_LIST_ENDPOINT;
+import static org.apache.asterix.common.utils.Servlets.UDF_RECOVERY;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Iterator;
@@ -38,6 +41,7 @@ import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -86,10 +90,11 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
         }
     }
 
-    private void retrieveLibrary(URI libraryURI, String authToken, INcApplicationContext appContext)
+    private void retrieveLibrary(URI baseURI, String authToken, INcApplicationContext appContext)
             throws HyracksDataException {
         ILibraryManager libraryManager = appContext.getLibraryManager();
         FileReference targetFile = appContext.getLibraryManager().getStorageDir().getChild(libraryZipName);
+        URI libraryURI = getNCUdfRetrievalURL(baseURI);
         try {
             libraryManager.download(targetFile, authToken, libraryURI);
             Path outputDirPath = libraryManager.getStorageDir().getFile().toPath().toAbsolutePath().normalize();
@@ -161,6 +166,28 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
                 }
             }
             LOGGER.error(trace);
+        }
+        return null;
+    }
+
+    public static URI getNCUdfRetrievalURL(URI baseURL) {
+        String endpoint = UDF_RECOVERY.substring(0, UDF_RECOVERY.length() - 1) + GET_ALL_UDF_ENDPOINT;
+        URIBuilder builder = new URIBuilder(baseURL).setPath(endpoint);
+        try {
+            return builder.build();
+        } catch (URISyntaxException e) {
+            LOGGER.error("Could not find URL for NC recovery", e);
+        }
+        return null;
+    }
+
+    public static URI getNCUdfListingURL(URI baseURL) {
+        String endpoint = UDF_RECOVERY.substring(0, UDF_RECOVERY.length() - 1) + GET_UDF_LIST_ENDPOINT;
+        URIBuilder builder = new URIBuilder(baseURL).setPath(endpoint);
+        try {
+            return builder.build();
+        } catch (URISyntaxException e) {
+            LOGGER.error("Could not find URL for NC recovery", e);
         }
         return null;
     }

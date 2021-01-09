@@ -159,23 +159,4 @@ public class ExternalLibraryUtil {
         return null;
     }
 
-    public static URI getNCUdfRetrievalURL(URI baseURL) {
-        URIBuilder builder = new URIBuilder(baseURL).setPath(GET_ALL_UDF_ENDPOINT);
-        try {
-            return builder.build();
-        } catch (URISyntaxException e) {
-            LOGGER.error("Could not find URL for NC recovery", e);
-        }
-        return null;
-    }
-
-    public static URI getNCUdfListingURL(URI baseURL) {
-        URIBuilder builder = new URIBuilder(baseURL).setPath(GET_UDF_LIST_ENDPOINT);
-        try {
-            return builder.build();
-        } catch (URISyntaxException e) {
-            LOGGER.error("Could not find URL for NC recovery", e);
-        }
-        return null;
-    }
 }

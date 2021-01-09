@@ -246,7 +246,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
                 (String) nodeSecretsMap.get(node).get(SYS_AUTH_HEADER));
     }
 
-    private URI constructNCRecoveryUri(String nodeId) {
+    protected URI constructNCRecoveryUri(String nodeId) {
         Map<IOption, Object> nodeConfig = clusterManager.getNcConfiguration().get(nodeId);
         String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
         int port = (Integer) nodeConfig.get(NC_API_PORT);
