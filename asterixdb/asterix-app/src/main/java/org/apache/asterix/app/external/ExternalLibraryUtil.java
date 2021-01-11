@@ -18,9 +18,6 @@
  */
 package org.apache.asterix.app.external;
 
-import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_ALL_UDF_ENDPOINT;
-import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_UDF_LIST_ENDPOINT;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
