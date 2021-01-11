@@ -372,6 +372,14 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                     }
                     return FileVisitResult.CONTINUE;
                 }
+
+                @Override
+                public FileVisitResult preVisitDirectory(Path currPath, BasicFileAttributes attrs) throws IOException {
+                    ZipArchiveEntry e =
+                            new ZipArchiveEntry(currPath.toFile(), storageDirPath.relativize(currPath).toString());
+                    zipOut.putArchiveEntry(e);
+                    return FileVisitResult.CONTINUE;
+                }
             });
             zipOut.finish();
         }
