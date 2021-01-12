@@ -360,7 +360,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         Path outZip = Files.createTempFile(outDir, "all_" + System.currentTimeMillis(), ".zip");
         try (FileOutputStream out = new FileOutputStream(outZip.toFile());
                 ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)) {
-            Files.walkFileTree(storageDirPath.normalize(), new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(storageDirPath, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path currPath, BasicFileAttributes attrs) throws IOException {
                     ZipArchiveEntry e =
@@ -375,6 +375,9 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
 
                 @Override
                 public FileVisitResult preVisitDirectory(Path currPath, BasicFileAttributes attrs) throws IOException {
+                    if (currPath.equals(storageDirPath)) {
+                        return FileVisitResult.CONTINUE;
+                    }
                     ZipArchiveEntry e =
                             new ZipArchiveEntry(currPath.toFile(), storageDirPath.relativize(currPath).toString());
                     zipOut.putArchiveEntry(e);
