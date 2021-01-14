@@ -223,7 +223,9 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         tasks.add(new StartLifecycleComponentsTask());
         Set<String> nodes = clusterManager.getParticipantNodes(true);
         nodes.remove(newNodeId);
-        tasks.add(getLibraryTask(newNodeId, nodes));
+        if (nodes.size() > 1) {
+            tasks.add(getLibraryTask(newNodeId, nodes));
+        }
         if (metadataNode) {
             tasks.add(new ExportMetadataNodeTask(true));
             tasks.add(new BindMetadataNodeTask());
