@@ -19,7 +19,7 @@
 package org.apache.asterix.api.http.server;
 
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.OutputStreamWriter;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -78,10 +78,8 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
             }
             response.setStatus(HttpResponseStatus.OK);
             HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, request);
-            PrintWriter responseWriter = response.writer();
-            JSONUtil.writeNode(responseWriter, OBJECT_MAPPER.valueToTree(dvToLibHashes));
-            responseWriter.flush();
-
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(response.outputStream());
+            JSONUtil.writeNode(outputStreamWriter, OBJECT_MAPPER.valueToTree(dvToLibHashes));
         }
     }
 }

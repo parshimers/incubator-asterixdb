@@ -187,7 +187,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         public void initialize() throws IOException, AsterixException {
             PythonLibraryEvaluatorId fnId = (PythonLibraryEvaluatorId) id;
             List<String> externalIdents = finfo.getExternalIdentifier();
-            LOGGER.info(Arrays.toString(externalIdents.toArray()));
             PythonLibrary library = (PythonLibrary) libMgr.getLibrary(fnId.libraryDataverseName, fnId.libraryName);
             String wd = library.getFile().getAbsolutePath();
             String packageModule = externalIdents.get(0);

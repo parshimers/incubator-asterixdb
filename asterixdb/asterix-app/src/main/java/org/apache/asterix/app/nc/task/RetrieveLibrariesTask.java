@@ -25,7 +25,9 @@ import static org.apache.asterix.common.utils.Servlets.UDF_RECOVERY;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -49,6 +51,7 @@ import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.service.IControllerService;
+import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -93,13 +96,16 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
     private void retrieveLibrary(URI baseURI, String authToken, INcApplicationContext appContext)
             throws HyracksDataException {
         ILibraryManager libraryManager = appContext.getLibraryManager();
-        FileReference targetFile = appContext.getLibraryManager().getStorageDir().getChild(libraryZipName);
+        FileReference distributionDir = appContext.getLibraryManager().getDistributionDir();
         URI libraryURI = getNCUdfRetrievalURL(baseURI);
         try {
-            libraryManager.download(targetFile, authToken, libraryURI);
+            FileUtil.forceMkdirs(distributionDir.getFile());
+            Path targetFile = Files.createTempFile(Paths.get(distributionDir.getAbsolutePath()), "all_", ".zip");
+            FileReference targetFileRef = distributionDir.getChild(targetFile.getFileName().toString());
+            libraryManager.download(targetFileRef, authToken, libraryURI);
             Path outputDirPath = libraryManager.getStorageDir().getFile().toPath().toAbsolutePath().normalize();
             FileReference outPath = appContext.getIoManager().resolveAbsolutePath(outputDirPath.toString());
-            libraryManager.unzip(targetFile, outPath);
+            libraryManager.unzip(targetFileRef, outPath);
         } catch (IOException e) {
             LOGGER.error("Unable to retrieve UDFs from " + libraryURI.toString() + " before timeout");
             throw HyracksDataException.create(e);

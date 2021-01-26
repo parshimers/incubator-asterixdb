@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -294,10 +295,9 @@ public class NCApplication extends BaseNCApplication {
         final NodeStatus currentStatus = ncs.getNodeStatus();
         final SystemState systemState = isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId)
                 ? getCurrentSystemState() : SystemState.HEALTHY;
-        final HashMap<String, Object> httpSecrets = new HashMap<>();
-        if (apiServer != null) {
-            httpSecrets.put(SYS_AUTH_HEADER, apiServer.ctx().get(SYS_AUTH_HEADER));
-        }
+        final Map httpSecrets =
+                apiServer != null ? Collections.singletonMap(SYS_AUTH_HEADER, apiServer.ctx().get(SYS_AUTH_HEADER))
+                        : Collections.emptyMap();
         RegistrationTasksRequestMessage.send(ccId, (NodeControllerService) ncServiceCtx.getControllerService(),
                 currentStatus, systemState, httpSecrets);
     }

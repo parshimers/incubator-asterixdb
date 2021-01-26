@@ -48,10 +48,7 @@ public class RegistrationTasksRequestMessage implements INCLifecycleMessage, ICc
         this.state = state;
         this.nodeId = nodeId;
         this.nodeStatus = nodeStatus;
-        this.secrets = new HashMap<>();
-        for (Map.Entry<String, Object> sec : secretsEphemeral.entrySet()) {
-            secrets.put(sec.getKey(), sec.getValue());
-        }
+        this.secrets = new HashMap<>(secretsEphemeral);
     }
 
     public static void send(CcId ccId, NodeControllerService cs, NodeStatus nodeStatus, SystemState systemState,

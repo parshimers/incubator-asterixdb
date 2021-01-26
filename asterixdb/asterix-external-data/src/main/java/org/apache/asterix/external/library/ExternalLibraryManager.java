@@ -45,10 +45,10 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -234,9 +234,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     @Override
     public List<Pair<DataverseName, String>> getLibraryListing() throws IOException {
         List<Pair<DataverseName, String>> libs = new ArrayList<>();
-        for (Path dvPath : Files.list(storageDirPath).collect(Collectors.toList())) {
+        for (Iterator<Path> i = Files.list(storageDirPath).iterator(); i.hasNext();) {
+            Path dvPath = i.next();
             DataverseName dv = DataverseName.createFromCanonicalForm(dvPath.getFileName().toString());
-            for (Path libPath : Files.list(dvPath).collect(Collectors.toList())) {
+            for (Iterator<Path> j = Files.list(dvPath).iterator(); j.hasNext();) {
+                Path libPath = j.next();
                 String libName = libPath.getFileName().toString();
                 FileReference revDir = findLibraryRevDir(dv, libName);
                 if (revDir != null) {
@@ -357,7 +359,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         byte[] copyBuf = new byte[4096];
         Path outDir = Paths.get(baseDir.getAbsolutePath(), DISTRIBUTION_DIR);
         FileUtil.forceMkdirs(outDir.toFile());
-        Path outZip = Files.createTempFile(outDir, "all_" + System.currentTimeMillis(), ".zip");
+        Path outZip = Files.createTempFile(outDir, "all_", ".zip");
         try (FileOutputStream out = new FileOutputStream(outZip.toFile());
                 ZipArchiveOutputStream zipOut = new ZipArchiveOutputStream(out)) {
             Files.walkFileTree(storageDirPath, new SimpleFileVisitor<Path>() {
@@ -493,6 +495,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                         trace = e;
                         try {
                             ioManager.truncate(fHandle, 0);
+                            digest.reset();
                         } catch (IOException e2) {
                             throw HyracksDataException.create(e2);
                         }
@@ -531,6 +534,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         Path outputDirPath = outputDir.getFile().toPath().toAbsolutePath().normalize();
         try (ZipFile zipFile = new ZipFile(sourceFile.getFile())) {
             Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            byte[] writeBuf = new byte[4096];
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
                 if (entry.isDirectory()) {
@@ -551,7 +555,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                     if (logTraceEnabled) {
                         LOGGER.trace("Extracting file {}", entryOutputFileRef);
                     }
-                    writeAndForce(entryOutputFileRef, in, new byte[4096]);
+                    writeAndForce(entryOutputFileRef, in, writeBuf);
                 }
             }
         }
