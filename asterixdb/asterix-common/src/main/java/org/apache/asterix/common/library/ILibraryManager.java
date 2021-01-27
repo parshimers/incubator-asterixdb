@@ -27,7 +27,7 @@ import java.util.List;
 
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
-import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.FileReference;
@@ -35,7 +35,7 @@ import org.apache.hyracks.ipc.impl.IPCSystem;
 
 public interface ILibraryManager {
 
-    List<Pair<DataverseName, String>> getLibraryListing() throws IOException;
+    List<Triple<DataverseName, String, String>> getLibraryListing() throws IOException;
 
     String getLibraryHash(DataverseName dataverseName, String libraryName) throws IOException;
 

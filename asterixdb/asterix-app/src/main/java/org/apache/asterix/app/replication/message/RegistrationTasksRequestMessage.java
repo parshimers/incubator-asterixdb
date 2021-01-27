@@ -18,14 +18,18 @@
  */
 package org.apache.asterix.app.replication.message;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.messaging.api.ICcAddressedMessage;
 import org.apache.asterix.common.messaging.api.INCMessageBroker;
+import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
+import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.client.NodeStatus;
 import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -42,20 +46,23 @@ public class RegistrationTasksRequestMessage implements INCLifecycleMessage, ICc
     protected final String nodeId;
     protected final NodeStatus nodeStatus;
     protected final Map<String, Object> secrets;
+    protected final List<Triple<DataverseName, String, String>> existingLibraries;
 
     public RegistrationTasksRequestMessage(String nodeId, NodeStatus nodeStatus, SystemState state,
-            Map<String, Object> secretsEphemeral) {
+            Map<String, Object> secretsEphemeral, List<Triple<DataverseName, String, String>> existingLibraries) {
         this.state = state;
         this.nodeId = nodeId;
         this.nodeStatus = nodeStatus;
         this.secrets = new HashMap<>(secretsEphemeral);
+        this.existingLibraries = new ArrayList(existingLibraries);
     }
 
     public static void send(CcId ccId, NodeControllerService cs, NodeStatus nodeStatus, SystemState systemState,
-            Map<String, Object> secretsEphemeral) throws HyracksDataException {
+            Map<String, Object> secretsEphemeral, List<Triple<DataverseName, String, String>> existingLibraries)
+            throws HyracksDataException {
         try {
-            RegistrationTasksRequestMessage msg =
-                    new RegistrationTasksRequestMessage(cs.getId(), nodeStatus, systemState, secretsEphemeral);
+            RegistrationTasksRequestMessage msg = new RegistrationTasksRequestMessage(cs.getId(), nodeStatus,
+                    systemState, secretsEphemeral, existingLibraries);
             ((INCMessageBroker) cs.getContext().getMessageBroker()).sendMessageToCC(ccId, msg);
         } catch (Exception e) {
             LOGGER.log(Level.ERROR, "Unable to send RegistrationTasksRequestMessage to CC", e);
@@ -87,5 +94,9 @@ public class RegistrationTasksRequestMessage implements INCLifecycleMessage, ICc
 
     public Map<String, Object> getSecrets() {
         return secrets;
+    }
+
+    public List<Triple<DataverseName, String, String>> getExistingLibraries() {
+        return existingLibraries;
     }
 }
