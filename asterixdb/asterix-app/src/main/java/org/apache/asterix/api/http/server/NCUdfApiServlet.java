@@ -20,17 +20,27 @@ package org.apache.asterix.api.http.server;
 
 import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
 
+import java.io.BufferedInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.URI;
+import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
+import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
+import io.netty.buffer.ByteBuf;
+import org.apache.asterix.app.external.ExternalLibraryUtil;
 import org.apache.asterix.app.message.CreateLibraryRequestMessage;
 import org.apache.asterix.app.message.DropLibraryRequestMessage;
 import org.apache.asterix.app.message.InternalRequestResponse;
@@ -44,8 +54,11 @@ import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.messaging.api.MessageFuture;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
+import org.apache.commons.codec.cli.Digest;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
@@ -108,13 +121,13 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
         return Collections.emptyMap();
     }
 
-    private void doCreate(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage language,
+    private void doCreate(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage language, String hash,
             URI downloadURI, boolean replaceIfExists, String sysAuthHeader, IRequestReference requestReference,
             IServletRequest request, IServletResponse response) throws Exception {
         INCMessageBroker ncMb = (INCMessageBroker) srvCtx.getMessageBroker();
         MessageFuture responseFuture = ncMb.registerMessageFuture();
         CreateLibraryRequestMessage req = new CreateLibraryRequestMessage(srvCtx.getNodeId(),
-                responseFuture.getFutureId(), dataverseName, libraryName, language, downloadURI, replaceIfExists,
+                responseFuture.getFutureId(), dataverseName, libraryName, language, hash, downloadURI, replaceIfExists,
                 sysAuthHeader, requestReference, additionalHttpHeadersFromRequest(request));
         sendMessage(req, responseFuture, requestReference, request, response);
     }
@@ -181,6 +194,7 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
             return;
         }
         Path libraryTempFile = null;
+        FileOutputStream libTmpOut = null;
         HttpPostRequestDecoder requestDecoder = new HttpPostRequestDecoder(httpRequest);
         try {
             if (!requestDecoder.hasNext() || requestDecoder.getBodyHttpDatas().size() != 1) {
@@ -206,9 +220,14 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
                     LOGGER.debug("Created temporary file " + libraryTempFile + " for library " + libraryName.first + "."
                             + libraryName.second);
                 }
-                fileUpload.renameTo(libraryTempFile.toFile());
+                MessageDigest digest = MessageDigest.getInstance("MD5");
+                libTmpOut = new FileOutputStream(libraryTempFile.toFile());
+                OutputStream outStream = new DigestOutputStream(libTmpOut, digest);
+                InputStream uploadInput = new ByteBufferBackedInputStream(((FileUpload) httpData).getByteBuf().nioBuffer());
+                IOUtils.copyLarge(uploadInput,outStream);
+                outStream.close();
                 URI downloadURI = createDownloadURI(libraryTempFile);
-                doCreate(libraryName.first, libraryName.second, language, downloadURI, true, sysAuthHeader,
+                doCreate(libraryName.first, libraryName.second, language, ExternalLibraryUtil.digestToHexString(digest), downloadURI, true, sysAuthHeader,
                         requestReference, request, response);
                 response.setStatus(HttpResponseStatus.OK);
             } catch (Exception e) {
@@ -223,6 +242,9 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
             if (libraryTempFile != null) {
                 try {
                     Files.deleteIfExists(libraryTempFile);
+                    if(libTmpOut != null){
+                        libTmpOut.close();
+                    }
                 } catch (IOException e) {
                     LOGGER.warn("Could not delete temporary file " + libraryTempFile, e);
                 }

@@ -2430,16 +2430,17 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         CreateLibraryStatement cls = (CreateLibraryStatement) stmt;
         DataverseName dataverseName = getActiveDataverseName(cls.getDataverseName());
         String libraryName = cls.getLibraryName();
+        String libraryHash = cls.getHash();
         lockUtil.createLibraryBegin(lockManager, metadataProvider.getLocks(), dataverseName, libraryName);
         try {
-            doCreateLibrary(metadataProvider, dataverseName, libraryName, cls, hcc);
+            doCreateLibrary(metadataProvider, dataverseName, libraryName, libraryHash, cls, hcc);
         } finally {
             metadataProvider.getLocks().unlock();
         }
     }
 
     private void doCreateLibrary(MetadataProvider metadataProvider, DataverseName dataverseName, String libraryName,
-            CreateLibraryStatement cls, IHyracksClientConnection hcc) throws Exception {
+                                 String libraryHash, CreateLibraryStatement cls, IHyracksClientConnection hcc) throws Exception {
         JobUtils.ProgressState progress = ProgressState.NO_PROGRESS;
         boolean prepareJobSuccessful = false;
         JobSpecification abortJobSpec = null;
@@ -2461,7 +2462,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
             // #. add/update library with PendingAddOp
             Library libraryPendingAdd =
-                    new Library(dataverseName, libraryName, language.name(), MetadataUtil.PENDING_ADD_OP);
+                    new Library(dataverseName, libraryName, language.name(), libraryHash, MetadataUtil.PENDING_ADD_OP);
             if (existingLibrary == null) {
                 MetadataManager.INSTANCE.addLibrary(mdTxnCtx, libraryPendingAdd);
             } else {
@@ -2490,7 +2491,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             bActiveTxn = true;
             metadataProvider.setMetadataTxnContext(mdTxnCtx);
 
-            Library newLibrary = new Library(dataverseName, libraryName, language.name(), MetadataUtil.PENDING_NO_OP);
+            Library newLibrary = new Library(dataverseName, libraryName, language.name(), libraryHash, MetadataUtil.PENDING_NO_OP);
             MetadataManager.INSTANCE.updateLibrary(mdTxnCtx, newLibrary);
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -2593,7 +2594,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             // do drop instead of update because drop will fail if the library is used by functions/adapters
             MetadataManager.INSTANCE.dropLibrary(mdTxnCtx, dataverseName, libraryName);
             MetadataManager.INSTANCE.addLibrary(mdTxnCtx,
-                    new Library(dataverseName, libraryName, library.getLanguage(), MetadataUtil.PENDING_DROP_OP));
+                    new Library(dataverseName, libraryName, library.getLanguage(), library.getHash(), MetadataUtil.PENDING_DROP_OP));
 
             // #. drop library artifacts in NCs.
             JobSpecification jobSpec =

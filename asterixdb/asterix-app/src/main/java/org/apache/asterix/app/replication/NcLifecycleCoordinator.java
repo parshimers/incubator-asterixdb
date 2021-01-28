@@ -58,6 +58,7 @@ import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.asterix.common.replication.INcLifecycleCoordinator;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.metadata.MetadataManager;
+import org.apache.asterix.metadata.api.IMetadataManager;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -84,6 +85,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     private final boolean replicationEnabled;
     private final IGatekeeper gatekeeper;
     Map<String, Map<String, Object>> nodeSecretsMap;
+    IMetadataManager metadataManager;
 
     public NcLifecycleCoordinator(ICCServiceContext serviceCtx, boolean replicationEnabled) {
         this.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
@@ -91,6 +93,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         this.gatekeeper =
                 ((ClusterControllerService) serviceCtx.getControllerService()).getApplication().getGatekeeper();
         this.nodeSecretsMap = new HashMap<>();
+
     }
 
     @Override
