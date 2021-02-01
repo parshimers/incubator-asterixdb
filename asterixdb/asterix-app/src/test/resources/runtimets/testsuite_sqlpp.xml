@@ -4107,6 +4107,11 @@
         <output-dir compare="Text">create_dataset_with_filter_on_meta</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="ddl">
+      <compilation-unit name="index-bad-fields">
+        <output-dir compare="Text">index-bad-fields</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
   <test-group name="dml">
     <test-case FilePath="dml">
@@ -10313,6 +10318,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="subquery">
+      <compilation-unit name="in_let">
+        <output-dir compare="Text">in_let</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="subquery">
       <compilation-unit name="not_exists">
         <output-dir compare="Text">not_exists</output-dir>
       </compilation-unit>
@@ -10398,6 +10408,11 @@
     <test-case FilePath="subquery">
       <compilation-unit name="query-ASTERIXDB-1674">
         <output-dir compare="Text">query-ASTERIXDB-1674</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="subquery">
+      <compilation-unit name="query-ASTERIXDB-2815">
+        <output-dir compare="Text">query-ASTERIXDB-2815</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -14128,6 +14143,8 @@
         <expected-warn>ASX1107: Unexpected hint: unknown_hint_between. "indexnl", "skip-index", "use-index" expected at this location</expected-warn>
         <expected-warn>ASX1107: Unexpected hint: unknown_hint_funcall. "indexnl", "range", "skip-index", "use-index" expected at this location</expected-warn>
         <expected-warn>ASX1107: Unexpected hint: unknown_hint_elsewhere. None expected at this location</expected-warn>
+        <expected-warn>ASX1107: Unexpected hint: unknown_hint_relexpr_6. "hash-bcast", "indexnl", "skip-index", "use-index" expected at this location</expected-warn>
+        <expected-warn>ASX1107: Unexpected hint: unknown_hint_relexpr_6. "hash-bcast", "indexnl", "skip-index", "use-index" expected at this location</expected-warn>
       </compilation-unit>
     </test-case>
     <test-case FilePath="warnings">
