@@ -32,11 +32,12 @@ public final class CreateLibraryStatement extends AbstractStatement {
     private final DataverseName dataverseName;
     private final String libraryName;
     private final ExternalFunctionLanguage lang;
+    private final String hash;
     private final URI location;
     private final boolean replaceIfExists;
     private final String authToken;
 
-    public CreateLibraryStatement(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage lang,
+    public CreateLibraryStatement(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage lang, String hash,
             URI location, boolean replaceIfExists, String authToken) {
         this.dataverseName = dataverseName;
         this.libraryName = libraryName;
@@ -44,6 +45,7 @@ public final class CreateLibraryStatement extends AbstractStatement {
         this.location = location;
         this.replaceIfExists = replaceIfExists;
         this.authToken = authToken;
+        this.hash = hash;
     }
 
     public DataverseName getDataverseName() {
@@ -57,6 +59,8 @@ public final class CreateLibraryStatement extends AbstractStatement {
     public ExternalFunctionLanguage getLang() {
         return lang;
     }
+
+    public String getHash() { return hash; }
 
     public URI getLocation() {
         return location;

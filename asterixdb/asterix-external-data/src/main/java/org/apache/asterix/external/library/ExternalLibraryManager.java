@@ -71,6 +71,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.FileReference;
@@ -232,8 +233,8 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     }
 
     @Override
-    public List<Pair<DataverseName, String>> getLibraryListing() throws IOException {
-        List<Pair<DataverseName, String>> libs = new ArrayList<>();
+    public List<Triple<DataverseName, String, String>> getLibraryListing() throws IOException {
+        List<Triple<DataverseName, String, String>> libs = new ArrayList<>();
         for (Iterator<Path> i = Files.list(storageDirPath).iterator(); i.hasNext();) {
             Path dvPath = i.next();
             DataverseName dv = DataverseName.createFromCanonicalForm(dvPath.getFileName().toString());
@@ -242,7 +243,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                 String libName = libPath.getFileName().toString();
                 FileReference revDir = findLibraryRevDir(dv, libName);
                 if (revDir != null) {
-                    libs.add(new Pair(dv, libName));
+                    libs.add(new Triple(dv, libName, getLibraryHash(dv, libName)));
                 }
             }
         }

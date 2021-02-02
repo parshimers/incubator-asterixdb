@@ -18,8 +18,11 @@
  */
 package org.apache.asterix.app.external;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -46,6 +49,7 @@ import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.io.FileSplit;
 import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.dataflow.std.file.IFileSplitProvider;
+import org.apache.hyracks.util.bytes.HexPrinter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -156,4 +160,10 @@ public class ExternalLibraryUtil {
         return null;
     }
 
+    public static String digestToHexString(MessageDigest digest) throws IOException {
+        byte[] hashBytes = digest.digest();
+        StringWriter hashBuilder = new StringWriter();
+        HexPrinter.printHexString(hashBytes, 0, hashBytes.length, hashBuilder);
+        return hashBuilder.toString();
+    }
 }

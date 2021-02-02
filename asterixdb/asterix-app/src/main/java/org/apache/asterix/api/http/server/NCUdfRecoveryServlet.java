@@ -21,16 +21,14 @@ package org.apache.asterix.api.http.server;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.library.ExternalLibraryManager;
-import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.utils.HttpUtil;
@@ -70,16 +68,11 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
             Path zippedLibs = libraryManager.zipAllLibs();
             readFromFile(zippedLibs, response);
         } else if (localPath.equals(GET_UDF_LIST_ENDPOINT)) {
-            List<Pair<DataverseName, String>> libs = libraryManager.getLibraryListing();
-            Map<String, Map<String, String>> dvToLibHashes = new HashMap<>();
-            for (Pair<DataverseName, String> lib : libs) {
-                dvToLibHashes.computeIfAbsent(lib.first.getCanonicalForm(), h -> new HashMap()).put(lib.getSecond(),
-                        libraryManager.getLibraryHash(lib.first, lib.second));
-            }
+            List<Triple<DataverseName, String, String>> libs = libraryManager.getLibraryListing();
             response.setStatus(HttpResponseStatus.OK);
             HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, request);
             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(response.outputStream());
-            JSONUtil.writeNode(outputStreamWriter, OBJECT_MAPPER.valueToTree(dvToLibHashes));
+            JSONUtil.writeNode(outputStreamWriter, OBJECT_MAPPER.valueToTree(libs));
         }
     }
 }
