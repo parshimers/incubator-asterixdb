@@ -86,15 +86,16 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
                 try {
                     if (!isUdfStateConsistent(referenceNode, thisNode)) {
                         retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
-                        success = true;
-                        break;
                     }
+                    success = true;
+                    break;
                 } catch (HyracksDataException e) {
-                    LOGGER.warn("Unable to retrieve UDFs from: " + referenceNode.getFirst() + ", trying another node.",
+                    LOGGER.error("Unable to retrieve UDFs from: " + referenceNode.getFirst() + ", trying another node.",
                             e);
                 }
             }
             if (!success) {
+                LOGGER.error("Unable to retrieve UDFs from any participant node");
                 throw HyracksDataException.create(ErrorCode.TIMEOUT);
             }
         }

@@ -47,6 +47,8 @@ import org.apache.asterix.app.replication.message.MetadataNodeResponseMessage;
 import org.apache.asterix.app.replication.message.NCLifecycleTaskReportMessage;
 import org.apache.asterix.app.replication.message.RegistrationTasksRequestMessage;
 import org.apache.asterix.app.replication.message.RegistrationTasksResponseMessage;
+import org.apache.asterix.common.api.IClusterManagementWork;
+import org.apache.asterix.common.api.IClusterManagementWork.ClusterState;
 import org.apache.asterix.common.api.INCLifecycleTask;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IClusterStateManager;
@@ -227,9 +229,11 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
         if (fetchLibraries) {
-            Set<String> nodes = clusterManager.getParticipantNodes(true);
-            if (nodes.size() > 0) {
-                tasks.add(getLibraryTask(newNodeId, nodes));
+            if(clusterManager.getState() == ClusterState.ACTIVE) {
+                Set<String> nodes = clusterManager.getParticipantNodes(true);
+                if (nodes.size() > 0) {
+                    tasks.add(getLibraryTask(newNodeId, nodes));
+                }
             }
         }
         if (metadataNode) {
