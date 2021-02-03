@@ -29,7 +29,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -48,6 +47,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.control.CcId;
+import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.service.IControllerService;
@@ -81,14 +81,21 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
     public void perform(CcId ccId, IControllerService cs) throws HyracksDataException {
         INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         if (nodes.size() > 0) {
-            int randomIdx = rand.nextInt(nodes.size());
-            Iterator<Pair<URI, String>> randomIter = nodes.iterator();
-            for (int i = 0; i < randomIdx; i++) {
-                randomIter.next();
+            boolean success = false;
+            for (Pair<URI, String> referenceNode : nodes) {
+                try {
+                    if (!isUdfStateConsistent(referenceNode, thisNode)) {
+                        retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
+                        success = true;
+                        break;
+                    }
+                } catch (HyracksDataException e) {
+                    LOGGER.warn("Unable to retrieve UDFs from: " + referenceNode.getFirst() + ", trying another node.",
+                            e);
+                }
             }
-            Pair<URI, String> referenceNode = randomIter.next();
-            if (!isUdfStateConsistent(referenceNode, thisNode)) {
-                retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
+            if (!success) {
+                throw HyracksDataException.create(ErrorCode.TIMEOUT);
             }
         }
     }

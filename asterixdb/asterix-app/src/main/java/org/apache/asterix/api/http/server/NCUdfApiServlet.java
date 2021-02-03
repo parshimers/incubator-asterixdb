@@ -238,10 +238,10 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
             requestDecoder.destroy();
             if (libraryTempFile != null) {
                 try {
-                    Files.deleteIfExists(libraryTempFile);
                     if (libTmpOut != null) {
                         libTmpOut.close();
                     }
+                    Files.deleteIfExists(libraryTempFile);
                 } catch (IOException e) {
                     LOGGER.warn("Could not delete temporary file " + libraryTempFile, e);
                 }
