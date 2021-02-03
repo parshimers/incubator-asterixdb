@@ -2440,7 +2440,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     private void doCreateLibrary(MetadataProvider metadataProvider, DataverseName dataverseName, String libraryName,
-                                 String libraryHash, CreateLibraryStatement cls, IHyracksClientConnection hcc) throws Exception {
+            String libraryHash, CreateLibraryStatement cls, IHyracksClientConnection hcc) throws Exception {
         JobUtils.ProgressState progress = ProgressState.NO_PROGRESS;
         boolean prepareJobSuccessful = false;
         JobSpecification abortJobSpec = null;
@@ -2491,7 +2491,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             bActiveTxn = true;
             metadataProvider.setMetadataTxnContext(mdTxnCtx);
 
-            Library newLibrary = new Library(dataverseName, libraryName, language.name(), libraryHash, MetadataUtil.PENDING_NO_OP);
+            Library newLibrary =
+                    new Library(dataverseName, libraryName, language.name(), libraryHash, MetadataUtil.PENDING_NO_OP);
             MetadataManager.INSTANCE.updateLibrary(mdTxnCtx, newLibrary);
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -2593,8 +2594,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             // #. mark the existing library as PendingDropOp
             // do drop instead of update because drop will fail if the library is used by functions/adapters
             MetadataManager.INSTANCE.dropLibrary(mdTxnCtx, dataverseName, libraryName);
-            MetadataManager.INSTANCE.addLibrary(mdTxnCtx,
-                    new Library(dataverseName, libraryName, library.getLanguage(), library.getHash(), MetadataUtil.PENDING_DROP_OP));
+            MetadataManager.INSTANCE.addLibrary(mdTxnCtx, new Library(dataverseName, libraryName, library.getLanguage(),
+                    library.getHash(), MetadataUtil.PENDING_DROP_OP));
 
             // #. drop library artifacts in NCs.
             JobSpecification jobSpec =

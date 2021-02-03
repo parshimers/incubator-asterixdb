@@ -58,7 +58,6 @@ import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.asterix.common.replication.INcLifecycleCoordinator;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.metadata.MetadataManager;
-import org.apache.asterix.metadata.api.IMetadataManager;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -85,7 +84,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     private final boolean replicationEnabled;
     private final IGatekeeper gatekeeper;
     Map<String, Map<String, Object>> nodeSecretsMap;
-    IMetadataManager metadataManager;
+    protected boolean fetchLibraries = true;
 
     public NcLifecycleCoordinator(ICCServiceContext serviceCtx, boolean replicationEnabled) {
         this.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
@@ -93,7 +92,6 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         this.gatekeeper =
                 ((ClusterControllerService) serviceCtx.getControllerService()).getApplication().getGatekeeper();
         this.nodeSecretsMap = new HashMap<>();
-
     }
 
     @Override
@@ -228,10 +226,11 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
-        Set<String> nodes = clusterManager.getParticipantNodes(true);
-        nodes.remove(newNodeId);
-        if (nodes.size() > 0) {
-            tasks.add(getLibraryTask(newNodeId, nodes));
+        if (fetchLibraries) {
+            Set<String> nodes = clusterManager.getParticipantNodes(true);
+            if (nodes.size() > 0) {
+                tasks.add(getLibraryTask(newNodeId, nodes));
+            }
         }
         if (metadataNode) {
             tasks.add(new ExportMetadataNodeTask(true));

@@ -52,7 +52,7 @@ public class Library implements IMetadataEntity<Library> {
         return language;
     }
 
-    public String getHash(){
+    public String getHash() {
         return hash;
     }
 

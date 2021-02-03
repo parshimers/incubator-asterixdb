@@ -176,7 +176,7 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
         return null;
     }
 
-    public static URI getNCUdfRetrievalURL(URI baseURL) {
+    public URI getNCUdfRetrievalURL(URI baseURL) {
         String endpoint = UDF_RECOVERY.substring(0, UDF_RECOVERY.length() - 1) + GET_ALL_UDF_ENDPOINT;
         URIBuilder builder = new URIBuilder(baseURL).setPath(endpoint);
         try {
@@ -187,7 +187,7 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
         return null;
     }
 
-    public static URI getNCUdfListingURL(URI baseURL) {
+    public URI getNCUdfListingURL(URI baseURL) {
         String endpoint = UDF_RECOVERY.substring(0, UDF_RECOVERY.length() - 1) + GET_UDF_LIST_ENDPOINT;
         URIBuilder builder = new URIBuilder(baseURL).setPath(endpoint);
         try {

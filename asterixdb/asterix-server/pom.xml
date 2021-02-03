@@ -478,7 +478,7 @@
         <executions>
           <execution>
             <id>venv</id>
-            <phase>${pyro-shim.stage}</phase>
+            <phase>${prepare-env.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>
@@ -495,7 +495,7 @@
           </execution>
           <execution>
             <id>shiv-install</id>
-            <phase>${pyro-shim.stage}</phase>
+            <phase>${prepare-env.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>
@@ -517,7 +517,7 @@
           </execution>
           <execution>
             <id>shiv-msgpack-shim</id>
-            <phase>${pyro-shim.stage}</phase>
+            <phase>${shim.stage}</phase>
             <goals>
               <goal>exec</goal>
             </goals>

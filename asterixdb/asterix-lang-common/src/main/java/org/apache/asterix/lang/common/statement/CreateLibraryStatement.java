@@ -37,8 +37,8 @@ public final class CreateLibraryStatement extends AbstractStatement {
     private final boolean replaceIfExists;
     private final String authToken;
 
-    public CreateLibraryStatement(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage lang, String hash,
-            URI location, boolean replaceIfExists, String authToken) {
+    public CreateLibraryStatement(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage lang,
+            String hash, URI location, boolean replaceIfExists, String authToken) {
         this.dataverseName = dataverseName;
         this.libraryName = libraryName;
         this.lang = lang;
@@ -60,7 +60,9 @@ public final class CreateLibraryStatement extends AbstractStatement {
         return lang;
     }
 
-    public String getHash() { return hash; }
+    public String getHash() {
+        return hash;
+    }
 
     public URI getLocation() {
         return location;

@@ -111,7 +111,7 @@ import org.apache.logging.log4j.Logger;
 public class NCApplication extends BaseNCApplication {
     private static final Logger LOGGER = LogManager.getLogger();
     protected NCExtensionManager ncExtensionManager;
-    private INcApplicationContext runtimeContext;
+    protected INcApplicationContext runtimeContext;
     private String nodeId;
     private boolean stopInitiated;
     protected boolean startupCompleted;

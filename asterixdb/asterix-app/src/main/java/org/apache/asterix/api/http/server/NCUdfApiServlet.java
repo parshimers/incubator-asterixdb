@@ -20,14 +20,12 @@ package org.apache.asterix.api.http.server;
 
 import static org.apache.asterix.api.http.server.ServletConstants.SYS_AUTH_HEADER;
 
-import java.io.BufferedInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.URI;
-import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,8 +36,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-import io.netty.buffer.ByteBuf;
 import org.apache.asterix.app.external.ExternalLibraryUtil;
 import org.apache.asterix.app.message.CreateLibraryRequestMessage;
 import org.apache.asterix.app.message.DropLibraryRequestMessage;
@@ -54,8 +50,6 @@ import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.messaging.api.MessageFuture;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
-import org.apache.commons.codec.cli.Digest;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -65,6 +59,8 @@ import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -121,9 +117,9 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
         return Collections.emptyMap();
     }
 
-    private void doCreate(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage language, String hash,
-            URI downloadURI, boolean replaceIfExists, String sysAuthHeader, IRequestReference requestReference,
-            IServletRequest request, IServletResponse response) throws Exception {
+    private void doCreate(DataverseName dataverseName, String libraryName, ExternalFunctionLanguage language,
+            String hash, URI downloadURI, boolean replaceIfExists, String sysAuthHeader,
+            IRequestReference requestReference, IServletRequest request, IServletResponse response) throws Exception {
         INCMessageBroker ncMb = (INCMessageBroker) srvCtx.getMessageBroker();
         MessageFuture responseFuture = ncMb.registerMessageFuture();
         CreateLibraryRequestMessage req = new CreateLibraryRequestMessage(srvCtx.getNodeId(),
@@ -223,12 +219,13 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
                 MessageDigest digest = MessageDigest.getInstance("MD5");
                 libTmpOut = new FileOutputStream(libraryTempFile.toFile());
                 OutputStream outStream = new DigestOutputStream(libTmpOut, digest);
-                InputStream uploadInput = new ByteBufferBackedInputStream(((FileUpload) httpData).getByteBuf().nioBuffer());
-                IOUtils.copyLarge(uploadInput,outStream);
+                InputStream uploadInput =
+                        new ByteBufferBackedInputStream(((FileUpload) httpData).getByteBuf().nioBuffer());
+                IOUtils.copyLarge(uploadInput, outStream);
                 outStream.close();
                 URI downloadURI = createDownloadURI(libraryTempFile);
-                doCreate(libraryName.first, libraryName.second, language, ExternalLibraryUtil.digestToHexString(digest), downloadURI, true, sysAuthHeader,
-                        requestReference, request, response);
+                doCreate(libraryName.first, libraryName.second, language, ExternalLibraryUtil.digestToHexString(digest),
+                        downloadURI, true, sysAuthHeader, requestReference, request, response);
                 response.setStatus(HttpResponseStatus.OK);
             } catch (Exception e) {
                 response.setStatus(toHttpErrorStatus(e));
@@ -242,7 +239,7 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
             if (libraryTempFile != null) {
                 try {
                     Files.deleteIfExists(libraryTempFile);
-                    if(libTmpOut != null){
+                    if (libTmpOut != null) {
                         libTmpOut.close();
                     }
                 } catch (IOException e) {
