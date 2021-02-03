@@ -85,7 +85,11 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
             for (Pair<URI, String> referenceNode : nodes) {
                 try {
                     if (!isUdfStateConsistent(referenceNode, thisNode)) {
+                        LOGGER.info("State between our node " + cs.getId() + " and "
+                                + referenceNode.getFirst().getHost() + " do not match, copying their UDFs");
                         retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
+                    } else {
+                        LOGGER.info("UDF state is consistent with other node.");
                     }
                     success = true;
                     break;
