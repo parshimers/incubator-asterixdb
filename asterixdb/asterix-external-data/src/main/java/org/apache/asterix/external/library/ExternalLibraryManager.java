@@ -565,7 +565,6 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         }
     }
 
-    //TODO: something better than synchronized, but still avoids reallocating the buffer per call
     @Override
     public void writeAndForce(FileReference outputFile, InputStream dataStream, byte[] copyBuffer) throws IOException {
         outputFile.getFile().createNewFile();
