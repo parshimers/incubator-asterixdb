@@ -18,25 +18,16 @@
  */
 package org.apache.asterix.api.http.server;
 
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.common.api.INcApplicationContext;
-import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.library.ExternalLibraryManager;
-import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.utils.HttpUtil;
-import org.apache.hyracks.util.JSONUtil;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpScheme;
 
 public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
@@ -44,9 +35,6 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
     ExternalLibraryManager libraryManager;
 
     public static final String GET_ALL_UDF_ENDPOINT = "/all";
-    public static final String GET_UDF_LIST_ENDPOINT = "/list";
-
-    private static final Logger LOGGER = LogManager.getLogger();
 
     public NCUdfRecoveryServlet(ConcurrentMap<String, Object> ctx, String[] paths, IApplicationContext appCtx,
             HttpScheme httpServerProtocol, int httpServerPort) {
@@ -54,7 +42,7 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
     }
 
     @Override
-    public void init() throws IOException {
+    public void init() {
         appCtx = (INcApplicationContext) plainAppCtx;
         srvCtx = this.appCtx.getServiceContext();
         this.libraryManager = (ExternalLibraryManager) appCtx.getLibraryManager();
@@ -67,12 +55,6 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
             HttpUtil.setContentType(response, HttpUtil.ContentType.ZIP, request);
             Path zippedLibs = libraryManager.zipAllLibs();
             readFromFile(zippedLibs, response);
-        } else if (localPath.equals(GET_UDF_LIST_ENDPOINT)) {
-            List<Triple<DataverseName, String, String>> libs = libraryManager.getLibraryListing();
-            response.setStatus(HttpResponseStatus.OK);
-            HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, request);
-            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(response.outputStream());
-            JSONUtil.writeNode(outputStreamWriter, OBJECT_MAPPER.valueToTree(libs));
         }
     }
 }

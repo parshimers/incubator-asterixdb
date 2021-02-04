@@ -19,7 +19,6 @@
 package org.apache.asterix.app.nc.task;
 
 import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_ALL_UDF_ENDPOINT;
-import static org.apache.asterix.api.http.server.NCUdfRecoveryServlet.GET_UDF_LIST_ENDPOINT;
 import static org.apache.asterix.common.utils.Servlets.UDF_RECOVERY;
 
 import java.io.IOException;
@@ -28,23 +27,13 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 
 import org.apache.asterix.common.api.INCLifecycleTask;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHeaders;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.ErrorCode;
@@ -52,11 +41,9 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.service.IControllerService;
 import org.apache.hyracks.util.file.FileUtil;
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RetrieveLibrariesTask implements INCLifecycleTask {
@@ -84,13 +71,8 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
             boolean success = false;
             for (Pair<URI, String> referenceNode : nodes) {
                 try {
-                    if (!isUdfStateConsistent(referenceNode, thisNode)) {
-                        LOGGER.info("State between our node " + cs.getId() + " and "
-                                + referenceNode.getFirst().getHost() + " do not match, copying their UDFs");
-                        retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
-                    } else {
-                        LOGGER.info("UDF state is consistent with other node.");
-                    }
+                    LOGGER.info("Retrieving UDFs from " + referenceNode.getFirst().getHost());
+                    retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
                     success = true;
                     break;
                 } catch (HyracksDataException e) {
@@ -124,83 +106,8 @@ public class RetrieveLibrariesTask implements INCLifecycleTask {
         }
     }
 
-    private boolean isUdfStateConsistent(Pair<URI, String> existingNode, Pair<URI, String> incomingNode) {
-        try {
-            String existingList = getUdfState(getNCUdfListingURL(existingNode.first),
-                    Collections.singletonMap(HttpHeaders.AUTHORIZATION, existingNode.second));
-            String incomingList = getUdfState(getNCUdfListingURL(incomingNode.first),
-                    Collections.singletonMap(HttpHeaders.AUTHORIZATION, incomingNode.second));
-            LOGGER.debug("Existing libraries: " + existingList);
-            LOGGER.debug("Incoming libraries:" + incomingList);
-            if (incomingList != null && existingList != null) {
-                JsonNode existing = OBJECT_MAPPER.readTree(existingList);
-                JsonNode incoming = OBJECT_MAPPER.readTree(incomingList);
-                return existing.equals(incoming);
-            } else {
-                return incomingList == existingList;
-            }
-        } catch (IOException e) {
-            LOGGER.log(Level.ERROR, e);
-            //fall through
-        }
-        return false;
-    }
-
-    //TODO: this could be refactored with the UDF download code so it could either write to a file
-    //      or return a string instead of having to dupe a lot of the download logic
-    private String getUdfState(URI state, Map<String, String> addtlHeaders) throws IOException {
-        // retry 10 times at maximum for downloading binaries
-        try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
-            HttpGet request = new HttpGet(state);
-            for (Map.Entry<String, String> e : addtlHeaders.entrySet()) {
-                request.setHeader(e.getKey(), e.getValue());
-            }
-            int tried = 0;
-            Exception trace = null;
-            while (tried < FETCH_RETRY_COUNT) {
-                tried++;
-                CloseableHttpResponse response = null;
-                try {
-                    response = httpClient.execute(request);
-                    if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                        throw new IOException("Http Error: " + response.getStatusLine().getStatusCode());
-                    }
-                    HttpEntity e = response.getEntity();
-                    if (e == null) {
-                        throw new IOException("No response");
-                    }
-                    return IOUtils.toString(e.getContent(), "UTF-8");
-                } catch (IOException e) {
-                    LOGGER.error("Unable to download library", e);
-                    trace = e;
-                } finally {
-                    if (response != null) {
-                        try {
-                            response.close();
-                        } catch (IOException e) {
-                            LOGGER.warn("Failed to close", e);
-                        }
-                    }
-                }
-            }
-            LOGGER.error(trace);
-        }
-        return null;
-    }
-
     public URI getNCUdfRetrievalURL(URI baseURL) {
         String endpoint = UDF_RECOVERY.substring(0, UDF_RECOVERY.length() - 1) + GET_ALL_UDF_ENDPOINT;
-        URIBuilder builder = new URIBuilder(baseURL).setPath(endpoint);
-        try {
-            return builder.build();
-        } catch (URISyntaxException e) {
-            LOGGER.error("Could not find URL for NC recovery", e);
-        }
-        return null;
-    }
-
-    public URI getNCUdfListingURL(URI baseURL) {
-        String endpoint = UDF_RECOVERY.substring(0, UDF_RECOVERY.length() - 1) + GET_UDF_LIST_ENDPOINT;
         URIBuilder builder = new URIBuilder(baseURL).setPath(endpoint);
         try {
             return builder.build();
