@@ -63,8 +63,6 @@ import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
 import org.apache.hyracks.ipc.impl.IPCSystem;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvaluator {
 
@@ -76,7 +74,6 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final IEvaluatorContext evaluatorContext;
     private static final String ENTRYPOINT = "entrypoint.py";
     private static final String SITE_PACKAGES = "site-packages";
-    private static final Logger LOGGER = LogManager.getLogger();
 
     private final IPointable[] argValues;
 

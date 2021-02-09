@@ -28,7 +28,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.asterix.common.api.INCLifecycleTask;
 import org.apache.asterix.common.api.INcApplicationContext;
@@ -44,46 +43,36 @@ import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 public class RetrieveLibrariesTask implements INCLifecycleTask {
 
     private static final long serialVersionUID = 1L;
-    private static final int FETCH_RETRY_COUNT = 10;
     private static final Logger LOGGER = LogManager.getLogger();
-    private final String libraryZipName;
     private final List<Pair<URI, String>> nodes;
-    private final Pair<URI, String> thisNode;
-    private final Random rand;
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public RetrieveLibrariesTask(List<Pair<URI, String>> nodes, Pair<URI, String> thisNode) {
-        this.libraryZipName = "all_libraries_" + System.currentTimeMillis() + ".zip";
+    public RetrieveLibrariesTask(List<Pair<URI, String>> nodes) {
         this.nodes = nodes;
-        this.thisNode = thisNode;
-        this.rand = new Random();
+        if (nodes.size() <= 0) {
+            throw new IllegalArgumentException("No nodes specified to retrieve from");
+        }
     }
 
     @Override
     public void perform(CcId ccId, IControllerService cs) throws HyracksDataException {
         INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
-        if (nodes.size() > 0) {
-            boolean success = false;
-            for (Pair<URI, String> referenceNode : nodes) {
-                try {
-                    LOGGER.info("Retrieving UDFs from " + referenceNode.getFirst().getHost());
-                    retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
-                    success = true;
-                    break;
-                } catch (HyracksDataException e) {
-                    LOGGER.error("Unable to retrieve UDFs from: " + referenceNode.getFirst() + ", trying another node.",
-                            e);
-                }
+        boolean success = false;
+        for (Pair<URI, String> referenceNode : nodes) {
+            try {
+                LOGGER.info("Retrieving UDFs from " + referenceNode.getFirst().getHost());
+                retrieveLibrary(referenceNode.getFirst(), referenceNode.getSecond(), appContext);
+                success = true;
+                break;
+            } catch (HyracksDataException e) {
+                LOGGER.error("Unable to retrieve UDFs from: " + referenceNode.getFirst() + ", trying another node.", e);
             }
-            if (!success) {
-                LOGGER.error("Unable to retrieve UDFs from any participant node");
-                throw HyracksDataException.create(ErrorCode.TIMEOUT);
-            }
+        }
+        if (!success) {
+            LOGGER.error("Unable to retrieve UDFs from any participant node");
+            throw HyracksDataException.create(ErrorCode.TIMEOUT);
         }
     }
 

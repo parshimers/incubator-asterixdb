@@ -299,7 +299,7 @@ public class NCApplication extends BaseNCApplication {
                 apiServer != null ? Collections.singletonMap(SYS_AUTH_HEADER, apiServer.ctx().get(SYS_AUTH_HEADER))
                         : Collections.emptyMap();
         RegistrationTasksRequestMessage.send(ccId, (NodeControllerService) ncServiceCtx.getControllerService(),
-                currentStatus, systemState, httpSecrets, runtimeContext.getLibraryManager().getLibraryListing());
+                currentStatus, systemState, httpSecrets);
     }
 
     @Override

@@ -57,8 +57,6 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
     private final URI libLocation;
     private final String authToken;
 
-    private final byte[] copyBuf = new byte[4096];
-
     public LibraryDeployPrepareOperatorDescriptor(IOperatorDescriptorRegistry spec, DataverseName dataverseName,
             String libraryName, ExternalFunctionLanguage language, URI libLocation, String authToken) {
         super(spec, dataverseName, libraryName);
@@ -71,6 +69,8 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) {
         return new AbstractLibraryNodePushable(ctx) {
+
+            private final byte[] copyBuf = new byte[4096];
 
             @Override
             protected void execute() throws IOException {
@@ -170,7 +170,7 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                     boolean writeMsgpack) throws IOException {
                 FileReference msgpack = stageDir.getChild("msgpack.pyz");
                 if (writeMsgpack) {
-                    writeShim(msgpack, writeMsgpack);
+                    writeShim(msgpack);
                     File msgPackFolder = new File(contentsDir.getRelativePath(), "ipc");
                     FileReference msgPackFolderRef =
                             new FileReference(contentsDir.getDeviceHandle(), msgPackFolder.getPath());
@@ -178,10 +178,10 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                     Files.delete(msgpack.getFile().toPath());
                 }
                 libraryManager.unzip(sourceFile, contentsDir);
-                writeShim(contentsDir.getChild("entrypoint.py"), false);
+                writeShim(contentsDir.getChild("entrypoint.py"));
             }
 
-            private boolean writeShim(FileReference outputFile, boolean optional) throws IOException {
+            private void writeShim(FileReference outputFile) throws IOException {
                 InputStream is = getClass().getClassLoader().getResourceAsStream(outputFile.getFile().getName());
                 if (is == null) {
                     throw new IOException("Classpath does not contain necessary Python resources!");
@@ -191,7 +191,6 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                 } finally {
                     is.close();
                 }
-                return true;
             }
 
             private void writeDescriptor(FileReference descFile, LibraryDescriptor desc) throws IOException {

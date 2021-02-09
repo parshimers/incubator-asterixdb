@@ -19,6 +19,7 @@
 package org.apache.asterix.api.http.server;
 
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.common.api.IApplicationContext;
@@ -52,9 +53,9 @@ public class NCUdfRecoveryServlet extends AbstractNCUdfServlet {
     protected void get(IServletRequest request, IServletResponse response) throws Exception {
         String localPath = localPath(request);
         if (localPath.equals(GET_ALL_UDF_ENDPOINT)) {
-            HttpUtil.setContentType(response, HttpUtil.ContentType.ZIP, request);
             Path zippedLibs = libraryManager.zipAllLibs();
-            readFromFile(zippedLibs, response);
+            readFromFile(zippedLibs, response, HttpUtil.ContentType.APPLICATION_ZIP,
+                    StandardOpenOption.DELETE_ON_CLOSE);
         }
     }
 }

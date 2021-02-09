@@ -54,15 +54,12 @@ import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
-import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.asterix.common.replication.INcLifecycleCoordinator;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.metadata.MetadataManager;
-import org.apache.http.HttpHeaders;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
-import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.client.NodeStatus;
 import org.apache.hyracks.api.config.IOption;
@@ -85,7 +82,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     private final boolean replicationEnabled;
     private final IGatekeeper gatekeeper;
     Map<String, Map<String, Object>> nodeSecretsMap;
-    protected boolean fetchLibraries = true;
+    private boolean fetchLibraries = true;
 
     public NcLifecycleCoordinator(ICCServiceContext serviceCtx, boolean replicationEnabled) {
         this.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
@@ -136,8 +133,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     private void process(RegistrationTasksRequestMessage msg) throws HyracksDataException {
         final String nodeId = msg.getNodeId();
         nodeSecretsMap.put(nodeId, msg.getSecrets());
-        List<INCLifecycleTask> tasks =
-                buildNCRegTasks(msg.getNodeId(), msg.getNodeStatus(), msg.getState(), msg.getExistingLibraries());
+        List<INCLifecycleTask> tasks = buildNCRegTasks(msg.getNodeId(), msg.getNodeStatus(), msg.getState());
         RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId, tasks);
         try {
             messageBroker.sendApplicationMessageToNC(response, msg.getNodeId());
@@ -166,8 +162,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
     }
 
-    protected List<INCLifecycleTask> buildNCRegTasks(String nodeId, NodeStatus nodeStatus, SystemState state,
-            List<Triple<DataverseName, String, String>> existingLibraries) {
+    protected List<INCLifecycleTask> buildNCRegTasks(String nodeId, NodeStatus nodeStatus, SystemState state) {
         LOGGER.info("Building registration tasks for node {} with status {} and system state: {}", nodeId, nodeStatus,
                 state);
         final boolean isMetadataNode = nodeId.equals(metadataNodeId);
@@ -227,11 +222,13 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
-        if (fetchLibraries) {
-            if (clusterManager.getState() == ClusterState.ACTIVE) {
-                Set<String> nodes = clusterManager.getParticipantNodes(true);
-                if (nodes.size() > 0) {
-                    tasks.add(getLibraryTask(newNodeId, nodes));
+        if (fetchLibraries && clusterManager.getState() == ClusterState.ACTIVE) {
+            Set<String> nodes = clusterManager.getParticipantNodes(true);
+            if (nodes.size() > 0) {
+                try {
+                    tasks.add(nodesToLibraryTask(newNodeId, nodes));
+                } catch (HyracksDataException e) {
+                    LOGGER.error("Could not construct library recovery task", e);
                 }
             }
         }
@@ -252,12 +249,11 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
     }
 
-    protected Map<String, String> getNCAuthToken(String node) {
-        return Collections.singletonMap(HttpHeaders.AUTHORIZATION,
-                (String) nodeSecretsMap.get(node).get(SYS_AUTH_HEADER));
+    protected String getNCAuthToken(String node) {
+        return (String) nodeSecretsMap.get(node).get(SYS_AUTH_HEADER);
     }
 
-    protected URI constructNCRecoveryUri(String nodeId) {
+    protected URI constructNCRecoveryUri(String nodeId) throws HyracksDataException {
         Map<IOption, Object> nodeConfig = clusterManager.getNcConfiguration().get(nodeId);
         String host = (String) nodeConfig.get(NCConfig.Option.PUBLIC_ADDRESS);
         int port = (Integer) nodeConfig.get(NC_API_PORT);
@@ -266,8 +262,8 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
             return builder.build();
         } catch (URISyntaxException e) {
             LOGGER.error("Could not find URL for NC recovery", e);
+            throw HyracksDataException.create(e);
         }
-        return null;
     }
 
     private void requestMetadataNodeTakeover(String node) throws HyracksDataException {
@@ -280,13 +276,20 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
     }
 
-    protected RetrieveLibrariesTask getLibraryTask(String newNodeId, Set<String> referenceNodes) {
+    protected RetrieveLibrariesTask nodesToLibraryTask(String newNodeId, Set<String> referenceNodes)
+            throws HyracksDataException {
         List<Pair<URI, String>> referenceNodeLocAndAuth = new ArrayList<>();
         for (String node : referenceNodes) {
-            referenceNodeLocAndAuth
-                    .add(new Pair<>(constructNCRecoveryUri(node), getNCAuthToken(node).get(HttpHeaders.AUTHORIZATION)));
+            referenceNodeLocAndAuth.add(new Pair<>(constructNCRecoveryUri(node), getNCAuthToken(node)));
         }
-        return new RetrieveLibrariesTask(referenceNodeLocAndAuth, new Pair<>(constructNCRecoveryUri(newNodeId),
-                getNCAuthToken(newNodeId).get(HttpHeaders.AUTHORIZATION)));
+        return getLibraryTask(referenceNodeLocAndAuth);
+    }
+
+    protected RetrieveLibrariesTask getLibraryTask(List<Pair<URI, String>> referenceNodeLocAndAuth) {
+        return new RetrieveLibrariesTask(referenceNodeLocAndAuth);
+    }
+
+    protected void disableLibraryFetch() {
+        fetchLibraries = false;
     }
 }

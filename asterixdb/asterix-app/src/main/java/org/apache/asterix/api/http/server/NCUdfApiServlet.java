@@ -60,8 +60,7 @@ import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-
+import io.netty.buffer.ByteBufInputStream;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpScheme;
@@ -178,7 +177,7 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
             response.setStatus(HttpResponseStatus.BAD_REQUEST);
             return;
         }
-        readFromFile(filePath, response);
+        readFromFile(filePath, response, "application/octet-stream", null);
     }
 
     @Override
@@ -219,8 +218,7 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
                 MessageDigest digest = MessageDigest.getInstance("MD5");
                 libTmpOut = new FileOutputStream(libraryTempFile.toFile());
                 OutputStream outStream = new DigestOutputStream(libTmpOut, digest);
-                InputStream uploadInput =
-                        new ByteBufferBackedInputStream(((FileUpload) httpData).getByteBuf().nioBuffer());
+                InputStream uploadInput = new ByteBufInputStream(((FileUpload) httpData).getByteBuf());
                 IOUtils.copyLarge(uploadInput, outStream);
                 outStream.close();
                 URI downloadURI = createDownloadURI(libraryTempFile);

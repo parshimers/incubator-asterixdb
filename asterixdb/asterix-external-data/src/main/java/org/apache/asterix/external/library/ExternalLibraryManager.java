@@ -20,7 +20,6 @@ package org.apache.asterix.external.library;
 
 import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
-import static org.apache.hyracks.api.util.IoUtil.flushDirectory;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -41,12 +40,9 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
@@ -71,7 +67,6 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.hyracks.algebricks.common.utils.Pair;
-import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.FileReference;
@@ -130,7 +125,6 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     private IPCSystem pythonIPC;
     private final ExternalFunctionResultRouter router;
     private final IIOManager ioManager;
-    private byte[] copyBuffer;
 
     public ExternalLibraryManager(NodeControllerService ncs, IPersistedResourceRegistry reg, FileReference appDir,
             IIOManager ioManager) {
@@ -158,7 +152,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                     FileUtils.cleanDirectory(baseDir.getFile());
                     Files.createDirectory(storageDirPath);
                     Files.createDirectory(trashDirPath);
-                    flushDirectory(baseDirPath);
+                    IoUtil.flushDirectory(baseDirPath);
                 } else {
                     boolean createdDirs = false;
                     if (!Files.isDirectory(storageDirPath)) {
@@ -175,7 +169,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                     }
                     //TODO:clean all rev_0 if their rev_1 exist
                     if (createdDirs) {
-                        flushDirectory(baseDirPath);
+                        IoUtil.flushDirectory(baseDirPath);
                     }
                 }
             } else {
@@ -183,11 +177,11 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
                 Files.createDirectory(storageDirPath);
                 Files.createDirectory(trashDirPath);
                 // flush app dir's parent because we might've created app dir there
-                flushDirectory(baseDirPath.getParent().getParent());
+                IoUtil.flushDirectory(baseDirPath.getParent().getParent());
                 // flush app dir (base dir's parent) because we might've created base dir there
-                flushDirectory(baseDirPath.getParent());
+                IoUtil.flushDirectory(baseDirPath.getParent());
                 // flush base dir because we created storage/trash dirs there
-                flushDirectory(baseDirPath);
+                IoUtil.flushDirectory(baseDirPath);
             }
         } catch (IOException e) {
             throw HyracksDataException.create(e);
@@ -230,34 +224,6 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     @Override
     public FileReference getDistributionDir() {
         return distDir;
-    }
-
-    @Override
-    public List<Triple<DataverseName, String, String>> getLibraryListing() throws IOException {
-        List<Triple<DataverseName, String, String>> libs = new ArrayList<>();
-        for (Iterator<Path> i = Files.list(storageDirPath).iterator(); i.hasNext();) {
-            Path dvPath = i.next();
-            DataverseName dv = DataverseName.createFromCanonicalForm(dvPath.getFileName().toString());
-            for (Iterator<Path> j = Files.list(dvPath).iterator(); j.hasNext();) {
-                Path libPath = j.next();
-                String libName = libPath.getFileName().toString();
-                FileReference revDir = findLibraryRevDir(dv, libName);
-                if (revDir != null) {
-                    libs.add(new Triple(dv, libName, getLibraryHash(dv, libName)));
-                }
-            }
-        }
-        return libs;
-    }
-
-    @Override
-    public String getLibraryHash(DataverseName dataverseName, String libraryName) throws IOException {
-        FileReference revDir = findLibraryRevDir(dataverseName, libraryName);
-        if (revDir == null) {
-            return null;
-        }
-        LibraryDescriptor desc = getLibraryDescriptor(revDir);
-        return desc.getHash();
     }
 
     @Override
@@ -561,7 +527,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
             }
         }
         for (Path newDir : newDirs) {
-            flushDirectory(newDir);
+            IoUtil.flushDirectory(newDir);
         }
     }
 

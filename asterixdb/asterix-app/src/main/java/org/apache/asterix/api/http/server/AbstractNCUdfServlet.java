@@ -25,6 +25,7 @@ import static org.apache.asterix.common.functions.ExternalFunctionLanguage.PYTHO
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
@@ -70,13 +71,17 @@ public abstract class AbstractNCUdfServlet extends AbstractServlet {
         this.httpServerPort = httpServerPort;
     }
 
-    void readFromFile(Path filePath, IServletResponse response) throws Exception {
+    void readFromFile(Path filePath, IServletResponse response, String contentType, OpenOption opt) throws Exception {
         class InputStreamGetter extends SynchronizableWork {
             private InputStream is;
 
             @Override
             protected void doRun() throws Exception {
-                is = Files.newInputStream(filePath);
+                if (opt != null) {
+                    is = Files.newInputStream(filePath, opt);
+                } else {
+                    is = Files.newInputStream(filePath);
+                }
             }
         }
 
@@ -89,7 +94,7 @@ public abstract class AbstractNCUdfServlet extends AbstractServlet {
         }
         try {
             response.setStatus(HttpResponseStatus.OK);
-            HttpUtil.setContentType(response, "application/octet-stream");
+            HttpUtil.setContentType(response, contentType);
             IOUtils.copyLarge(r.is, response.outputStream());
         } finally {
             r.is.close();
