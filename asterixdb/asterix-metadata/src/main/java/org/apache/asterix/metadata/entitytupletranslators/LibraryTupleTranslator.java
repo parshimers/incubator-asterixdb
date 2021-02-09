@@ -70,7 +70,7 @@ public class LibraryTupleTranslator extends AbstractTupleTranslator<Library> {
                 : ExternalFunctionLanguage.JAVA.name();
 
         int hashIdx = libraryRecordType.getFieldIndex(FIELD_NAME_HASH);
-        String hash = hashIdx >= 0 ? ((AString) libraryRecord.getValueByPos(hashIdx)).getStringValue() : "null";
+        String hash = hashIdx >= 0 ? ((AString) libraryRecord.getValueByPos(hashIdx)).getStringValue() : null;
 
         return new Library(dataverseName, libraryName, language, hash, pendingOp);
     }
