@@ -344,11 +344,11 @@ public class NCApplication extends BaseNCApplication {
         };
     }
 
-    protected boolean isPendingStartupTasks(NodeStatus nodeStatus, CcId primaryCc, CcId registeredCc) {
+    private boolean isPendingStartupTasks(NodeStatus nodeStatus, CcId primaryCc, CcId registeredCc) {
         return nodeStatus == NodeStatus.IDLE && (primaryCc == null || primaryCc.equals(registeredCc));
     }
 
-    protected SystemState getCurrentSystemState() {
+    private SystemState getCurrentSystemState() {
         final NodeProperties nodeProperties = runtimeContext.getNodeProperties();
         IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
         SystemState state = recoveryMgr.getSystemState();

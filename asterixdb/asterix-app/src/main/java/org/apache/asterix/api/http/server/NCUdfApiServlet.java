@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.asterix.app.external.ExternalLibraryUtil;
 import org.apache.asterix.app.message.CreateLibraryRequestMessage;
 import org.apache.asterix.app.message.DropLibraryRequestMessage;
 import org.apache.asterix.app.message.InternalRequestResponse;
@@ -50,12 +49,14 @@ import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.messaging.api.MessageFuture;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
+import org.apache.asterix.external.util.ExternalLibraryUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
+import org.apache.hyracks.http.server.utils.HttpUtil;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -177,7 +178,7 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
             response.setStatus(HttpResponseStatus.BAD_REQUEST);
             return;
         }
-        readFromFile(filePath, response, "application/octet-stream", null);
+        readFromFile(filePath, response, HttpUtil.ContentType.APPLICATION_OCTET_STREAM, null);
     }
 
     @Override
@@ -222,8 +223,9 @@ public class NCUdfApiServlet extends AbstractNCUdfServlet {
                 IOUtils.copyLarge(uploadInput, outStream);
                 outStream.close();
                 URI downloadURI = createDownloadURI(libraryTempFile);
-                doCreate(libraryName.first, libraryName.second, language, ExternalLibraryUtil.digestToHexString(digest),
-                        downloadURI, true, sysAuthHeader, requestReference, request, response);
+                doCreate(libraryName.first, libraryName.second, language,
+                        ExternalLibraryUtils.digestToHexString(digest), downloadURI, true, sysAuthHeader,
+                        requestReference, request, response);
                 response.setStatus(HttpResponseStatus.OK);
             } catch (Exception e) {
                 response.setStatus(toHttpErrorStatus(e));

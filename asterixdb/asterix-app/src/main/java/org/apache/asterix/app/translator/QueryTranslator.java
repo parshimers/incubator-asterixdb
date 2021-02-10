@@ -49,7 +49,7 @@ import org.apache.asterix.api.http.server.ApiServlet;
 import org.apache.asterix.app.active.ActiveEntityEventsListener;
 import org.apache.asterix.app.active.ActiveNotificationHandler;
 import org.apache.asterix.app.active.FeedEventsListener;
-import org.apache.asterix.app.external.ExternalLibraryUtil;
+import org.apache.asterix.app.external.ExternalLibraryJobUtils;
 import org.apache.asterix.app.result.ExecutionError;
 import org.apache.asterix.app.result.ResultHandle;
 import org.apache.asterix.app.result.ResultReader;
@@ -1539,7 +1539,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             // #. prepare jobs which will drop corresponding libraries.
             List<Library> libraries = MetadataManager.INSTANCE.getDataverseLibraries(mdTxnCtx, dataverseName);
             for (Library library : libraries) {
-                jobsToExecute.add(ExternalLibraryUtil.buildDropLibraryJobSpec(dataverseName, library.getName(),
+                jobsToExecute.add(ExternalLibraryJobUtils.buildDropLibraryJobSpec(dataverseName, library.getName(),
                         metadataProvider));
             }
 
@@ -2471,7 +2471,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
             // #. prepare to create library artifacts in NC.
             Triple<JobSpecification, JobSpecification, JobSpecification> jobSpecs =
-                    ExternalLibraryUtil.buildCreateLibraryJobSpec(dataverseName, libraryName, language,
+                    ExternalLibraryJobUtils.buildCreateLibraryJobSpec(dataverseName, libraryName, language,
                             cls.getLocation(), cls.getAuthToken(), metadataProvider);
             JobSpecification prepareJobSpec = jobSpecs.first;
             JobSpecification commitJobSpec = jobSpecs.second;
@@ -2513,8 +2513,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 } else if (existingLibrary == null) {
                     // 'commit' job failed for a new library -> try removing the library
                     try {
-                        JobSpecification dropLibraryJobSpec = ExternalLibraryUtil.buildDropLibraryJobSpec(dataverseName,
-                                libraryName, metadataProvider);
+                        JobSpecification dropLibraryJobSpec = ExternalLibraryJobUtils
+                                .buildDropLibraryJobSpec(dataverseName, libraryName, metadataProvider);
                         runJob(hcc, dropLibraryJobSpec, jobFlags);
                     } catch (Exception e2) {
                         e.addSuppressed(e2);
@@ -2599,7 +2599,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
             // #. drop library artifacts in NCs.
             JobSpecification jobSpec =
-                    ExternalLibraryUtil.buildDropLibraryJobSpec(dataverseName, libraryName, metadataProvider);
+                    ExternalLibraryJobUtils.buildDropLibraryJobSpec(dataverseName, libraryName, metadataProvider);
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;

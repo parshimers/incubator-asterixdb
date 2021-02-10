@@ -39,6 +39,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestOutputStream;
+import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -47,6 +48,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+
+import javax.net.ssl.SSLContext;
 
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.ILibrary;
@@ -64,8 +67,10 @@ import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContexts;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
@@ -74,6 +79,8 @@ import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.io.IPersistedResourceRegistry;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
+import org.apache.hyracks.api.network.INetworkSecurityConfig;
+import org.apache.hyracks.api.network.INetworkSecurityManager;
 import org.apache.hyracks.api.util.IoUtil;
 import org.apache.hyracks.control.common.work.AbstractWork;
 import org.apache.hyracks.control.nc.NodeControllerService;
@@ -125,6 +132,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     private IPCSystem pythonIPC;
     private final ExternalFunctionResultRouter router;
     private final IIOManager ioManager;
+    private boolean sslEnabled;
 
     public ExternalLibraryManager(NodeControllerService ncs, IPersistedResourceRegistry reg, FileReference appDir,
             IIOManager ioManager) {
@@ -138,6 +146,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
         trashDirPath = trashDir.getFile().toPath().normalize();
         objectMapper = createObjectMapper();
         router = new ExternalFunctionResultRouter();
+        this.sslEnabled = ncs.getConfiguration().isSslEnabled();
         this.ioManager = ioManager;
     }
 
@@ -432,7 +441,7 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
 
         MessageDigest digest = DigestUtils.getDigest("MD5");
         try {
-            CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+            CloseableHttpClient httpClient = newClient();
             try {
                 // retry 10 times at maximum for downloading binaries
                 HttpGet request = new HttpGet(libLocation);
@@ -544,6 +553,30 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
             ioManager.sync(fHandle, true);
         } finally {
             ioManager.close(fHandle);
+        }
+    }
+
+    //TODO: this should probably be static so it could be reused somewhere else, or made such that the trust store is not
+    // reloaded from disk on every client intialization?
+    private CloseableHttpClient newClient() {
+        if (sslEnabled) {
+            try {
+                final INetworkSecurityManager networkSecurityManager = ncs.getNetworkSecurityManager();
+                final INetworkSecurityConfig configuration = networkSecurityManager.getConfiguration();
+                KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                try (FileInputStream trustStoreFile = new FileInputStream(configuration.getTrustStoreFile())) {
+                    trustStore.load(trustStoreFile, configuration.getKeyStorePassword().toCharArray());
+                }
+                SSLContext sslcontext = SSLContexts.custom().loadTrustMaterial(trustStore, null).build();
+                SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslcontext,
+                        new String[] { "TLSv1.2" }, null, SSLConnectionSocketFactory.getDefaultHostnameVerifier());
+                return HttpClients.custom().setSSLSocketFactory(sslsf).build();
+
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        } else {
+            return HttpClients.createDefault();
         }
     }
 

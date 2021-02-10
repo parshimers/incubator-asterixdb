@@ -26,7 +26,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringWriter;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,13 +35,13 @@ import org.apache.asterix.common.functions.ExternalFunctionLanguage;
 import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.external.library.ExternalLibraryManager;
+import org.apache.asterix.external.util.ExternalLibraryUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.job.IOperatorDescriptorRegistry;
-import org.apache.hyracks.util.bytes.HexPrinter;
 import org.apache.hyracks.util.file.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -121,10 +120,6 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                     LOGGER.debug("Downloading library from {} into {}", libLocation, targetFile);
                 }
                 MessageDigest digest = libraryManager.download(targetFile, authToken, libLocation);
-                byte[] hashBytes = digest.digest();
-                StringWriter hashBuilder = new StringWriter();
-                HexPrinter.printHexString(hashBytes, 0, hashBytes.length, hashBuilder);
-                String hash = hashBuilder.toString();
                 // extract from the archive
                 FileReference contentsDir = stageDir.getChild(ExternalLibraryManager.CONTENTS_DIR_NAME);
                 mkdir(contentsDir);
@@ -160,7 +155,8 @@ public class LibraryDeployPrepareOperatorDescriptor extends AbstractLibraryOpera
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Writing library descriptor into {}", targetDescFile);
                 }
-                writeDescriptor(targetDescFile, new LibraryDescriptor(language, hash));
+                writeDescriptor(targetDescFile,
+                        new LibraryDescriptor(language, ExternalLibraryUtils.digestToHexString(digest)));
 
                 flushDirectory(contentsDir);
                 flushDirectory(stageDir);

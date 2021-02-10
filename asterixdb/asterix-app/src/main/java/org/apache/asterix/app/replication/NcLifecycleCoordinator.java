@@ -82,7 +82,6 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     private final boolean replicationEnabled;
     private final IGatekeeper gatekeeper;
     Map<String, Map<String, Object>> nodeSecretsMap;
-    private boolean fetchLibraries = true;
 
     public NcLifecycleCoordinator(ICCServiceContext serviceCtx, boolean replicationEnabled) {
         this.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
@@ -222,7 +221,7 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         }
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
-        if (fetchLibraries && clusterManager.getState() == ClusterState.ACTIVE) {
+        if (isLibraryFetchEnabled() && clusterManager.getState() == ClusterState.ACTIVE) {
             Set<String> nodes = clusterManager.getParticipantNodes(true);
             if (nodes.size() > 0) {
                 try {
@@ -282,14 +281,14 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         for (String node : referenceNodes) {
             referenceNodeLocAndAuth.add(new Pair<>(constructNCRecoveryUri(node), getNCAuthToken(node)));
         }
-        return getLibraryTask(referenceNodeLocAndAuth);
+        return getRetrieveLibrariesTask(referenceNodeLocAndAuth);
     }
 
-    protected RetrieveLibrariesTask getLibraryTask(List<Pair<URI, String>> referenceNodeLocAndAuth) {
+    protected RetrieveLibrariesTask getRetrieveLibrariesTask(List<Pair<URI, String>> referenceNodeLocAndAuth) {
         return new RetrieveLibrariesTask(referenceNodeLocAndAuth);
     }
 
-    protected void disableLibraryFetch() {
-        fetchLibraries = false;
+    protected boolean isLibraryFetchEnabled() {
+        return true;
     }
 }
