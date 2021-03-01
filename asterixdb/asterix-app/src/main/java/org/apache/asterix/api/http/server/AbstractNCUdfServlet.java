@@ -22,12 +22,12 @@ import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNEC
 import static org.apache.asterix.common.functions.ExternalFunctionLanguage.JAVA;
 import static org.apache.asterix.common.functions.ExternalFunctionLanguage.PYTHON;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.asterix.common.api.IApplicationContext;
@@ -35,24 +35,24 @@ import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.functions.ExternalFunctionLanguage;
-import org.apache.asterix.common.library.LibraryDescriptor;
 import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.exceptions.IFormattedException;
 import org.apache.hyracks.control.common.work.SynchronizableWork;
 import org.apache.hyracks.control.nc.NodeControllerService;
-import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpScheme;
+import io.netty.handler.codec.http.multipart.FileUpload;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
+import io.netty.handler.codec.http.multipart.MixedAttribute;
 
 public abstract class AbstractNCUdfServlet extends AbstractServlet {
 
@@ -62,6 +62,59 @@ public abstract class AbstractNCUdfServlet extends AbstractServlet {
     protected final IApplicationContext plainAppCtx;
     private final HttpScheme httpServerProtocol;
     private final int httpServerPort;
+
+    public static final String GET_UDF_DIST_ENDPOINT = "/dist";
+    public static final String DATAVERSE_PARAMETER = "dataverse";
+    public static final String NAME_PARAMETER = "name";
+    public static final String TYPE_PARAMETER = "type";
+    public static final String DELETE_PARAMETER = "delete";
+    public static final String IFEXISTS_PARAMETER = "ifexists";
+    public static final String DATA_PARAMETER = "data";
+
+    protected enum LibraryOperation {
+        UPSERT,
+        DELETE
+    }
+
+    protected final static class LibraryUploadData {
+
+        final LibraryOperation op;
+        final DataverseName dataverse;
+        final String name;
+        final ExternalFunctionLanguage type;
+        final boolean replaceIfExists;
+        final FileUpload fileUpload;
+
+        private LibraryUploadData(MixedAttribute dataverse, MixedAttribute name, MixedAttribute type,
+                InterfaceHttpData fileUpload) throws IOException {
+            op = LibraryOperation.UPSERT;
+            this.dataverse = DataverseName.createFromCanonicalForm(dataverse.getValue());
+            this.name = name.getValue();
+            this.type = getLanguageByTypeParameter(type.getValue());
+            this.replaceIfExists = true;
+            this.fileUpload = (FileUpload) fileUpload;
+        }
+
+        private LibraryUploadData(MixedAttribute dataverse, MixedAttribute name, boolean replaceIfExists)
+                throws IOException {
+            op = LibraryOperation.DELETE;
+            this.dataverse = DataverseName.createFromCanonicalForm(dataverse.getValue());
+            this.name = name.getValue();
+            this.type = null;
+            this.replaceIfExists = replaceIfExists;
+            this.fileUpload = null;
+        }
+
+        public static LibraryUploadData libraryCreationUploadData(MixedAttribute dataverse, MixedAttribute name,
+                MixedAttribute type, InterfaceHttpData fileUpload) throws IOException {
+            return new LibraryUploadData(dataverse, name, type, fileUpload);
+        }
+
+        public static LibraryUploadData libraryDeletionUploadData(MixedAttribute dataverse, MixedAttribute name,
+                boolean replaceIfExists) throws IOException {
+            return new LibraryUploadData(dataverse, name, replaceIfExists);
+        }
+    }
 
     public AbstractNCUdfServlet(ConcurrentMap<String, Object> ctx, String[] paths, IApplicationContext appCtx,
             HttpScheme httpServerProtocol, int httpServerPort) {
@@ -103,7 +156,7 @@ public abstract class AbstractNCUdfServlet extends AbstractServlet {
     }
 
     URI createDownloadURI(Path file) throws Exception {
-        String path = paths[0].substring(0, trims[0]) + '/' + file.getFileName();
+        String path = paths[0].substring(0, trims[0]) + GET_UDF_DIST_ENDPOINT + '/' + file.getFileName();
         String host = getHyracksClientConnection().getHost();
         return new URI(httpServerProtocol.toString(), null, host, httpServerPort, path, null, null);
     }
@@ -116,25 +169,58 @@ public abstract class AbstractNCUdfServlet extends AbstractServlet {
         return hcc;
     }
 
-    Pair<DataverseName, String> parseLibraryName(IServletRequest request) throws IllegalArgumentException {
-        String[] path = StringUtils.split(localPath(request), '/');
-        int ln = path.length;
-        if (ln < 2) {
-            return null;
-        }
-        String libraryName = path[ln - 1];
-        DataverseName dataverseName = DataverseName.create(Arrays.asList(path), 0, ln - 1);
-        return new Pair<>(dataverseName, libraryName);
+    protected String getDataverseParameter() {
+        return DATAVERSE_PARAMETER;
     }
 
-    static ExternalFunctionLanguage getLanguageByFileExtension(String fileExtension) {
-        switch (fileExtension) {
-            case LibraryDescriptor.FILE_EXT_ZIP:
-                return JAVA;
-            case LibraryDescriptor.FILE_EXT_PYZ:
-                return PYTHON;
-            default:
-                return null;
+    protected LibraryUploadData decodeMultiPartLibraryOptions(HttpPostRequestDecoder requestDecoder)
+            throws IOException {
+        MixedAttribute dataverse = (MixedAttribute) requestDecoder.getBodyHttpData(getDataverseParameter());
+        MixedAttribute name = (MixedAttribute) requestDecoder.getBodyHttpData(NAME_PARAMETER);
+        MixedAttribute type = (MixedAttribute) requestDecoder.getBodyHttpData(TYPE_PARAMETER);
+        MixedAttribute delete = (MixedAttribute) requestDecoder.getBodyHttpData(DELETE_PARAMETER);
+        MixedAttribute replaceIfExists = (MixedAttribute) requestDecoder.getBodyHttpData(IFEXISTS_PARAMETER);
+        if (dataverse == null) {
+            throw RuntimeDataException.create(ErrorCode.PARAMETERS_REQUIRED, getDataverseParameter());
+        } else if (name == null) {
+            throw RuntimeDataException.create(ErrorCode.PARAMETERS_REQUIRED, NAME_PARAMETER);
+        } else if ((type == null && delete == null)) {
+            throw RuntimeDataException.create(ErrorCode.PARAMETERS_REQUIRED,
+                    TYPE_PARAMETER + " or " + DELETE_PARAMETER);
+        } else if (type != null && delete != null) {
+            throw RuntimeDataException.create(ErrorCode.INVALID_PARAM_COMBO, TYPE_PARAMETER, DELETE_PARAMETER);
+        }
+        if (delete != null) {
+            boolean replace = false;
+            if (replaceIfExists != null) {
+                replace = Boolean.TRUE.toString().equalsIgnoreCase(replaceIfExists.getValue());
+            }
+            return LibraryUploadData.libraryDeletionUploadData(dataverse, name, replace);
+        } else {
+            InterfaceHttpData libraryData = requestDecoder.getBodyHttpData(DATA_PARAMETER);
+            if (libraryData == null) {
+                throw RuntimeDataException.create(ErrorCode.PARAMETERS_REQUIRED, DATA_PARAMETER);
+            } else if (!libraryData.getHttpDataType().equals(InterfaceHttpData.HttpDataType.FileUpload)) {
+                throw RuntimeDataException.create(ErrorCode.INVALID_REQ_PARAM_VAL, DATA_PARAMETER,
+                        libraryData.getHttpDataType());
+            }
+            LibraryUploadData uploadData =
+                    LibraryUploadData.libraryCreationUploadData(dataverse, name, type, libraryData);
+            if (uploadData.type == null) {
+                throw RuntimeDataException.create(ErrorCode.LIBRARY_EXTERNAL_FUNCTION_UNSUPPORTED_KIND,
+                        type.getValue());
+            }
+            return uploadData;
+        }
+    }
+
+    static ExternalFunctionLanguage getLanguageByTypeParameter(String lang) {
+        if (lang.equalsIgnoreCase(JAVA.name())) {
+            return JAVA;
+        } else if (lang.equalsIgnoreCase(PYTHON.name())) {
+            return PYTHON;
+        } else {
+            return null;
         }
     }
 
@@ -142,9 +228,14 @@ public abstract class AbstractNCUdfServlet extends AbstractServlet {
         if (IFormattedException.matchesAny(e, ErrorCode.UNKNOWN_DATAVERSE, ErrorCode.UNKNOWN_LIBRARY)) {
             return HttpResponseStatus.NOT_FOUND;
         }
+        if (IFormattedException.matchesAny(e, ErrorCode.LIBRARY_EXTERNAL_FUNCTION_UNKNOWN_KIND,
+                ErrorCode.INVALID_REQ_PARAM_VAL, ErrorCode.PARAMETERS_REQUIRED, ErrorCode.INVALID_PARAM_COMBO)) {
+            return HttpResponseStatus.BAD_REQUEST;
+        }
         if (e instanceof AlgebricksException) {
             return HttpResponseStatus.BAD_REQUEST;
         }
         return HttpResponseStatus.INTERNAL_SERVER_ERROR;
     }
+
 }

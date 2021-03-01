@@ -80,6 +80,7 @@ public enum ErrorCode implements IError {
     INVALID_PARAM(50),
     INCOMPARABLE_TYPES(51),
     ILLEGAL_STATE(52),
+    INVALID_PARAM_COMBO(53),
 
     UNSUPPORTED_JRE(100),
 

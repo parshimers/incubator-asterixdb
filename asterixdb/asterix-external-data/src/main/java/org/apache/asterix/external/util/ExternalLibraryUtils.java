@@ -21,10 +21,20 @@ package org.apache.asterix.external.util;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.security.MessageDigest;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.util.bytes.HexPrinter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class ExternalLibraryUtils {
+
+    protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private ExternalLibraryUtils() {
 
@@ -35,5 +45,16 @@ public class ExternalLibraryUtils {
         StringWriter hashBuilder = new StringWriter();
         HexPrinter.printHexString(hashBytes, 0, hashBytes.length, hashBuilder);
         return hashBuilder.toString();
+    }
+
+    public static Map<String, Map<String, String>> produceLibraryListing(ILibraryManager libraryManager)
+            throws IOException {
+        List<Pair<DataverseName, String>> libs = libraryManager.getLibraryListing();
+        Map<String, Map<String, String>> dvToLibHashes = new HashMap<>();
+        for (Pair<DataverseName, String> lib : libs) {
+            dvToLibHashes.computeIfAbsent(lib.first.getCanonicalForm(), h -> new HashMap()).put(lib.getSecond(),
+                    libraryManager.getLibraryHash(lib.first, lib.second));
+        }
+        return dvToLibHashes;
     }
 }

@@ -41,11 +41,14 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestOutputStream;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -233,6 +236,32 @@ public final class ExternalLibraryManager implements ILibraryManager, ILifeCycle
     @Override
     public FileReference getDistributionDir() {
         return distDir;
+    }
+
+    @Override
+    public List<Pair<DataverseName, String>> getLibraryListing() throws IOException {
+        List<Pair<DataverseName, String>> libs = new ArrayList<>();
+        for (Path dvPath : Files.list(storageDirPath).collect(Collectors.toList())) {
+            DataverseName dv = DataverseName.createFromCanonicalForm(dvPath.getFileName().toString());
+            for (Path libPath : Files.list(dvPath).collect(Collectors.toList())) {
+                String libName = libPath.getFileName().toString();
+                FileReference revDir = findLibraryRevDir(dv, libName);
+                if (revDir != null) {
+                    libs.add(new Pair(dv, libName));
+                }
+            }
+        }
+        return libs;
+    }
+
+    @Override
+    public String getLibraryHash(DataverseName dataverseName, String libraryName) throws IOException {
+        FileReference revDir = findLibraryRevDir(dataverseName, libraryName);
+        if (revDir == null) {
+            return null;
+        }
+        LibraryDescriptor desc = getLibraryDescriptor(revDir);
+        return desc.getHash();
     }
 
     @Override

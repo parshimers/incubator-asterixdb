@@ -117,6 +117,7 @@ import org.apache.http.impl.client.StandardHttpRequestRetryHandler;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 import org.apache.hyracks.util.StorageUtil;
 import org.apache.logging.log4j.Level;
@@ -1233,29 +1234,45 @@ public class TestExecutor {
                 lines = stripAllComments(statement).trim().split("\n");
                 for (String line : lines) {
                     String[] command = line.trim().split(" ");
+                    URI path = createEndpointURI("/admin/udf/");
                     if (command.length < 2) {
                         throw new Exception("invalid library command: " + line);
                     }
-                    String dataverse = command[1];
-                    String library = command[2];
-                    String username = command[3];
-                    String pw = command[4];
                     switch (command[0]) {
                         case "install":
-                            if (command.length != 6) {
+                            if (command.length != 7) {
                                 throw new Exception("invalid library format");
                             }
-                            String libPath = command[5];
-                            URI create = createEndpointURI("/admin/udf/" + dataverse + "/" + library);
-                            librarian.install(create, libPath, new Pair<>(username, pw));
+                            String dataverse = command[1];
+                            String library = command[2];
+                            String type = command[3];
+                            String username = command[4];
+                            String pw = command[5];
+                            String libPath = command[6];
+                            librarian.install(path, "dataverse", DataverseName.createSinglePartName(dataverse), library,
+                                    type, libPath, new Pair<>(username, pw));
                             break;
                         case "uninstall":
                             if (command.length != 5) {
                                 throw new Exception("invalid library format");
                             }
-                            URI delete = createEndpointURI("/admin/udf/" + dataverse + "/" + library);
-                            librarian.uninstall(delete, new Pair<>(username, pw));
+                            dataverse = command[1];
+                            library = command[2];
+                            username = command[3];
+                            pw = command[4];
+                            librarian.uninstall(path, DataverseName.createSinglePartName(dataverse), library,
+                                    new Pair<>(username, pw));
                             break;
+                        case "test":
+                            username = command[1];
+                            pw = command[2];
+                            List<Triple<String, String, String>> multipartParams = new ArrayList<>();
+                            for (int i = 3; i < command.length; i++) {
+                                String param = command[i];
+                                String[] paramParts = param.split(":");
+                                multipartParams.add(new Triple<>(paramParts[0], paramParts[1], paramParts[2]));
+                            }
+                            librarian.test(path, new Pair<>(username, pw), multipartParams);
                         default:
                             throw new Exception("invalid library format");
                     }

@@ -16,5 +16,4 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-install externallibtest testlib java admin admin target/data/externallib/asterix-external-data-testlib.zip
-install externallibtest2 testlib2 java admin admin target/data/externallib/asterix-external-data-testlib.zip
+test admin admin dataverse:Default:string name:testlib:string type:java:string delete:true:string data:target/data/externallib/asterix-external-data-testlib.zip:file

@@ -61,6 +61,26 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="external-library">
+      <compilation-unit name="invalid_library_requests">
+        <output-dir compare="Text">mysum_bad_credential</output-dir>
+        <expected-error>{
+  "error" : "ASX3042: UDF of kind badType not supported"
+}</expected-error>
+        <expected-error>{
+  "error" : "ASX0053: Parameters type and delete cannot be used together."
+}</expected-error>
+        <expected-error>{
+  "error" : "ASX0049: Parameter(s) type or delete must be specified"
+}</expected-error>
+        <expected-error>{
+  "error" : "ASX0047: Invalid value for parameter \"data\": Attribute"
+}</expected-error>
+        <expected-error>{
+  "error" : "ASX0049: Parameter(s) data must be specified"
+}</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="external-library">
       <compilation-unit name="mysum_dropinuse">
         <output-dir compare="Text">mysum_dropinuse</output-dir>
         <expected-error>ASX1148: Cannot drop library externallibtest.testlib being used by function externallibtest.mysum(2)</expected-error>
