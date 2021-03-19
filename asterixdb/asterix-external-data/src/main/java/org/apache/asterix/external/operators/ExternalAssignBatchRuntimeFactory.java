@@ -95,6 +95,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
             private MessageUnpacker unpacker;
             private ArrayBufferInput unpackerInput;
             private List<Pair<ByteBuffer, Counter>> batchResults;
+            private MessageUnpackerToADM unpackerToADM;
 
             @Override
             public void open() throws HyracksDataException {
@@ -127,6 +128,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 }
                 unpackerInput = new ArrayBufferInput(new byte[0]);
                 unpacker = MessagePack.newDefaultUnpacker(unpackerInput);
+                unpackerToADM = new MessageUnpackerToADM();
             }
 
             private void resetBuffers(int numTuples, int[] numCalls) {
@@ -217,8 +219,9 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
                                             tRef.getFieldLength(cols[colIdx]));
-                                    PythonLibraryEvaluator.setArgument(fnDescs[func].getArgumentTypes()[colIdx], ref,
-                                            argHolders.get(func), fnDescs[func].getFunctionInfo().getNullCall());
+                                    libraryEvaluators.get(func).getSecond().setArgument(
+                                            fnDescs[func].getArgumentTypes()[colIdx], ref, argHolders.get(func),
+                                            fnDescs[func].getFunctionInfo().getNullCall());
                                 }
                             } else {
                                 numCalls[func]--;
@@ -279,7 +282,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 ATypeTag functionCalled = nullCalls[k][i];
                                 if (functionCalled == ATypeTag.TYPE) {
                                     if (result.getSecond().get() > 0) {
-                                        MessageUnpackerToADM.unpack(result.getFirst(), outputWrapper, true);
+                                        unpackerToADM.unpack(result.getFirst(), outputWrapper, true);
                                         result.getSecond().set(result.getSecond().get() - 1);
                                     } else {
                                         //emit NULL for functions which failed with a warning

@@ -70,6 +70,7 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
     private TaskAttemptId task;
     private IWarningCollector warningCollector;
     private SourceLocation sourceLoc;
+    private MessagePackerFromADM packerFromADM;
 
     public PythonLibraryEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, ILibraryManager libMgr,
             File pythonHome, String sitePkgs, List<String> pythonArgs, Map<String, String> pythonEnv,
@@ -86,6 +87,7 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         this.ipcSys = ipcSys;
         this.warningCollector = warningCollector;
         this.sourceLoc = sourceLoc;
+        this.packerFromADM = new MessagePackerFromADM();
 
     }
 
@@ -169,17 +171,17 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         router.removeRoute(proto.getRouteId());
     }
 
-    public static ATypeTag setArgument(IAType type, IValueReference valueReference, ByteBuffer argHolder,
-            boolean nullCall) throws IOException {
+    public ATypeTag setArgument(IAType type, IValueReference valueReference, ByteBuffer argHolder, boolean nullCall)
+            throws IOException {
         ATypeTag tag = type.getTypeTag();
         if (tag == ATypeTag.ANY) {
             TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
             pointy.set(valueReference);
             ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
             IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-            return MessagePackerFromADM.pack(valueReference, rtType, argHolder, nullCall);
+            return packerFromADM.pack(valueReference, rtType, argHolder, nullCall);
         } else {
-            return MessagePackerFromADM.pack(valueReference, type, argHolder, nullCall);
+            return packerFromADM.pack(valueReference, type, argHolder, nullCall);
         }
     }
 

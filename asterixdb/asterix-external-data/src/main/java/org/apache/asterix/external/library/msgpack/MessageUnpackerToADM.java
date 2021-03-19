@@ -18,18 +18,36 @@ package org.apache.asterix.external.library.msgpack;
 
 import static org.msgpack.core.MessagePack.Code.*;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.util.encoding.VarLenIntEncoderDecoder;
+import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.util.string.UTF8StringUtil;
+import org.apache.hyracks.util.string.UTF8StringWriter;
 
 public class MessageUnpackerToADM {
 
-    public static void unpack(ByteBuffer in, ByteBuffer out, boolean tagged) throws HyracksDataException {
+    private final CharBuffer stringCharBuffer;
+    private final CharsetDecoder decoder;
+    private final UTF8StringWriter stringWriter;
+    private final ArrayBackedValueStorage stringOut;
+
+    public MessageUnpackerToADM() {
+        this.stringCharBuffer = CharBuffer.allocate(ExternalDataConstants.DEFAULT_BUFFER_SIZE);
+        this.decoder = StandardCharsets.UTF_8.newDecoder();
+        this.stringWriter = new UTF8StringWriter();
+        this.stringOut = new ArrayBackedValueStorage(ExternalDataConstants.DEFAULT_BUFFER_SIZE);
+    }
+
+    public void unpack(ByteBuffer in, ByteBuffer out, boolean tagged) throws IOException, HyracksDataException {
         byte tag = NIL;
         if (in != null) {
             tag = in.get();
@@ -196,7 +214,7 @@ public class MessageUnpackerToADM {
         out.putDouble(in.getDouble());
     }
 
-    public static void unpackArray(ByteBuffer in, ByteBuffer out, long uLen) throws HyracksDataException {
+    public void unpackArray(ByteBuffer in, ByteBuffer out, long uLen) throws HyracksDataException, IOException {
         if (uLen > Integer.MAX_VALUE) {
             throw new UnsupportedOperationException("Array is too long");
         }
@@ -220,7 +238,7 @@ public class MessageUnpackerToADM {
         out.putInt(asxLenPos, totalLen);
     }
 
-    public static void unpackMap(ByteBuffer in, ByteBuffer out, int count) throws HyracksDataException {
+    public void unpackMap(ByteBuffer in, ByteBuffer out, int count) throws IOException, HyracksDataException {
         //TODO: need to handle typed records. this only produces a completely open record.
         //hdr size = 6?
         int startOffs = out.position();
@@ -243,6 +261,7 @@ public class MessageUnpackerToADM {
         for (int i = 0; i < count; i++) {
             int offs = out.position() + out.arrayOffset();
             int relOffs = offs - startOffs;
+            int stroffs = in.position();
             unpack(in, out, false);
             int hash = UTF8StringUtil.hash(out.array(), offs);
             out.putInt(offsetAryPos, hash);
@@ -254,8 +273,7 @@ public class MessageUnpackerToADM {
         out.putInt(totalSizeOffs, out.position() - startOffs);
     }
 
-    public static void unpackStr(ByteBuffer in, ByteBuffer out, long uLen, boolean tag) {
-        //TODO: this probably breaks for 3 and 4 byte UTF-8
+    public void unpackStr(ByteBuffer in, ByteBuffer out, long uLen, boolean tag) throws IOException {
         if (tag) {
             out.put(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
         }
@@ -263,13 +281,20 @@ public class MessageUnpackerToADM {
             throw new UnsupportedOperationException("String is too long");
         }
         int len = (int) uLen;
-        int strLen = UTF8StringUtil.getStringLength(in.array(), in.position() + in.arrayOffset(), len);
-        int adv = VarLenIntEncoderDecoder.encode(strLen, out.array(), out.position() + out.arrayOffset());
-        out.position(out.position() + adv);
-        System.arraycopy(in.array(), in.arrayOffset() + in.position(), out.array(), out.arrayOffset() + out.position(),
-                len);
-        out.position(out.position() + len);
-        in.position(in.position() + len);
+        stringCharBuffer.clear();
+        stringCharBuffer.position(0);
+        stringOut.reset();
+        decoder.reset();
+        int limit = in.limit();
+        in.limit(in.position() + len);
+        decoder.decode(in, stringCharBuffer, true);
+        decoder.flush(stringCharBuffer);
+        UTF8StringUtil.writeUTF8(stringCharBuffer.array(), 0, stringCharBuffer.position(), stringOut.getDataOutput(),
+                stringWriter);
+        System.arraycopy(stringOut.getByteArray(), stringOut.getStartOffset(), out.array(),
+                out.arrayOffset() + out.position(), stringOut.getLength());
+        out.position(out.position() + stringOut.getLength());
+        in.limit(limit);
     }
 
 }

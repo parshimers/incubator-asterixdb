@@ -16,6 +16,10 @@
  */
 package org.apache.asterix.external.library.msgpack;
 
+import static org.apache.hyracks.util.string.UTF8StringUtil.charAt;
+import static org.apache.hyracks.util.string.UTF8StringUtil.getModifiedUTF8Len;
+import static org.apache.hyracks.util.string.UTF8StringUtil.getNumBytesToStoreLength;
+import static org.apache.hyracks.util.string.UTF8StringUtil.getUTFLength;
 import static org.msgpack.core.MessagePack.Code.ARRAY32;
 import static org.msgpack.core.MessagePack.Code.FALSE;
 import static org.msgpack.core.MessagePack.Code.FIXARRAY_PREFIX;
@@ -32,10 +36,13 @@ import static org.msgpack.core.MessagePack.Code.STR32;
 import static org.msgpack.core.MessagePack.Code.TRUE;
 
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AUnionType;
@@ -62,13 +69,20 @@ public class MessagePackerFromADM {
     private static final int LENGTH_SIZE = 4;
     private static final int ITEM_COUNT_SIZE = 4;
     private static final int ITEM_OFFSET_SIZE = 4;
+    private final CharsetEncoder encoder;
+    private final CharBuffer cbuf;
 
-    public static ATypeTag pack(IValueReference ptr, IAType type, ByteBuffer out, boolean packUnknown)
+    public MessagePackerFromADM() {
+        encoder = StandardCharsets.UTF_8.newEncoder();
+        cbuf = CharBuffer.allocate(ExternalDataConstants.DEFAULT_BUFFER_SIZE);
+    }
+
+    public ATypeTag pack(IValueReference ptr, IAType type, ByteBuffer out, boolean packUnknown)
             throws HyracksDataException {
         return pack(ptr.getByteArray(), ptr.getStartOffset(), type, true, packUnknown, out);
     }
 
-    public static ATypeTag pack(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown, ByteBuffer out)
+    public ATypeTag pack(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown, ByteBuffer out)
             throws HyracksDataException {
         int relOffs = tagged ? offs + 1 : offs;
         ATypeTag tag = type.getTypeTag();
@@ -194,23 +208,33 @@ public class MessagePackerFromADM {
         out.put(strBytes);
     }
 
-    private static void packStr(byte[] in, int offs, ByteBuffer out) {
-        out.put(STR32);
+    private void packStr(byte[] in, int offs, ByteBuffer out) {
         //TODO: tagged/untagged. closed support is borked so always tagged rn
-        String str = UTF8StringUtil.toString(in, offs);
-        byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
-        out.putInt(strBytes.length);
-        out.put(strBytes);
-    }
-
-    public static void packStr(String str, ByteBuffer out) {
+        cbuf.clear();
+        cbuf.position(0);
+        encoder.reset();
         out.put(STR32);
-        byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
-        out.putInt(strBytes.length);
-        out.put(strBytes);
+        final int calculatedLength = getUTFLength(in, offs);
+        int remainingLen = calculatedLength;
+        final int varSzOffset = getNumBytesToStoreLength(calculatedLength);
+        int pos = varSzOffset;
+        while (remainingLen > 0) {
+            char c = charAt(in, pos + offs);
+            cbuf.put(c);
+            int charLen = getModifiedUTF8Len(c);
+            pos += charLen;
+            remainingLen -= charLen;
+        }
+        int sizeStart = out.position();
+        out.putInt(-1);
+        cbuf.flip();
+        int stringStart = out.position();
+        encoder.encode(cbuf, out, true);
+        encoder.flush(out);
+        out.putInt(sizeStart, out.position() - stringStart);
     }
 
-    private static void packArray(byte[] in, int offs, IAType type, ByteBuffer out) throws HyracksDataException {
+    private void packArray(byte[] in, int offs, IAType type, ByteBuffer out) throws HyracksDataException {
         //TODO: - could optimize to pack fixarray/array16 for small arrays
         //      - this code is basically a static version of AListPointable, could be deduped
         AbstractCollectionType collType = (AbstractCollectionType) type;
@@ -234,7 +258,7 @@ public class MessagePackerFromADM {
         }
     }
 
-    private static void packObject(byte[] in, int offs, IAType type, ByteBuffer out) throws HyracksDataException {
+    private void packObject(byte[] in, int offs, IAType type, ByteBuffer out) throws HyracksDataException {
         ARecordType recType = (ARecordType) type;
         out.put(MAP32);
         int fieldCt = recType.getFieldNames().length + RecordUtils.getOpenFieldCount(in, offs, recType);
@@ -242,7 +266,7 @@ public class MessagePackerFromADM {
         for (int i = 0; i < recType.getFieldNames().length; i++) {
             String field = recType.getFieldNames()[i];
             IAType fieldType = RecordUtils.getClosedFieldType(recType, i);
-            packStr(field, out);
+            packStr(out, field);
             pack(in, RecordUtils.getClosedFieldOffset(in, offs, recType, i), fieldType, false, true, out);
         }
         if (RecordUtils.isExpanded(in, offs, recType)) {
@@ -332,7 +356,7 @@ public class MessagePackerFromADM {
         }
 
         public static int getOpenFieldNameSize(byte[] bytes, int start, ARecordType recordType, int fieldId) {
-            int utfleng = UTF8StringUtil.getUTFLength(bytes, getOpenFieldNameOffset(bytes, start, recordType, fieldId));
+            int utfleng = getUTFLength(bytes, getOpenFieldNameOffset(bytes, start, recordType, fieldId));
             return utfleng + UTF8StringUtil.getNumBytesToStoreLength(utfleng);
         }
 

@@ -61,6 +61,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
 
     private MessageUnpacker unpacker;
     private ArrayBufferInput unpackerInput;
+    private MessageUnpackerToADM unpackerToADM;
 
     private long fnId;
 
@@ -87,6 +88,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         this.sourceLocation = sourceLoc;
         this.unpackerInput = new ArrayBufferInput(new byte[0]);
         this.unpacker = MessagePack.newDefaultUnpacker(unpackerInput);
+        this.unpackerToADM = new MessageUnpackerToADM();
     }
 
     @Override
@@ -143,7 +145,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }
             int numresults = resultWrapper.get() ^ FIXARRAY_PREFIX;
             if (numresults > 0) {
-                MessageUnpackerToADM.unpack(resultWrapper, outputWrapper, true);
+                unpackerToADM.unpack(resultWrapper, outputWrapper, true);
             }
             unpackerInput.reset(resultWrapper.array(), resultWrapper.position() + resultWrapper.arrayOffset(),
                     resultWrapper.remaining());
