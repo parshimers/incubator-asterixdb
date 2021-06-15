@@ -64,15 +64,10 @@ public class NestedPlansRunningAggregatorFactory extends AbstractAggregatorDescr
             RecordDescriptor outRecordDescriptor, int[] keyFields, int[] keyFieldsInPartialResults,
             final IFrameWriter writer, long memoryBudget) throws HyracksDataException {
         final boolean enforce = ctx.getJobFlags().contains(JobFlag.ENFORCE_CONTRACT);
-        final boolean profile = ctx.getJobFlags().contains(JobFlag.PROFILE_RUNTIME);
         final RunningAggregatorOutput outputWriter =
                 new RunningAggregatorOutput(ctx, subplans, keyFieldIdx.length + decorFieldIdx.length, writer);
         IFrameWriter fw = outputWriter;
-        if (profile) {
-            //TODO: how to pass activity here without breaking interfaces?...
-            fw = TimedFrameWriter.time(outputWriter, ctx, "Aggregate Writer",
-                    new ActivityId(new OperatorDescriptorId(-1), -1));
-        } else if (enforce) {
+        if (enforce) {
             fw = EnforceFrameWriter.enforce(outputWriter);
         }
         final NestedTupleSourceRuntime[] pipelines = new NestedTupleSourceRuntime[subplans.length];

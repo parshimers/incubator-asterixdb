@@ -881,6 +881,37 @@ In general, the data to be inserted may be specified using any valid SQL++ query
 The insertion of a single object instance, as in this example, is just a special case where
 the query expression happens to be a object constructor involving only constants.
 
+## Modifying Data  ###
+In addition to loading and querying data, AsterixDB supports incremental additions to datasets via the SQL++ _INSERT_ statement.
+
+The following example adds a new chirp by user "NathanGiesen@211" to the ChirpMessages dataset.
+(An astute reader may notice that this chirp was issued a half an hour after his last chirp, so his counts
+have all gone up in the interim, although he appears not to have moved in the last half hour.)
+
+        USE TinySocial;
+
+        UPSERT INTO ChirpMessages
+        (
+           {"chirpId": "13",
+            "user":
+                {"screenName": "NathanGiesen@211",
+                 "lang": "es",
+                 "friendsCount": 39346,
+                 "statusesCount": 479,
+                 "name": "Nathan Giesen",
+                 "followersCount": 49420
+                },
+            "senderLocation": point("47.44,80.65"),
+            "sendTime": datetime("2008-04-26T10:10:35"),
+            "referredTopics": {{"chirping"}},
+            "messageText": "chirpy chirp, my fellow chirpers!"
+           }
+        );
+
+In general, the data to be inserted may be specified using any valid SQL++ query expression.
+The insertion of a single object instance, as in this example, is just a special case where
+the query expression happens to be a object constructor involving only constants.
+
 ### Deleting Existing Data  ###
 In addition to inserting new data, AsterixDB supports deletion from datasets via the SQL++ _DELETE_ statement.
 The statement supports "searched delete" semantics, and its

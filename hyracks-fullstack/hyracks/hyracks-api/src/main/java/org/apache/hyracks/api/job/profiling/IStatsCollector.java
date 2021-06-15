@@ -37,13 +37,6 @@ public interface IStatsCollector extends IWritable, Serializable {
     void add(IOperatorStats operatorStats) throws HyracksDataException;
 
     /**
-     * @param operatorName
-     * @return {@link IOperatorStats} for the operator with name <code>operatorName</code>
-     * if it already exists, and adds it if it does not.
-     */
-    IOperatorStats getOrAddOperatorStats(String operatorName);
-
-    /**
      * Get every registered operator stats object
      * @return All registered operators, and their collected stats, with the names as keys and stats as values
      */

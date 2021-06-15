@@ -21,32 +21,21 @@ package org.apache.hyracks.api.dataflow;
 import java.nio.ByteBuffer;
 
 import org.apache.hyracks.api.comm.IFrameWriter;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 
-public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
+public class TimedFrameWriter extends AbstractTimedTask implements IFrameWriter, IPassableTimer {
 
     // The downstream data consumer of this writer.
     private final IFrameWriter writer;
-    private long frameStart = 0;
-    final ICounter counter;
-    final IStatsCollector collector;
     final String name;
-    protected final ActivityId root;
 
     public TimedFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, ICounter counter,
             ActivityId root) {
+        super(collector,counter,root);
         this.writer = writer;
-        this.collector = collector;
         this.name = name;
-        this.counter = counter;
-        this.root = root;
-    }
-
-    protected TimedFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, ActivityId root) {
-        this(writer, collector, name, collector.getOrAddOperatorStats(name).getTimeCounter(), root);
     }
 
     @Override
@@ -94,40 +83,4 @@ public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
         }
     }
 
-    private void stopClock() {
-        pause();
-        collector.giveClock(this, root);
-    }
-
-    private void startClock() {
-        if (frameStart > 0) {
-            return;
-        }
-        frameStart = collector.takeClock(this, root);
-    }
-
-    @Override
-    public void resume() {
-        if (frameStart > 0) {
-            return;
-        }
-        long nt = System.nanoTime();
-        frameStart = nt;
-    }
-
-    @Override
-    public void pause() {
-        if (frameStart > 1) {
-            long nt = System.nanoTime();
-            long delta = nt - frameStart;
-            counter.update(delta);
-            frameStart = -1;
-        }
-    }
-
-    public static IFrameWriter time(IFrameWriter writer, IHyracksTaskContext ctx, String name, ActivityId root)
-            throws HyracksDataException {
-        return writer instanceof TimedFrameWriter ? writer
-                : new TimedFrameWriter(writer, ctx.getStatsCollector(), name, root);
-    }
 }

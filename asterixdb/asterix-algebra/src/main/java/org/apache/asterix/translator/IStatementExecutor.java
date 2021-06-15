@@ -205,7 +205,7 @@ public interface IStatementExecutor {
 
         private void writeObject(ObjectOutputStream out) throws IOException {
             ObjectMapper om = new ObjectMapper();
-            java.lang.String prof = om.writeValueAsString(profile);
+            String prof = om.writeValueAsString(profile);
             //split the string if it is >=64K to avoid writeUTF limit
             List<String> pieces;
             if (prof.length() > 65534L) {

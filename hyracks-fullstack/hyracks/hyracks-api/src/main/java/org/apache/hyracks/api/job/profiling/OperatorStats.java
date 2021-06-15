@@ -23,6 +23,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 import org.apache.hyracks.api.com.job.profiling.counters.Counter;
+import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 
 public class OperatorStats implements IOperatorStats {
@@ -32,12 +33,14 @@ public class OperatorStats implements IOperatorStats {
     public final ICounter tupleCounter;
     public final ICounter timeCounter;
     public final ICounter diskIoCounter;
+    public final ActivityId acId;
 
-    public OperatorStats(String operatorName) {
+    public OperatorStats(String operatorName, ActivityId acId) {
         if (operatorName == null || operatorName.isEmpty()) {
             throw new IllegalArgumentException("operatorName must not be null or empty");
         }
         this.operatorName = operatorName;
+        this.acId = acId;
         tupleCounter = new Counter("tupleCounter");
         timeCounter = new Counter("timeCounter");
         diskIoCounter = new Counter("diskIoCounter");
@@ -45,7 +48,8 @@ public class OperatorStats implements IOperatorStats {
 
     public static IOperatorStats create(DataInput input) throws IOException {
         String name = input.readUTF();
-        OperatorStats operatorStats = new OperatorStats(name);
+        ActivityId acId = ActivityId.create(input);
+        OperatorStats operatorStats = new OperatorStats(name, acId);
         operatorStats.readFields(input);
         return operatorStats;
     }
@@ -73,6 +77,7 @@ public class OperatorStats implements IOperatorStats {
     @Override
     public void writeFields(DataOutput output) throws IOException {
         output.writeUTF(operatorName);
+        acId.writeFields(output);
         output.writeLong(tupleCounter.get());
         output.writeLong(timeCounter.get());
         output.writeLong(diskIoCounter.get());

@@ -23,12 +23,14 @@ import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.IActivityGraphBuilder;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.TaskId;
+import org.apache.hyracks.api.dataflow.TimedOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.IOperatorDescriptorRegistry;
+import org.apache.hyracks.api.job.JobFlag;
 import org.apache.hyracks.dataflow.std.base.AbstractActivityNode;
 import org.apache.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
 import org.apache.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
@@ -119,10 +121,17 @@ public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor 
         public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
                 final IRecordDescriptorProvider recordDescProvider, final int partition, int nPartitions)
                 throws HyracksDataException {
-            return new ExternalGroupBuildOperatorNodePushable(ctx, new TaskId(getActivityId(), partition), tableSize,
+            IOperatorNodePushable op = new ExternalGroupBuildOperatorNodePushable(ctx, new TaskId(getActivityId(), partition), tableSize,
                     fileSize, gbyFields, fdFields, framesLimit, comparatorFactories, firstNormalizerFactory,
                     partialAggregatorFactory, recordDescProvider.getInputRecordDescriptor(getActivityId(), 0),
                     outRecDescs[0], spillableTableFactory);
+            final boolean profile = ctx.getJobFlags().contains(JobFlag.PROFILE_RUNTIME);
+            if(profile){
+                return TimedOperatorNodePushable.time(op,ctx,id);
+            }
+            else {
+                return op;
+            }
         }
     }
 
@@ -137,10 +146,16 @@ public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor 
         public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
                 IRecordDescriptorProvider recordDescProvider, final int partition, int nPartitions)
                 throws HyracksDataException {
-            return new ExternalGroupWriteOperatorNodePushable(ctx,
+            IOperatorNodePushable op = new ExternalGroupWriteOperatorNodePushable(ctx,
                     new TaskId(new ActivityId(getOperatorId(), AGGREGATE_ACTIVITY_ID), partition),
                     spillableTableFactory, partialRecDesc, outRecDesc, framesLimit, gbyFields, fdFields,
                     firstNormalizerFactory, comparatorFactories, intermediateAggregateFactory);
+            final boolean profile = ctx.getJobFlags().contains(JobFlag.PROFILE_RUNTIME);
+            if(profile){
+                return TimedOperatorNodePushable.time(op,ctx,id);
+            } else {
+                return op;
+            }
 
         }
 

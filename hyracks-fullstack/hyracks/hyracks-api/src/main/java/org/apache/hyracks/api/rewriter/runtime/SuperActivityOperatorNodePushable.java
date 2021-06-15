@@ -110,7 +110,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
             IOperatorNodePushable opPushable = null;
             if (profile) {
                 opPushable = TimedOperatorNodePushable.time(
-                        entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions), ctx,
+                        entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions), entry.getKey(), ctx,
                         entry.getKey());
             } else {
                 opPushable = entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
@@ -143,7 +143,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
             if (destOp == null) {
                 if (profile) {
                     destOp = TimedOperatorNodePushable.time(channel.getRight().getLeft().createPushRuntime(ctx,
-                            recordDescProvider, partition, nPartitions), ctx, destId);
+                            recordDescProvider, partition, nPartitions), sourceId, ctx, destId);
                 } else {
                     destOp = channel.getRight().getLeft().createPushRuntime(ctx, recordDescProvider, partition,
                             nPartitions);

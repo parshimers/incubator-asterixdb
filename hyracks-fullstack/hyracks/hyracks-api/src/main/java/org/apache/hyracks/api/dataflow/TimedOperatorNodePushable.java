@@ -24,18 +24,20 @@ import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
+import org.apache.hyracks.api.job.profiling.OperatorStats;
+import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 
-public class TimedOperatorNodePushable extends TimedFrameWriter implements IOperatorNodePushable, IPassableTimer {
+public class TimedOperatorNodePushable extends AbstractTimedTask implements IOperatorNodePushable, IPassableTimer {
 
     IOperatorNodePushable op;
     ActivityId acId;
     HashMap<Integer, IFrameWriter> inputs;
-    long frameStart;
 
-    TimedOperatorNodePushable(IOperatorNodePushable op, ActivityId acId, IStatsCollector collector, ActivityId root) {
-        super(null, collector, acId.toString() + "-" + op.getDisplayName(), root);
+    TimedOperatorNodePushable(IOperatorNodePushable op, ActivityId acId, IStatsCollector collector, ICounter timer, ActivityId root) {
+        super(collector, timer, root);
         this.op = op;
         this.acId = acId;
         inputs = new HashMap<>();
@@ -81,41 +83,16 @@ public class TimedOperatorNodePushable extends TimedFrameWriter implements IOper
         return op.getDisplayName();
     }
 
-    private void stopClock() {
-        pause();
-        collector.giveClock(this, root);
-    }
-
-    private void startClock() {
-        if (frameStart > 0) {
-            return;
-        }
-        frameStart = collector.takeClock(this, root);
-    }
-
-    @Override
-    public void resume() {
-        if (frameStart > 0) {
-            return;
-        }
-        long nt = System.nanoTime();
-        frameStart = nt;
-    }
-
-    @Override
-    public void pause() {
-        if (frameStart > 0) {
-            long nt = System.nanoTime();
-            long delta = nt - frameStart;
-            counter.update(delta);
-            frameStart = -1;
-        }
-    }
-
-    public static IOperatorNodePushable time(IOperatorNodePushable op, IHyracksTaskContext ctx, ActivityId acId)
+    public static IOperatorNodePushable time(IOperatorNodePushable op, ActivityId us, IHyracksTaskContext ctx, ActivityId parent)
             throws HyracksDataException {
         if (!(op instanceof TimedOperatorNodePushable) && !(op instanceof SuperActivityOperatorNodePushable)) {
-            return new TimedOperatorNodePushable(op, acId, ctx.getStatsCollector(), acId);
+            IOperatorStats stats = new OperatorStats(op.getDisplayName(),parent);
+            try {
+                ctx.getStatsCollector().add(stats);
+            } catch (HyracksDataException e){
+                //TODO: idk?????????
+            }
+            return new TimedOperatorNodePushable(op, us, ctx.getStatsCollector(), stats.getTimeCounter(), parent);
         }
         return op;
     }

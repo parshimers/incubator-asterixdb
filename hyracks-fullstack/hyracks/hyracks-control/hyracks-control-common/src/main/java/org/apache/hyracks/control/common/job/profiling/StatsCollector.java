@@ -31,12 +31,13 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.IPassableTimer;
+import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
 
 public class StatsCollector implements IStatsCollector {
-    private static final long serialVersionUID = 6858817639895434578L;
+    private static final long serialVersionUID = 6858817639895434579L;
 
     private final Map<String, IOperatorStats> operatorStatsMap = new LinkedHashMap<>();
     private ConcurrentMap<ActivityId, Deque<IPassableTimer>> clockHolders = new ConcurrentHashMap<>();
@@ -47,11 +48,6 @@ public class StatsCollector implements IStatsCollector {
             throw new IllegalArgumentException("Operator with the same name already exists");
         }
         operatorStatsMap.put(operatorStats.getName(), operatorStats);
-    }
-
-    @Override
-    public IOperatorStats getOrAddOperatorStats(String operatorName) {
-        return operatorStatsMap.computeIfAbsent(operatorName, OperatorStats::new);
     }
 
     @Override
@@ -67,7 +63,7 @@ public class StatsCollector implements IStatsCollector {
 
     @Override
     public IOperatorStats getAggregatedStats() {
-        IOperatorStats aggregatedStats = new OperatorStats("aggregated");
+        IOperatorStats aggregatedStats = new OperatorStats("aggregated", new ActivityId(new OperatorDescriptorId(-1),-1));
         for (IOperatorStats stats : operatorStatsMap.values()) {
             aggregatedStats.getTupleCounter().update(stats.getTupleCounter().get());
             aggregatedStats.getTimeCounter().update(stats.getTimeCounter().get());
@@ -96,7 +92,7 @@ public class StatsCollector implements IStatsCollector {
     @Override
     public long takeClock(IPassableTimer newHolder, ActivityId root) {
         if (newHolder != null) {
-            Deque<IPassableTimer> clockHolder = clockHolders.getOrDefault(root, new ArrayDeque<>());
+            Deque<IPassableTimer> clockHolder = clockHolders.computeIfAbsent(root, dq -> new ArrayDeque<>());
             if (clockHolder.peek() != null) {
                 clockHolder.peek().pause();
             }
