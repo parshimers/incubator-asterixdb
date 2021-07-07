@@ -110,7 +110,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 }
             }
             try {
-                PythonLibraryEvaluator.setArgument(argTypes[i], argValues[i], argHolder, nullCall);
+                libraryEvaluator.setArgument(argTypes[i], argValues[i], argHolder, nullCall);
             } catch (IOException e) {
                 throw new HyracksDataException("Error evaluating Python UDF", e);
             }
