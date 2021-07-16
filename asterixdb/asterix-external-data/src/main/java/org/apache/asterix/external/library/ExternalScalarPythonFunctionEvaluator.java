@@ -109,18 +109,14 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                     hasNullArg = true;
                 }
             }
-            try {
-                libraryEvaluator.setArgument(argTypes[i], argValues[i], argHolder, nullCall);
-            } catch (IOException e) {
-                throw new HyracksDataException("Error evaluating Python UDF", e);
-            }
         }
         if (!nullCall && hasNullArg) {
             PointableHelper.setNull(result);
             return;
         }
         try {
-            ByteBuffer res = libraryEvaluator.callPython(fnId, argHolder, argTypes.length);
+            ByteBuffer res =
+                    libraryEvaluator.callPython(fnId, argHolder, argTypes.length, argTypes, argValues, nullCall);
             resultBuffer.reset();
             wrap(res, resultBuffer.getDataOutput());
         } catch (Exception e) {

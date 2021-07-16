@@ -219,9 +219,9 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
                                             tRef.getFieldLength(cols[colIdx]));
-                                    libraryEvaluators.get(func).getSecond().setArgument(
-                                            fnDescs[func].getArgumentTypes()[colIdx], ref, argHolders.get(func),
-                                            fnDescs[func].getFunctionInfo().getNullCall());
+                                    //                                    libraryEvaluators.get(func).getSecond().setArgument(
+                                    //                                            fnDescs[func].getArgumentTypes()[colIdx], ref, argHolders.get(func),
+                                    //                                            fnDescs[func].getFunctionInfo().getNullCall());
                                 }
                             } else {
                                 numCalls[func]--;

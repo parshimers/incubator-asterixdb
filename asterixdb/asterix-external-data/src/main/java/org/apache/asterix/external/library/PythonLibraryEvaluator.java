@@ -34,6 +34,7 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
 import org.apache.asterix.external.ipc.PythonIPCProto;
+import org.apache.asterix.external.library.msgpack.MessagePackUtils;
 import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.ATypeTag;
@@ -130,7 +131,8 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         return proto.init(packageModule, clazz, fn);
     }
 
-    public ByteBuffer callPython(long id, ByteBuffer arguments, int numArgs) throws IOException {
+    public ByteBuffer callPython(long id, ByteBuffer arguments, int numArgs, IAType[] argTypes,
+            IValueReference[] valueReferences, boolean nullCall) throws IOException {
         ByteBuffer ret = null;
         try {
             ret = proto.call(id, arguments, numArgs);
@@ -171,19 +173,42 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         router.removeRoute(proto.getRouteId());
     }
 
-    public ATypeTag setArgument(IAType type, IValueReference valueReference, ByteBuffer argHolder, boolean nullCall)
-            throws IOException {
+    public long getArgLength(IAType type, IValueReference valueReference, boolean nullCall)
+            throws HyracksDataException {
         ATypeTag tag = type.getTypeTag();
         if (tag == ATypeTag.ANY) {
             TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
             pointy.set(valueReference);
             ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
             IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-            return packerFromADM.pack(valueReference, rtType, argHolder, nullCall);
+            return MessagePackUtils.getPackedLen(valueReference, rtType, nullCall);
         } else {
-            return packerFromADM.pack(valueReference, type, argHolder, nullCall);
+            return MessagePackUtils.getPackedLen(valueReference, type, nullCall);
         }
     }
+
+    public int getArgsLength(IAType[] types, IValueReference[] valueReferences, boolean nullCall)
+            throws HyracksDataException {
+        int argLength = 0;
+        for (int i = 0; i < types.length; i++) {
+            argLength += getArgLength(types[i], valueReferences[i], nullCall);
+        }
+        return argLength;
+    }
+
+    //    public ATypeTag setArgument(IAType type, IValueReference valueReference, ByteBuffer argHolder, boolean nullCall)
+    //            throws IOException {
+    //        ATypeTag tag = type.getTypeTag();
+    //        if (tag == ATypeTag.ANY) {
+    //            TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
+    //            pointy.set(valueReference);
+    //            ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
+    //            IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
+    //            return packerFromADM.pack(valueReference, rtType, argHolder, nullCall);
+    //        } else {
+    //            return packerFromADM.pack(valueReference, type, argHolder, nullCall);
+    //        }
+    //    }
 
     public static ATypeTag peekArgument(IAType type, IValueReference valueReference) throws HyracksDataException {
         ATypeTag tag = type.getTypeTag();

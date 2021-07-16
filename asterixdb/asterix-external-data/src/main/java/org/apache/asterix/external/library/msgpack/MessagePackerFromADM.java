@@ -42,6 +42,8 @@ import static org.msgpack.core.MessagePack.Code.NIL;
 import static org.msgpack.core.MessagePack.Code.STR32;
 import static org.msgpack.core.MessagePack.Code.TRUE;
 
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharsetEncoder;
@@ -49,7 +51,6 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AbstractCollectionType;
@@ -75,68 +76,79 @@ public class MessagePackerFromADM {
     private static final int ITEM_OFFSET_SIZE = 4;
     private final CharsetEncoder encoder;
     private final CharBuffer cbuf;
+    private final ByteBuffer utfBuf;
 
     public MessagePackerFromADM() {
         encoder = StandardCharsets.UTF_8.newEncoder();
-        cbuf = CharBuffer.allocate(ExternalDataConstants.DEFAULT_BUFFER_SIZE);
+        cbuf = CharBuffer.allocate(Short.MAX_VALUE);
+        utfBuf = ByteBuffer.allocate(Short.MAX_VALUE);
     }
 
-    public ATypeTag pack(IValueReference ptr, IAType type, ByteBuffer out, boolean packUnknown)
+    public ATypeTag pack(IValueReference ptr, IAType type, DataOutputStream out, boolean packUnknown)
             throws HyracksDataException {
         return pack(ptr.getByteArray(), ptr.getStartOffset(), type, true, packUnknown, out);
     }
 
-    public ATypeTag pack(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown, ByteBuffer out)
+    public ATypeTag pack(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown, DataOutputStream out)
             throws HyracksDataException {
         int relOffs = tagged ? offs + 1 : offs;
         ATypeTag tag = type.getTypeTag();
-        switch (tag) {
-            case STRING:
-                packStr(ptr, relOffs, out);
-                break;
-            case BOOLEAN:
-                if (BooleanPointable.getBoolean(ptr, relOffs)) {
-                    out.put(TRUE);
-                } else {
-                    out.put(FALSE);
-                }
-                break;
-            case TINYINT:
-                packByte(out, BytePointable.getByte(ptr, relOffs));
-                break;
-            case SMALLINT:
-                packShort(out, ShortPointable.getShort(ptr, relOffs));
-                break;
-            case INTEGER:
-                packInt(out, IntegerPointable.getInteger(ptr, relOffs));
-                break;
-            case BIGINT:
-                packLong(out, LongPointable.getLong(ptr, relOffs));
-                break;
-            case FLOAT:
-                packFloat(out, FloatPointable.getFloat(ptr, relOffs));
-                break;
-            case DOUBLE:
-                packDouble(out, DoublePointable.getDouble(ptr, relOffs));
-                break;
-            case ARRAY:
-            case MULTISET:
-                packArray(ptr, offs, type, out);
-                break;
-            case OBJECT:
-                packObject(ptr, offs, type, out);
-                break;
-            case MISSING:
-            case NULL:
-                if (packUnknown) {
-                    packNull(out);
+        try {
+            switch (tag) {
+                case STRING:
+                    packStr(ptr, relOffs, out);
                     break;
-                } else {
-                    return tag;
-                }
-            default:
-                throw HyracksDataException.create(AsterixException.create(ErrorCode.PARSER_ADM_DATA_PARSER_CAST_ERROR,
-                        tag.name(), "to a msgpack"));
+                case BOOLEAN:
+                    if (BooleanPointable.getBoolean(ptr, relOffs)) {
+                        out.writeByte(TRUE);
+                    } else {
+                        out.writeByte(FALSE);
+                    }
+                    break;
+                case TINYINT:
+                    packByte(out, BytePointable.getByte(ptr, relOffs));
+                    break;
+                case SMALLINT:
+                    packShort(out, ShortPointable.getShort(ptr, relOffs));
+                    break;
+                case INTEGER:
+                    packInt(out, IntegerPointable.getInteger(ptr, relOffs));
+                    break;
+                case BIGINT:
+                    packLong(out, LongPointable.getLong(ptr, relOffs));
+                    break;
+                case FLOAT:
+                    packFloat(out, FloatPointable.getFloat(ptr, relOffs));
+                    break;
+                case DOUBLE:
+                    packDouble(out, DoublePointable.getDouble(ptr, relOffs));
+                    break;
+                case ARRAY:
+                case MULTISET:
+                    packArray(ptr, offs, type, out);
+                    break;
+                case OBJECT:
+                    packObject(ptr, offs, type, out);
+                    break;
+                case MISSING:
+                case NULL:
+                    if (packUnknown) {
+                        packNull(out);
+                        break;
+                    } else {
+                        return tag;
+                    }
+                default:
+                    throw HyracksDataException.create(AsterixException
+                            .create(ErrorCode.PARSER_ADM_DATA_PARSER_CAST_ERROR, tag.name(), "to a msgpack"));
+            }
+        } catch (IOException e) {
+            if (e instanceof HyracksDataException) {
+                throw ((HyracksDataException) (e));
+            }
+            //TODO: should somehow percolate this properly
+            else
+                throw HyracksDataException.create(AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION));
         }
         return ATypeTag.TYPE;
     }
@@ -151,48 +163,67 @@ public class MessagePackerFromADM {
         }
     }
 
-    public static void packNull(ByteBuffer out) {
-        out.put(NIL);
+    public static void packNull(DataOutputStream out) throws IOException {
+        out.writeByte(NIL);
     }
 
-    public static void packByte(ByteBuffer out, byte in) {
-        out.put(INT8);
-        out.put(in);
+    public static void packByte(DataOutputStream out, byte in) throws IOException {
+        out.writeByte(INT8);
+        out.writeByte(in);
     }
 
-    public static void packShort(ByteBuffer out, short in) {
-        out.put(INT16);
-        out.putShort(in);
+    public static void packShort(DataOutputStream out, short in) throws IOException {
+        out.writeByte(INT16);
+        out.writeShort(in);
     }
 
-    public static void packInt(ByteBuffer out, int in) {
-        out.put(INT32);
-        out.putInt(in);
+    public static void packInt(DataOutputStream out, int in) throws IOException {
+        out.writeByte(INT32);
+        out.writeInt(in);
 
     }
 
-    public static void packLong(ByteBuffer out, long in) {
-        out.put(INT64);
-        out.putLong(in);
+    public static void packLong(DataOutputStream out, long in) throws IOException {
+        out.writeByte(INT64);
+        out.writeLong(in);
     }
 
-    public static void packFloat(ByteBuffer out, float in) {
-        out.put(FLOAT32);
-        out.putFloat(in);
+    public static void packFloat(DataOutputStream out, float in) throws IOException {
+        out.writeByte(FLOAT32);
+        out.writeFloat(in);
     }
 
-    public static void packDouble(ByteBuffer out, double in) {
-        out.put(FLOAT64);
-        out.putDouble(in);
+    public static void packDouble(DataOutputStream out, double in) throws IOException {
+        out.writeByte(FLOAT64);
+        out.writeDouble(in);
     }
 
-    public static void packFixPos(ByteBuffer out, byte in) throws HyracksDataException {
+    public static void packFixPos(DataOutputStream out, byte in) throws IOException {
         byte mask = (byte) (1 << 7);
         if ((in & mask) != 0) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
                     "fixint7 must be positive");
         }
-        out.put(in);
+        out.writeByte(in);
+    }
+
+    public static void packFixPos(ByteBuffer buf, byte in) throws HyracksDataException {
+        byte mask = (byte) (1 << 7);
+        if ((in & mask) != 0) {
+            throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
+                    "fixint7 must be positive");
+        }
+        buf.put(in);
+    }
+
+    public static void packFixStr(DataOutputStream buf, String in) throws IOException {
+        byte[] strBytes = in.getBytes(StandardCharsets.UTF_8);
+        if (strBytes.length > 31) {
+            throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
+                    "fixint7 must be positive");
+        }
+        buf.writeByte((byte) (FIXSTR_PREFIX + strBytes.length));
+        buf.write(strBytes);
     }
 
     public static void packFixStr(ByteBuffer buf, String in) throws HyracksDataException {
@@ -205,6 +236,13 @@ public class MessagePackerFromADM {
         buf.put(strBytes);
     }
 
+    public static void packStr(DataOutputStream out, String in) throws IOException {
+        out.writeByte(STR32);
+        byte[] strBytes = in.getBytes(StandardCharsets.UTF_8);
+        out.writeInt(strBytes.length);
+        out.write(strBytes);
+    }
+
     public static void packStr(ByteBuffer out, String in) {
         out.put(STR32);
         byte[] strBytes = in.getBytes(StandardCharsets.UTF_8);
@@ -212,42 +250,52 @@ public class MessagePackerFromADM {
         out.put(strBytes);
     }
 
-    private void packStr(byte[] in, int offs, ByteBuffer out) {
+    private void packStr(byte[] in, int offs, DataOutputStream out) throws IOException {
         //TODO: tagged/untagged. closed support is borked so always tagged rn
         cbuf.clear();
         cbuf.position(0);
         encoder.reset();
-        out.put(STR32);
+        out.writeByte(STR32);
         final int calculatedLength = getUTFLength(in, offs);
         int remainingLen = calculatedLength;
         final int varSzOffset = getNumBytesToStoreLength(calculatedLength);
         int pos = varSzOffset;
+        out.writeInt(calculatedLength);
         while (remainingLen > 0) {
             char c = charAt(in, pos + offs);
+            boolean surrogate = Character.isHighSurrogate(c);
+            if (cbuf.capacity() <= 2) {
+                writeStringToStream(out, false);
+            }
             cbuf.put(c);
             int charLen = getModifiedUTF8Len(c);
             pos += charLen;
             remainingLen -= charLen;
         }
-        int sizeStart = out.position();
-        out.putInt(-1);
-        cbuf.flip();
-        int stringStart = out.position();
-        encoder.encode(cbuf, out, true);
-        encoder.flush(out);
-        out.putInt(sizeStart, out.position() - stringStart);
+        writeStringToStream(out, true);
     }
 
-    private void packArray(byte[] in, int offs, IAType type, ByteBuffer out) throws HyracksDataException {
+    private void writeStringToStream(DataOutputStream out, boolean end) throws IOException {
+        cbuf.flip();
+        utfBuf.clear();
+        utfBuf.position(0);
+        encoder.encode(cbuf, utfBuf, end);
+        encoder.flush(utfBuf);
+        out.write(utfBuf.array(), 0, utfBuf.position());
+        cbuf.clear();
+        cbuf.position(0);
+    }
+
+    private void packArray(byte[] in, int offs, IAType type, DataOutputStream out) throws IOException {
         //TODO: - could optimize to pack fixarray/array16 for small arrays
         //      - this code is basically a static version of AListPointable, could be deduped
         AbstractCollectionType collType = (AbstractCollectionType) type;
-        out.put(ARRAY32);
+        out.writeByte(ARRAY32);
         int lenOffs = offs + TYPE_TAG_SIZE + TYPE_SIZE;
         int itemCtOffs = LENGTH_SIZE + lenOffs;
         int itemCt = IntegerPointable.getInteger(in, itemCtOffs);
         boolean fixType = NonTaggedFormatUtil.isFixedSizedCollection(type);
-        out.putInt(itemCt);
+        out.writeInt(itemCt);
         for (int i = 0; i < itemCt; i++) {
             if (fixType) {
                 int itemOffs = itemCtOffs + ITEM_COUNT_SIZE + (i
@@ -262,11 +310,11 @@ public class MessagePackerFromADM {
         }
     }
 
-    private void packObject(byte[] in, int offs, IAType type, ByteBuffer out) throws HyracksDataException {
+    private void packObject(byte[] in, int offs, IAType type, DataOutputStream out) throws IOException {
         ARecordType recType = (ARecordType) type;
-        out.put(MAP32);
+        out.writeByte(MAP32);
         int fieldCt = recType.getFieldNames().length + getOpenFieldCount(in, offs, recType);
-        out.putInt(fieldCt);
+        out.writeInt(fieldCt);
         for (int i = 0; i < recType.getFieldNames().length; i++) {
             String field = recType.getFieldNames()[i];
             IAType fieldType = getClosedFieldType(recType, i);

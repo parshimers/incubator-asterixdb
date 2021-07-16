@@ -15,6 +15,7 @@ import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
 import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.BooleanPointable;
 import org.apache.hyracks.data.std.primitive.BytePointable;
 import org.apache.hyracks.data.std.primitive.IntegerPointable;
@@ -29,7 +30,11 @@ public class MessagePackUtils {
     private static final int ITEM_COUNT_SIZE = 4;
     private static final int ITEM_OFFSET_SIZE = 4;
 
-    public static long getPackedLen(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown)
+    public static int getPackedLen(IValueReference ptr, IAType type, boolean packUnknown) throws HyracksDataException {
+        return getPackedLen(ptr.getByteArray(), ptr.getStartOffset(), type, true, packUnknown);
+    }
+
+    public static int getPackedLen(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown)
             throws HyracksDataException {
         int relOffs = tagged ? offs + 1 : offs;
         ATypeTag tag = type.getTypeTag();
@@ -64,8 +69,8 @@ public class MessagePackUtils {
         }
     }
 
-    private static long getPackedCollLen(byte[] in, int offs, IAType type) throws HyracksDataException {
-        long totalLen = 5; // tag + item count
+    private static int getPackedCollLen(byte[] in, int offs, IAType type) throws HyracksDataException {
+        int totalLen = 5; // tag + item count
         AbstractCollectionType collType = (AbstractCollectionType) type;
         int lenOffs = offs + TYPE_TAG_SIZE + TYPE_SIZE;
         int itemCtOffs = LENGTH_SIZE + lenOffs;
@@ -86,10 +91,10 @@ public class MessagePackUtils {
         return totalLen;
     }
 
-    private static long getPackedObjLen(byte[] in, int offs, IAType type) throws HyracksDataException {
+    private static int getPackedObjLen(byte[] in, int offs, IAType type) throws HyracksDataException {
         ARecordType recType = (ARecordType) type;
         int fieldCt = recType.getFieldNames().length + RecordUtils.getOpenFieldCount(in, offs, recType);
-        long totalLen = 5;
+        int totalLen = 5;
         for (int i = 0; i < recType.getFieldNames().length; i++) {
             String field = recType.getFieldNames()[i];
             IAType fieldType = RecordUtils.getClosedFieldType(recType, i);

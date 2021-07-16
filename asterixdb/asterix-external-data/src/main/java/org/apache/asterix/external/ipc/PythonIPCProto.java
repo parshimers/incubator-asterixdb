@@ -18,6 +18,7 @@ package org.apache.asterix.external.ipc;
 
 import static org.apache.hyracks.ipc.impl.Message.HEADER_SIZE;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -34,7 +35,7 @@ import org.msgpack.core.buffer.ArrayBufferInput;
 public class PythonIPCProto {
 
     private PythonMessageBuilder messageBuilder;
-    private OutputStream sockOut;
+    private DataOutputStream sockOut;
     private ByteBuffer headerBuffer = ByteBuffer.allocate(21);
     private ByteBuffer recvBuffer = ByteBuffer.allocate(32768);
     private ExternalFunctionResultRouter router;
@@ -46,7 +47,7 @@ public class PythonIPCProto {
     private MessageUnpacker unpacker;
 
     public PythonIPCProto(OutputStream sockOut, ExternalFunctionResultRouter router, Process pythonProc) {
-        this.sockOut = sockOut;
+        this.sockOut = new DataOutputStream(sockOut);
         messageBuilder = new PythonMessageBuilder();
         this.router = router;
         this.pythonProc = pythonProc;
@@ -162,6 +163,17 @@ public class PythonIPCProto {
         }
     }
 
+    public void sendHeader(long key, int msgLen) throws IOException {
+        headerBuffer.clear();
+        headerBuffer.position(0);
+        headerBuffer.putInt(HEADER_SIZE + Integer.BYTES + msgLen);
+        headerBuffer.putLong(key);
+        headerBuffer.putLong(routeId);
+        headerBuffer.put(Message.NORMAL);
+        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
+        sockOut.flush();
+    }
+
     public void sendMsg(long key) throws IOException {
         headerBuffer.clear();
         headerBuffer.position(0);
@@ -180,6 +192,10 @@ public class PythonIPCProto {
 
     public long getRouteId() {
         return routeId;
+    }
+
+    public DataOutputStream getSockOut() {
+        return sockOut;
     }
 
 }
