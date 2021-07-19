@@ -97,27 +97,16 @@ public class PythonMessageBuilder {
         MessagePackerFromADM.packStr(buf, fn);
     }
 
-    public void call(byte[] args, int lim, int numArgs) throws HyracksDataException {
-        if (args.length > buf.capacity()) {
-            int growTo = ExternalFunctionResultRouter.closestPow2(args.length);
-            if (growTo > MAX_BUF_SIZE) {
-                throw HyracksDataException.create(ErrorCode.ILLEGAL_STATE,
-                        "Unable to allocate message buffer larger than:" + MAX_BUF_SIZE + " bytes");
-            }
-            buf = ByteBuffer.allocate(growTo);
-        }
+    public void call(int numArgs, int len) throws HyracksDataException {
         buf.clear();
         buf.position(0);
         this.type = MessageType.CALL;
-        dataLength = 5 + 1 + lim;
+        dataLength = 5 + 1 + len;
         packHeader();
         //TODO: make this switch between fixarray/array16/array32
         buf.put((byte) (FIXARRAY_PREFIX + 1));
         buf.put(ARRAY32);
         buf.putInt(numArgs);
-        if (numArgs > 0) {
-            buf.put(args, 0, lim);
-        }
     }
 
     public void callMulti(byte[] args, int lim, int numArgs) throws HyracksDataException {

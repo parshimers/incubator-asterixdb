@@ -116,7 +116,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         }
         try {
             ByteBuffer res =
-                    libraryEvaluator.callPython(fnId, argHolder, argTypes.length, argTypes, argValues, nullCall);
+                    libraryEvaluator.callPython(fnId, argTypes, argValues, nullCall);
             resultBuffer.reset();
             wrap(res, resultBuffer.getDataOutput());
         } catch (Exception e) {

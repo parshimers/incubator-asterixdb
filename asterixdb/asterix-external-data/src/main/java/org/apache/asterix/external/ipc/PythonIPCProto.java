@@ -25,8 +25,16 @@ import java.nio.ByteBuffer;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.external.library.msgpack.MessagePackUtils;
+import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
+import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.EnumDeserializer;
+import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.data.std.api.IValueReference;
+import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
 import org.apache.hyracks.ipc.impl.Message;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageUnpacker;
@@ -34,6 +42,7 @@ import org.msgpack.core.buffer.ArrayBufferInput;
 
 public class PythonIPCProto {
 
+    private final MessagePackerFromADM packerFromADM;
     private PythonMessageBuilder messageBuilder;
     private DataOutputStream sockOut;
     private ByteBuffer headerBuffer = ByteBuffer.allocate(21);
@@ -54,6 +63,7 @@ public class PythonIPCProto {
         this.maxFunctionId = 0l;
         unpackerInput = new ArrayBufferInput(new byte[0]);
         unpacker = MessagePack.newDefaultUnpacker(unpackerInput);
+        this.packerFromADM = new MessagePackerFromADM();
     }
 
     public void start() {
@@ -94,14 +104,20 @@ public class PythonIPCProto {
         return functionId;
     }
 
-    public ByteBuffer call(long functionId, ByteBuffer args, int numArgs) throws IOException, AsterixException {
+    public ByteBuffer call(long functionId, IAType[] argTypes, IValueReference[] argValues, boolean nullCall) throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
         recvBuffer.limit(0);
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
-        messageBuilder.call(args.array(), args.position(), numArgs);
+        int len = getArgsLength(argTypes,argValues,nullCall);
+        messageBuilder.call(argValues.length, len);
         sendMsg(functionId);
+        /* !!!HACK!!! */
+        for(int i=0;i<argTypes.length;i++){
+            packerFromADM.pack(argValues[i],argTypes[i],sockOut,nullCall);
+        }
+        sockOut.flush();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
@@ -110,6 +126,28 @@ public class PythonIPCProto {
         return recvBuffer;
     }
 
+    public int getArgsLength(IAType[] types, IValueReference[] valueReferences, boolean nullCall)
+            throws HyracksDataException {
+        int argLength = 0;
+        for (int i = 0; i < types.length; i++) {
+            argLength += getArgLength(types[i], valueReferences[i], nullCall);
+        }
+        return argLength;
+    }
+
+    public long getArgLength(IAType type, IValueReference valueReference, boolean nullCall)
+            throws HyracksDataException {
+        ATypeTag tag = type.getTypeTag();
+        if (tag == ATypeTag.ANY) {
+            TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
+            pointy.set(valueReference);
+            ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
+            IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
+            return MessagePackUtils.getPackedLen(valueReference, rtType, nullCall);
+        } else {
+            return MessagePackUtils.getPackedLen(valueReference, type, nullCall);
+        }
+    }
     public ByteBuffer callMulti(long key, ByteBuffer args, int numTuples) throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);

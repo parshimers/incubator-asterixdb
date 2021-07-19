@@ -131,11 +131,11 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         return proto.init(packageModule, clazz, fn);
     }
 
-    public ByteBuffer callPython(long id, ByteBuffer arguments, int numArgs, IAType[] argTypes,
+    public ByteBuffer callPython(long id, IAType[] argTypes,
             IValueReference[] valueReferences, boolean nullCall) throws IOException {
         ByteBuffer ret = null;
         try {
-            ret = proto.call(id, arguments, numArgs);
+            ret = proto.call(id, argTypes, valueReferences,nullCall);
         } catch (AsterixException e) {
             if (warningCollector.shouldWarn()) {
                 warningCollector.warn(Warning.of(sourceLoc, EXTERNAL_UDF_EXCEPTION, e.getMessage()));
@@ -173,28 +173,7 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         router.removeRoute(proto.getRouteId());
     }
 
-    public long getArgLength(IAType type, IValueReference valueReference, boolean nullCall)
-            throws HyracksDataException {
-        ATypeTag tag = type.getTypeTag();
-        if (tag == ATypeTag.ANY) {
-            TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
-            pointy.set(valueReference);
-            ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
-            IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-            return MessagePackUtils.getPackedLen(valueReference, rtType, nullCall);
-        } else {
-            return MessagePackUtils.getPackedLen(valueReference, type, nullCall);
-        }
-    }
 
-    public int getArgsLength(IAType[] types, IValueReference[] valueReferences, boolean nullCall)
-            throws HyracksDataException {
-        int argLength = 0;
-        for (int i = 0; i < types.length; i++) {
-            argLength += getArgLength(types[i], valueReferences[i], nullCall);
-        }
-        return argLength;
-    }
 
     //    public ATypeTag setArgument(IAType type, IValueReference valueReference, ByteBuffer argHolder, boolean nullCall)
     //            throws IOException {

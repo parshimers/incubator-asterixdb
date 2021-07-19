@@ -190,6 +190,8 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
 
             @Override
             public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+                /*TODO: this whole transposition stuff is a stupid waste of time
+                        the evaulator should accept a format that is a collection of rows, logically*/
                 tAccess.reset(buffer);
                 tupleBuilder.reset();
                 try {
