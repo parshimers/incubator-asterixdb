@@ -43,15 +43,15 @@ public class MessagePackUtils {
             case TINYINT:
                 return 1 + 1;
             case SMALLINT:
-                return 2 + 1;
+                return Short.BYTES + 1;
             case INTEGER:
             case FLOAT:
-                return 4 + 1;
+                return Float.BYTES + 1;
             case BIGINT:
             case DOUBLE:
-                return 8 + 1;
+                return Long.BYTES + 1;
             case STRING:
-                return VarLenIntEncoderDecoder.decode(ptr, relOffs) + 1;
+                return VarLenIntEncoderDecoder.decode(ptr, relOffs) + 1 + Integer.BYTES;
             case ARRAY:
             case MULTISET:
                 return getPackedCollLen(ptr, offs, type);

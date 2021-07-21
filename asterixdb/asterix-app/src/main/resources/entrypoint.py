@@ -254,6 +254,7 @@ class Wrapper(object):
                     self.readbuf.extend(vszchunk)
                     self.readview = memoryview(self.readbuf)
                     pos += len(vszchunk)
+                    
                 self.unpacker.feed(self.readview[REAL_HEADER_SZ:self.sz])
                 self.unpacked_msg = list(self.unpacker)
                 self.msg_type = MessageType(self.unpacked_msg[0])

@@ -79,7 +79,8 @@ public class PythonIPCProto {
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
         messageBuilder.hello();
-        sendMsg(routeId);
+        sendHeader(routeId, messageBuilder.buf.position());
+        sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.HELO) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
@@ -95,7 +96,8 @@ public class PythonIPCProto {
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
         messageBuilder.init(module, clazz, fn);
-        sendMsg(functionId);
+        sendHeader(functionId, messageBuilder.buf.position());
+        sendMsg();
         receiveMsg();
         if (getResponseType() != MessageType.INIT_RSP) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
@@ -110,10 +112,12 @@ public class PythonIPCProto {
         recvBuffer.limit(0);
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
-        int len = getArgsLength(argTypes,argValues,nullCall);
+        //TODO: clarify that this is lengthof(type) + dummy fixint array wrapper + array32 tag for args + array32 len
+        int len = getArgsLength(argTypes,argValues,nullCall) + 1 + 1 + 1 + 4;
+        sendHeader(functionId,len);
         messageBuilder.call(argValues.length, len);
-        sendMsg(functionId);
         /* !!!HACK!!! */
+        sendMsg();
         for(int i=0;i<argTypes.length;i++){
             packerFromADM.pack(argValues[i],argTypes[i],sockOut,nullCall);
         }
@@ -155,8 +159,8 @@ public class PythonIPCProto {
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
         messageBuilder.callMulti(args.array(), args.position(), numTuples);
-        sendMsg(key);
-        receiveMsg();
+//        sendMsg(key,messageBuilder.buf.position());
+//        receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
                     "Expected CALL_RSP, recieved " + getResponseType().name());
@@ -212,14 +216,14 @@ public class PythonIPCProto {
         sockOut.flush();
     }
 
-    public void sendMsg(long key) throws IOException {
-        headerBuffer.clear();
-        headerBuffer.position(0);
-        headerBuffer.putInt(HEADER_SIZE + Integer.BYTES + messageBuilder.buf.position());
-        headerBuffer.putLong(key);
-        headerBuffer.putLong(routeId);
-        headerBuffer.put(Message.NORMAL);
-        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
+    public void sendMsg() throws IOException {
+//        headerBuffer.clear();
+//        headerBuffer.position(0);
+//        headerBuffer.putInt(HEADER_SIZE + Integer.BYTES + sz);
+//        headerBuffer.putLong(key);
+//        headerBuffer.putLong(routeId);
+//        headerBuffer.put(Message.NORMAL);
+//        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
         sockOut.write(messageBuilder.buf.array(), 0, messageBuilder.buf.position());
         sockOut.flush();
     }
