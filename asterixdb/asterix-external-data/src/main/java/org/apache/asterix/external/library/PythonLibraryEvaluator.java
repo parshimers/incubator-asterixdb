@@ -34,7 +34,6 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
 import org.apache.asterix.external.ipc.PythonIPCProto;
-import org.apache.asterix.external.library.msgpack.MessagePackUtils;
 import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.ATypeTag;
@@ -131,11 +130,11 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         return proto.init(packageModule, clazz, fn);
     }
 
-    public ByteBuffer callPython(long id, IAType[] argTypes,
-            IValueReference[] valueReferences, boolean nullCall) throws IOException {
+    public ByteBuffer callPython(long id, IAType[] argTypes, IValueReference[] valueReferences, boolean nullCall)
+            throws IOException {
         ByteBuffer ret = null;
         try {
-            ret = proto.call(id, argTypes, valueReferences,nullCall);
+            ret = proto.call(id, argTypes, valueReferences, nullCall);
         } catch (AsterixException e) {
             if (warningCollector.shouldWarn()) {
                 warningCollector.warn(Warning.of(sourceLoc, EXTERNAL_UDF_EXCEPTION, e.getMessage()));
@@ -172,8 +171,6 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         }
         router.removeRoute(proto.getRouteId());
     }
-
-
 
     //    public ATypeTag setArgument(IAType type, IValueReference valueReference, ByteBuffer argHolder, boolean nullCall)
     //            throws IOException {

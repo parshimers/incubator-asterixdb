@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
+import org.apache.asterix.external.ipc.PythonIPCProto;
 import org.apache.asterix.external.library.PythonLibraryEvaluator;
 import org.apache.asterix.external.library.PythonLibraryEvaluatorFactory;
 import org.apache.asterix.external.library.msgpack.MessageUnpackerToADM;
@@ -198,6 +199,18 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                     int numTuples = tAccess.getTupleCount();
                     resetBuffers(numTuples, numCalls);
                     //build columns of arguments for each function
+                    int len = 7;
+                    for(int t=0; t< numTuples; t++){
+                        for(int func = 0; func< fnArgColumns.length; func++ ){
+                            int[] cols = fnArgColumns[func];
+                            for(int colIdx=0; colIdx < cols.length; colIdx++) {
+                                ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
+                                        tRef.getFieldLength(cols[colIdx]));
+                                len += PythonIPCProto.getArgLength(fnDescs[func].getArgumentTypes()[colIdx], ref, fnDescs[func].getFunctionInfo().getNullCall());
+                            }
+                        }
+                    }
+
                     for (int t = 0; t < numTuples; t++) {
                         for (int func = 0; func < fnArgColumns.length; func++) {
                             tRef.reset(tAccess, t);
