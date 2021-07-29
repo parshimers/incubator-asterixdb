@@ -24,12 +24,14 @@ import static org.msgpack.core.MessagePack.Code.FIXARRAY_PREFIX;
 
 import java.io.DataOutput;
 import java.io.IOException;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.external.ipc.PythonMessageBuilder;
+import org.apache.asterix.external.library.msgpack.MessagePackUtils;
 import org.apache.asterix.external.library.msgpack.MessageUnpackerToADM;
-import org.apache.asterix.external.util.ExternalDataUtils;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
@@ -52,8 +54,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
     private final PythonLibraryEvaluator libraryEvaluator;
 
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
-    private final ByteBuffer argHolder;
-    private final ByteBuffer outputWrapper;
+    private ByteBuffer argHolder;
+    private ByteBuffer outputWrapper;
     private final IEvaluatorContext evaluatorContext;
 
     private final IPointable[] argValues;
@@ -79,11 +81,8 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         for (int i = 0; i < argValues.length; i++) {
             argValues[i] = VoidPointable.FACTORY.createPointable();
         }
-        //TODO: these should be dynamic. this static size picking is a temporary bodge until this works like
-        //      v-size frames do or these construction buffers are removed entirely
-        int maxArgSz = ExternalDataUtils.getArgBufferSize();
-        this.argHolder = ByteBuffer.wrap(new byte[maxArgSz]);
-        this.outputWrapper = ByteBuffer.wrap(new byte[maxArgSz]);
+        this.argHolder = ByteBuffer.wrap(new byte[ctx.getTaskContext().getInitialFrameSize()]);
+        this.outputWrapper = ByteBuffer.wrap(new byte[ctx.getTaskContext().getInitialFrameSize()]);
         this.evaluatorContext = ctx;
         this.sourceLocation = sourceLoc;
         this.unpackerInput = new ArrayBufferInput(new byte[0]);
@@ -110,7 +109,13 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
                 }
             }
             try {
-                PythonLibraryEvaluator.setArgument(argTypes[i], argValues[i], argHolder, nullCall);
+                int argSize = MessagePackUtils.getPackedLen(argValues[i], argTypes[i], nullCall);
+                if (argSize > argHolder.capacity() - argHolder.position()) {
+                    ByteBuffer newHolder = ByteBuffer.allocate(argHolder.capacity() * 2);
+                    newHolder.put(argHolder);
+                    argHolder = newHolder;
+                }
+                libraryEvaluator.setArgument(argTypes[i], argValues[i], argHolder, nullCall);
             } catch (IOException e) {
                 throw new HyracksDataException("Error evaluating Python UDF", e);
             }
@@ -145,13 +150,27 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }
             int numresults = resultWrapper.get() ^ FIXARRAY_PREFIX;
             if (numresults > 0) {
-                unpackerToADM.unpack(resultWrapper, outputWrapper, true);
+                //i dont care much for this
+                boolean unpacked = false;
+                while (!unpacked) {
+                    try {
+                        unpackerToADM.unpack(resultWrapper, outputWrapper, true);
+                        unpacked = true;
+                    } catch (BufferOverflowException e) {
+                        if (outputWrapper.capacity() * 2 > PythonMessageBuilder.MAX_BUF_SIZE) {
+                            outputWrapper = ByteBuffer.allocate(outputWrapper.capacity() * 2);
+                        } else {
+                            throw HyracksDataException
+                                    .create(org.apache.hyracks.api.exceptions.ErrorCode.RECORD_IS_TOO_LARGE);
+                        }
+                    }
+                }
             }
             unpackerInput.reset(resultWrapper.array(), resultWrapper.position() + resultWrapper.arrayOffset(),
                     resultWrapper.remaining());
             unpacker.reset(unpackerInput);
-            int numEntries = unpacker.unpackArrayHeader();
-            for (int j = 0; j < numEntries; j++) {
+            int numErrors = unpacker.unpackArrayHeader();
+            for (int j = 0; j < numErrors; j++) {
                 outputWrapper.put(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
                 if (evaluatorContext.getWarningCollector().shouldWarn()) {
                     evaluatorContext.getWarningCollector().warn(

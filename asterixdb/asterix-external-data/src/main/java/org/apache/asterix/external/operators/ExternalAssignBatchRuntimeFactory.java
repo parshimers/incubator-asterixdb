@@ -35,6 +35,7 @@ import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.library.PythonLibraryEvaluator;
 import org.apache.asterix.external.library.PythonLibraryEvaluatorFactory;
+import org.apache.asterix.external.library.msgpack.MessagePackUtils;
 import org.apache.asterix.external.library.msgpack.MessageUnpackerToADM;
 import org.apache.asterix.external.util.ExternalDataUtils;
 import org.apache.asterix.om.functions.IExternalFunctionDescriptor;
@@ -219,6 +220,15 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
                                             tRef.getFieldLength(cols[colIdx]));
+                                    int argSize =
+                                            MessagePackUtils.getPackedLen(ref, fnDescs[func].getArgumentTypes()[colIdx],
+                                                    fnDescs[func].getFunctionInfo().getNullCall());
+                                    if (argSize > argHolders.get(func).capacity() - argHolders.get(func).position()) {
+                                        ByteBuffer newArgHolder =
+                                                ByteBuffer.allocate(argHolders.get(func).capacity() * 2);
+                                        newArgHolder.put(argHolders.get(func));
+                                        argHolders.set(func, newArgHolder);
+                                    }
                                     libraryEvaluators.get(func).getSecond().setArgument(
                                             fnDescs[func].getArgumentTypes()[colIdx], ref, argHolders.get(func),
                                             fnDescs[func].getFunctionInfo().getNullCall());

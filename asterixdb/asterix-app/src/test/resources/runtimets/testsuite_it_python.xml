@@ -80,5 +80,10 @@ ArithmeticError: oof
         <expected-warn>ASX0201: External UDF returned exception. Returned exception was: java.io.IOException: Python process exited with code: 1 (in line 23, at column 1)</expected-warn>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="external-library">
+      <compilation-unit name="big_object_pyudf">
+        <output-dir compare="Text">big_object_pyudf</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
 </test-suite>

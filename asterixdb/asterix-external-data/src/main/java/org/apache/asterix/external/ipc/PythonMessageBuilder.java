@@ -31,7 +31,7 @@ import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class PythonMessageBuilder {
-    private static final int MAX_BUF_SIZE = 64 * 1024 * 1024; //64MB.
+    public static final int MAX_BUF_SIZE = 32 * 1024 * 1024; //32MB.
     MessageType type;
     long dataLength;
     ByteBuffer buf;
