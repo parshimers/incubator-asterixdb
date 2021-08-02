@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- USE externallibtest;
+ USE test;
 
-create function stringTest(s) as "roundtrip",
+create function roundtrip(s) as "roundtrip",
   "Tests.roundtrip" at testlib;

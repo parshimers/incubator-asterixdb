@@ -70,7 +70,7 @@ public class MessagePackerFromADM {
     private static final int ITEM_COUNT_SIZE = 4;
     private static final int ITEM_OFFSET_SIZE = 4;
     private final CharsetEncoder encoder;
-    private final CharBuffer cbuf;
+    private CharBuffer cbuf;
 
     public MessagePackerFromADM() {
         encoder = StandardCharsets.UTF_8.newEncoder();
@@ -216,6 +216,9 @@ public class MessagePackerFromADM {
         out.put(STR32);
         final int calculatedLength = getUTFLength(in, offs);
         int remainingLen = calculatedLength;
+        if(cbuf.capacity() < calculatedLength){
+            cbuf = CharBuffer.allocate(calculatedLength);
+        }
         final int varSzOffset = getNumBytesToStoreLength(calculatedLength);
         int pos = varSzOffset;
         while (remainingLen > 0) {
