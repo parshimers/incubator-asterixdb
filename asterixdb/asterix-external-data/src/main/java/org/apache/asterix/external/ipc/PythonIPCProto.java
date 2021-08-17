@@ -106,20 +106,21 @@ public class PythonIPCProto {
         return functionId;
     }
 
-    public ByteBuffer call(long functionId, IAType[] argTypes, IValueReference[] argValues, boolean nullCall) throws IOException, AsterixException {
+    public ByteBuffer call(long functionId, IAType[] argTypes, IValueReference[] argValues, boolean nullCall)
+            throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
         recvBuffer.limit(0);
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
         //TODO: clarify that this is lengthof(type) + dummy fixint array wrapper + array32 tag for args + array32 len
-        int len = getArgsLength(argTypes,argValues,nullCall) + 1 + 1 + 1 + 4;
-        sendHeader(functionId,len);
+        int len = getArgsLength(argTypes, argValues, nullCall) + 1 + 1 + 1 + 4;
+        sendHeader(functionId, len);
         messageBuilder.call(argValues.length, len);
         /* !!!HACK!!! */
         sendMsg();
-        for(int i=0;i<argTypes.length;i++){
-            packerFromADM.pack(argValues[i],argTypes[i],sockOut,nullCall);
+        for (int i = 0; i < argTypes.length; i++) {
+            packerFromADM.pack(argValues[i], argTypes[i], sockOut, nullCall);
         }
         sockOut.flush();
         receiveMsg();
@@ -152,6 +153,7 @@ public class PythonIPCProto {
             return MessagePackUtils.getPackedLen(valueReference, type, nullCall);
         }
     }
+
     public ByteBuffer callMulti(long key, ByteBuffer args, int numTuples) throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
@@ -159,8 +161,8 @@ public class PythonIPCProto {
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
         messageBuilder.callMulti(args.array(), args.position(), numTuples);
-//        sendMsg(key,messageBuilder.buf.position());
-//        receiveMsg();
+        //        sendMsg(key,messageBuilder.buf.position());
+        //        receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
                     "Expected CALL_RSP, recieved " + getResponseType().name());
@@ -217,13 +219,13 @@ public class PythonIPCProto {
     }
 
     public void sendMsg() throws IOException {
-//        headerBuffer.clear();
-//        headerBuffer.position(0);
-//        headerBuffer.putInt(HEADER_SIZE + Integer.BYTES + sz);
-//        headerBuffer.putLong(key);
-//        headerBuffer.putLong(routeId);
-//        headerBuffer.put(Message.NORMAL);
-//        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
+        //        headerBuffer.clear();
+        //        headerBuffer.position(0);
+        //        headerBuffer.putInt(HEADER_SIZE + Integer.BYTES + sz);
+        //        headerBuffer.putLong(key);
+        //        headerBuffer.putLong(routeId);
+        //        headerBuffer.put(Message.NORMAL);
+        //        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
         sockOut.write(messageBuilder.buf.array(), 0, messageBuilder.buf.position());
         sockOut.flush();
     }

@@ -25,7 +25,8 @@ import static org.msgpack.core.MessagePack.Code.FIXARRAY_PREFIX;
 import static org.msgpack.core.MessagePack.Code.isFixedArray;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.lang.reflect.Array;
+import java.nio.ArrayBackedValueStorage;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -48,6 +49,7 @@ import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.Warning;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
+import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import org.msgpack.core.MessagePack;
@@ -85,8 +87,8 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
 
         return new AbstractOneInputOneOutputOneFramePushRuntime() {
 
-            private ByteBuffer outputWrapper;
-            private List<ByteBuffer> argHolders;
+            private ArrayBackedValueStorage outputWrapper;
+            private List<ArrayBackedValueStorage> argHolders;
             ArrayTupleBuilder tupleBuilder;
             private List<Pair<Long, PythonLibraryEvaluator>> libraryEvaluators;
             private ATypeTag[][] nullCalls;
@@ -94,7 +96,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
             private VoidPointable ref;
             private MessageUnpacker unpacker;
             private ArrayBufferInput unpackerInput;
-            private List<Pair<ByteBuffer, Counter>> batchResults;
+            private List<Pair<ArrayBackedValueStorage, Counter>> batchResults;
             private MessageUnpackerToADM unpackerToADM;
 
             @Override
@@ -119,12 +121,12 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 for (int i = 0; i < fnArgColumns.length; i++) {
                     argHolders.add(ctx.allocateFrame(rpcBufferSize));
                 }
-                outputWrapper = ctx.allocateFrame();
+                outputWrapper = new ArrayBackedValueStorage();
                 nullCalls = new ATypeTag[argHolders.size()][0];
                 numCalls = new int[fnArgColumns.length];
                 batchResults = new ArrayList<>(argHolders.size());
                 for (int i = 0; i < argHolders.size(); i++) {
-                    batchResults.add(new Pair<>(ctx.allocateFrame(rpcBufferSize), new Counter(-1)));
+                    batchResults.add(new Pair<>(new ArrayBackedValueStorage(), new Counter(-1)));
                 }
                 unpackerInput = new ArrayBufferInput(new byte[0]);
                 unpacker = MessagePack.newDefaultUnpacker(unpackerInput);
@@ -133,16 +135,14 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
 
             private void resetBuffers(int numTuples, int[] numCalls) {
                 for (int func = 0; func < fnArgColumns.length; func++) {
-                    argHolders.get(func).clear();
-                    argHolders.get(func).position(0);
+                    argHolders.get(func).reset();
                     if (nullCalls[func].length < numTuples) {
                         nullCalls[func] = new ATypeTag[numTuples];
                     }
                     numCalls[func] = numTuples;
                     Arrays.fill(nullCalls[func], ATypeTag.TYPE);
-                    for (Pair<ByteBuffer, Counter> batch : batchResults) {
-                        batch.getFirst().clear();
-                        batch.getFirst().position(0);
+                    for (Pair<ArrayBackedValueStorage, Counter> batch : batchResults) {
+                        batch.getFirst().reset();
                         batch.getSecond().set(-1);
                     }
                 }
@@ -163,10 +163,10 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 return argumentPresence;
             }
 
-            private void collectFunctionWarnings(List<Pair<ByteBuffer, Counter>> batchResults) throws IOException {
-                for (Pair<ByteBuffer, Counter> result : batchResults) {
+            private void collectFunctionWarnings(List<Pair<ArrayBackedValueStorage, Counter>> batchResults) throws IOException {
+                for (Pair<ArrayBackedValueStorage, Counter> result : batchResults) {
                     if (result.getSecond().get() > -1) {
-                        ByteBuffer resBuf = result.getFirst();
+                        ArrayBackedValueStorage resBuf = result.getFirst();
                         unpackerInput.reset(resBuf.array(), resBuf.position() + resBuf.arrayOffset(),
                                 resBuf.remaining());
                         unpacker.reset(unpackerInput);
@@ -189,7 +189,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
             }
 
             @Override
-            public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+            public void nextFrame(ArrayBackedValueStorage buffer) throws HyracksDataException {
                 /*TODO: this whole transposition stuff is a stupid waste of time
                         the evaulator should accept a format that is a collection of rows, logically*/
                 tAccess.reset(buffer);
@@ -236,15 +236,15 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                     //TODO: maybe this could be done in parallel for each unique library evaluator?
                     for (int argHolderIdx = 0; argHolderIdx < argHolders.size(); argHolderIdx++) {
                         Pair<Long, PythonLibraryEvaluator> fnEval = libraryEvaluators.get(argHolderIdx);
-                        ByteBuffer columnResult = fnEval.getSecond().callPythonMulti(fnEval.getFirst(),
+                        ArrayBackedValueStorage columnResult = fnEval.getSecond().callPythonMulti(fnEval.getFirst(),
                                 argHolders.get(argHolderIdx), numCalls[argHolderIdx]);
                         if (columnResult != null) {
-                            Pair<ByteBuffer, Counter> resultholder = batchResults.get(argHolderIdx);
+                            Pair<ArrayBackedValueStorage, Counter> resultholder = batchResults.get(argHolderIdx);
                             if (resultholder.getFirst().capacity() < columnResult.capacity()) {
                                 resultholder.setFirst(ctx.allocateFrame(ExternalDataUtils.roundUpToNearestFrameSize(
                                         columnResult.capacity(), ctx.getInitialFrameSize())));
                             }
-                            ByteBuffer resultBuf = resultholder.getFirst();
+                            ArrayBackedValueStorage resultBuf = resultholder.getFirst();
                             resultBuf.clear();
                             resultBuf.position(0);
                             //offset 1 to skip message type
@@ -271,16 +271,8 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                         for (int f = 0; f < projectionList.length; f++) {
                             int k = projectionToOutColumns[f];
                             if (k >= 0) {
-                                outputWrapper.clear();
-                                outputWrapper.position(0);
-                                Pair<ByteBuffer, Counter> result = batchResults.get(k);
-                                if (result.getFirst() != null) {
-                                    if (result.getFirst().capacity() > outputWrapper.capacity()) {
-                                        outputWrapper = ctx.allocateFrame(ExternalDataUtils.roundUpToNearestFrameSize(
-                                                outputWrapper.capacity(), ctx.getInitialFrameSize()));
-                                    }
-                                }
-                                int start = outputWrapper.arrayOffset();
+                                outputWrapper.reset();
+                                Pair<ArrayBackedValueStorage, Counter> result = batchResults.get(k);
                                 ATypeTag functionCalled = nullCalls[k][i];
                                 if (functionCalled == ATypeTag.TYPE) {
                                     if (result.getSecond().get() > 0) {
@@ -308,7 +300,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 }
             }
 
-            private long consumeAndGetBatchLength(ByteBuffer buf) {
+            private long consumeAndGetBatchLength(ArrayBackedValueStorage buf) {
                 byte tag = buf.get();
                 if (isFixedArray(tag)) {
                     return tag ^ FIXARRAY_PREFIX;
