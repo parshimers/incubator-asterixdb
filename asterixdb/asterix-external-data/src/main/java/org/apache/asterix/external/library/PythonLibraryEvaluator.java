@@ -200,9 +200,9 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         }
     }
 
-    public static void setVoidArgument(ByteBuffer argHolder) {
-        argHolder.put(ARRAY16);
-        argHolder.putShort((short) 0);
+    public static void setVoidArgument(ArrayBackedValueStorage argHolder) throws IOException {
+        argHolder.getDataOutput().writeByte(ARRAY16);
+        argHolder.getDataOutput().writeShort((short) 0);
     }
 
     public static PythonLibraryEvaluator getInstance(IExternalFunctionInfo finfo, ILibraryManager libMgr,

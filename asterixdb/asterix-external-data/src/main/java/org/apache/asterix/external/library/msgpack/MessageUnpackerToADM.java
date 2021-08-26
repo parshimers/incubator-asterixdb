@@ -39,7 +39,8 @@ public class MessageUnpackerToADM {
 
     private final IObjectPool<IMutableValueStorage, ATypeTag> abvsBuilderPool =
             new ListObjectPool<>(new AbvsBuilderFactory());
-    private final IObjectPool<StandardUTF8ToModifiedUTF8DataOutput, ATypeTag> utfPool = new ListObjectPool<>(new StdToModUTF8DataOutputFactory());
+    private final IObjectPool<StandardUTF8ToModifiedUTF8DataOutput, ATypeTag> utfPool =
+            new ListObjectPool<>(new StdToModUTF8DataOutputFactory());
 
     public MessageUnpackerToADM() {
     }
@@ -220,19 +221,19 @@ public class MessageUnpackerToADM {
         int count = (int) uLen;
         bufOut.writeByte(ATypeTag.SERIALIZED_ORDEREDLIST_TYPE_TAG);
         bufOut.writeByte(ATypeTag.ANY.serialize());
-        int asxLenPos = Byte.BYTES*2;
+        int asxLenPos = Byte.BYTES * 2;
         //reserve space
         bufOut.writeInt(-1);
         bufOut.writeInt(count);
-        int slotStartOffs = asxLenPos + Integer.BYTES*2;
+        int slotStartOffs = asxLenPos + Integer.BYTES * 2;
         for (int i = 0; i < count; i++) {
             out.writeInt(0xFFFF);
         }
         for (int i = 0; i < count; i++) {
-            putInt((slotStartOffs + (i*4)),buildBuf.getLength(),buildBuf.getByteArray());
+            putInt((slotStartOffs + (i * 4)), buildBuf.getLength(), buildBuf.getByteArray());
             unpack(in, bufOut, true);
         }
-        putInt(asxLenPos,buildBuf.getLength(),buildBuf.getByteArray());
+        putInt(asxLenPos, buildBuf.getLength(), buildBuf.getByteArray());
         out.write(buildBuf.getByteArray());
     }
 
@@ -249,7 +250,7 @@ public class MessageUnpackerToADM {
         int openPartOffs = totalSizeOffs + Byte.BYTES + Integer.BYTES;
         bufOut.writeInt(-1);
         //isExpanded, so num of open fields
-        putInt(openPartOffs, buildBuf.getLength(),buildBuf.getByteArray());
+        putInt(openPartOffs, buildBuf.getLength(), buildBuf.getByteArray());
         bufOut.writeInt(count);
         int offsetAryPos = buildBuf.getLength();
         int offsetArySz = count * 2;
@@ -261,13 +262,13 @@ public class MessageUnpackerToADM {
             int offs = buildBuf.getLength();
             unpack(in, bufOut, false);
             int hash = UTF8StringUtil.hash(buildBuf.getByteArray(), offs);
-            putInt(offsetAryPos,hash,buildBuf.getByteArray());
+            putInt(offsetAryPos, hash, buildBuf.getByteArray());
             offsetAryPos += 4;
-            putInt(offsetAryPos,offs,buildBuf.getByteArray());
+            putInt(offsetAryPos, offs, buildBuf.getByteArray());
             offsetAryPos += 4;
             unpack(in, bufOut, true);
         }
-        putInt(totalSizeOffs,buildBuf.getLength(),buildBuf.getByteArray());
+        putInt(totalSizeOffs, buildBuf.getLength(), buildBuf.getByteArray());
         out.write(buildBuf.getByteArray());
     }
 
@@ -279,15 +280,15 @@ public class MessageUnpackerToADM {
             throw new UnsupportedOperationException("String is too long");
         }
         int len = (int) uLen;
-        StandardUTF8ToModifiedUTF8DataOutput conv =  utfPool.allocate(ATypeTag.STRING);
+        StandardUTF8ToModifiedUTF8DataOutput conv = utfPool.allocate(ATypeTag.STRING);
         conv.setDataOutput(out);
-        conv.write(in.array(),in.arrayOffset() + in.position(),len);
-        in.position(in.position()+len);
+        conv.write(in.array(), in.arrayOffset() + in.position(), len);
+        in.position(in.position() + len);
     }
 
-    private static void putInt(int index, int value, byte[] dst){
-        for(int i=0;i<4;i++){
-            dst[index+i] = (byte)(value >> (8*i) & 0xFF);
+    private static void putInt(int index, int value, byte[] dst) {
+        for (int i = 0; i < 4; i++) {
+            dst[index + i] = (byte) (value >> (8 * i) & 0xFF);
         }
     }
 

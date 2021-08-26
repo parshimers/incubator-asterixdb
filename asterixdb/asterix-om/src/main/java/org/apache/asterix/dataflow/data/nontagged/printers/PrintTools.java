@@ -321,6 +321,7 @@ public class PrintTools {
         }
         os.write('\"');
     }
+
     public static void writeUTF8StringRaw(byte[] b, int s, int l, OutputStream os) throws IOException {
         int utfLength = UTF8StringUtil.getUTFLength(b, s);
         int position = s + UTF8StringUtil.getNumBytesToStoreLength(utfLength); // skip 2 bytes containing string size
@@ -468,7 +469,7 @@ public class PrintTools {
     }
 
     private static int writeSupplementaryChar(DataOutput os, byte[] src, int limit, int highSurrogatePos,
-                                              char highSurrogate, int highSurrogateSize) throws IOException {
+            char highSurrogate, int highSurrogateSize) throws IOException {
         final int lowSurrogatePos = highSurrogatePos + highSurrogateSize;
         if (lowSurrogatePos >= limit) {
             throw new IllegalStateException("malformed utf8 input");

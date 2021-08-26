@@ -27,7 +27,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
-import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class PythonMessageBuilder {

@@ -155,7 +155,8 @@ public class PythonIPCProto {
         }
     }
 
-    public ByteBuffer callMulti(long key, ArrayBackedValueStorage args, int numTuples) throws IOException, AsterixException {
+    public ByteBuffer callMulti(long key, ArrayBackedValueStorage args, int numTuples)
+            throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
         recvBuffer.limit(0);

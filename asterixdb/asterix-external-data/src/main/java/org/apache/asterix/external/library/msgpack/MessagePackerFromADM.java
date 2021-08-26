@@ -23,9 +23,6 @@ import static org.apache.asterix.external.library.msgpack.MessagePackUtils.Recor
 import static org.apache.asterix.external.library.msgpack.MessagePackUtils.RecordUtils.getOpenFieldTag;
 import static org.apache.asterix.external.library.msgpack.MessagePackUtils.RecordUtils.getOpenFieldValueOffset;
 import static org.apache.asterix.external.library.msgpack.MessagePackUtils.RecordUtils.isExpanded;
-import static org.apache.hyracks.util.string.UTF8StringUtil.charAt;
-import static org.apache.hyracks.util.string.UTF8StringUtil.getModifiedUTF8Len;
-import static org.apache.hyracks.util.string.UTF8StringUtil.getNumBytesToStoreLength;
 import static org.apache.hyracks.util.string.UTF8StringUtil.getUTFLength;
 import static org.msgpack.core.MessagePack.Code.ARRAY32;
 import static org.msgpack.core.MessagePack.Code.FALSE;
@@ -42,7 +39,6 @@ import static org.msgpack.core.MessagePack.Code.NIL;
 import static org.msgpack.core.MessagePack.Code.STR32;
 import static org.msgpack.core.MessagePack.Code.TRUE;
 
-import java.io.DataOutput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -68,7 +64,6 @@ import org.apache.hyracks.data.std.primitive.FloatPointable;
 import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.data.std.primitive.LongPointable;
 import org.apache.hyracks.data.std.primitive.ShortPointable;
-import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
 
 public class MessagePackerFromADM {
 
@@ -261,7 +256,7 @@ public class MessagePackerFromADM {
         out.writeByte(STR32);
         final int calculatedLength = getUTFLength(in, offs);
         out.writeInt(calculatedLength);
-        PrintTools.writeUTF8StringRaw(in,offs,calculatedLength,out);
+        PrintTools.writeUTF8StringRaw(in, offs, calculatedLength, out);
     }
 
     private void packArray(byte[] in, int offs, IAType type, DataOutput out) throws IOException {

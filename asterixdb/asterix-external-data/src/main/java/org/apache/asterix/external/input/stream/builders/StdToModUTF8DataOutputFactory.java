@@ -22,7 +22,6 @@ import org.apache.asterix.dataflow.data.nontagged.serde.AStringSerializerDeseria
 import org.apache.asterix.external.input.stream.StandardUTF8ToModifiedUTF8DataOutput;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.util.container.IObjectFactory;
-import org.apache.hyracks.data.std.api.IMutableValueStorage;
 import org.apache.hyracks.util.string.UTF8StringReader;
 import org.apache.hyracks.util.string.UTF8StringWriter;
 
@@ -30,7 +29,8 @@ public class StdToModUTF8DataOutputFactory implements IObjectFactory<StandardUTF
 
     @Override
     public StandardUTF8ToModifiedUTF8DataOutput create(ATypeTag type) {
-        return new StandardUTF8ToModifiedUTF8DataOutput(new AStringSerializerDeserializer(new UTF8StringWriter(), new UTF8StringReader()));
+        return new StandardUTF8ToModifiedUTF8DataOutput(
+                new AStringSerializerDeserializer(new UTF8StringWriter(), new UTF8StringReader()));
     }
 
 }
