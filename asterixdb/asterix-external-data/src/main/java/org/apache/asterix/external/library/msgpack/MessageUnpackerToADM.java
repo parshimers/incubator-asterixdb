@@ -21,46 +21,30 @@ import static org.msgpack.core.MessagePack.Code.*;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.DataOutput;
-import java.nio.CharBuffer;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.StandardCharsets;
 
 import org.apache.asterix.builders.AbvsBuilderFactory;
-import org.apache.asterix.builders.RecordBuilder;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.external.util.ExternalDataConstants;
+import org.apache.asterix.external.input.stream.StandardUTF8ToModifiedUTF8DataOutput;
+import org.apache.asterix.external.input.stream.builders.StdToModUTF8DataOutputFactory;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.asterix.om.util.container.ListObjectPool;
-import org.apache.asterix.transaction.management.service.locking.TypeUtil;
-import org.apache.commons.collections.iterators.ArrayIterator;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IMutableValueStorage;
-import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.util.string.UTF8StringUtil;
-import org.apache.hyracks.util.string.UTF8StringWriter;
 
 public class MessageUnpackerToADM {
 
-    private final CharBuffer stringCharBuffer;
-    private final CharsetDecoder decoder;
-    private final UTF8StringWriter stringWriter;
-    private final ByteBuffer stringOut;
     private final IObjectPool<IMutableValueStorage, ATypeTag> abvsBuilderPool =
             new ListObjectPool<>(new AbvsBuilderFactory());
+    private final IObjectPool<StandardUTF8ToModifiedUTF8DataOutput, ATypeTag> utfPool = new ListObjectPool<>(new StdToModUTF8DataOutputFactory());
 
     public MessageUnpackerToADM() {
-        this.stringCharBuffer = CharBuffer.allocate(ExternalDataConstants.DEFAULT_BUFFER_SIZE);
-        this.decoder = StandardCharsets.UTF_8.newDecoder();
-        this.stringWriter = new UTF8StringWriter();
-        this.stringOut = new ByteBuffer(ExternalDataConstants.DEFAULT_BUFFER_SIZE);
-
     }
 
-    public void unpack(ByteBuffer in, DataOutput out, boolean tagged) throws IOException, HyracksDataException {
+    public void unpack(ByteBuffer in, DataOutput out, boolean tagged) throws IOException {
         byte tag = NIL;
         if (in != null) {
             tag = in.get();
@@ -227,7 +211,7 @@ public class MessageUnpackerToADM {
         out.writeDouble(in.getDouble());
     }
 
-    public void unpackArray(ByteBuffer in, DataOutput out, long uLen) throws HyracksDataException, IOException {
+    public void unpackArray(ByteBuffer in, DataOutput out, long uLen) throws IOException {
         if (uLen > Integer.MAX_VALUE) {
             throw new UnsupportedOperationException("Array is too long");
         }
@@ -252,7 +236,7 @@ public class MessageUnpackerToADM {
         out.write(buildBuf.getByteArray());
     }
 
-    public void unpackMap(ByteBuffer in, DataOutput out, int count) throws IOException, HyracksDataException {
+    public void unpackMap(ByteBuffer in, DataOutput out, int count) throws IOException {
         //TODO: need to handle typed records. this only produces a completely open record.
         ArrayBackedValueStorage buildBuf = (ArrayBackedValueStorage) abvsBuilderPool.allocate(ATypeTag.OBJECT);
         DataOutput bufOut = buildBuf.getDataOutput();
@@ -295,20 +279,10 @@ public class MessageUnpackerToADM {
             throw new UnsupportedOperationException("String is too long");
         }
         int len = (int) uLen;
-        stringCharBuffer.clear();
-        stringCharBuffer.position(0);
-        stringOut.reset();
-        decoder.reset();
-        int limit = in.limit();
-        in.limit(in.position() + len);
-        decoder.decode(in, stringCharBuffer, true);
-        decoder.flush(stringCharBuffer);
-        UTF8StringUtil.writeUTF8(stringCharBuffer.array(), 0, stringCharBuffer.position(), stringOut.getDataOutwriteByte(),
-                stringWriter);
-        System.arraycopy(stringOut.getByteArray(), stringOut.getStartOffset(), out.array(),
-                out.arrayOffset() + out.position(), stringOut.getLength());
-        out.position(out.position() + stringOut.getLength());
-        in.limit(limit);
+        StandardUTF8ToModifiedUTF8DataOutput conv =  utfPool.allocate(ATypeTag.STRING);
+        conv.setDataOutput(out);
+        conv.write(in.array(),in.arrayOffset() + in.position(),len);
+        in.position(in.position()+len);
     }
 
     private static void putInt(int index, int value, byte[] dst){

@@ -27,6 +27,7 @@ import static org.msgpack.core.MessagePack.Code.isFixedArray;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.ArrayBackedValueStorage;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -119,7 +120,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 }
                 argHolders = new ArrayList<>(fnArgColumns.length);
                 for (int i = 0; i < fnArgColumns.length; i++) {
-                    argHolders.add(ctx.allocateFrame(rpcBufferSize));
+                    argHolders.add(new ArrayBackedValueStorage());
                 }
                 outputWrapper = new ArrayBackedValueStorage();
                 nullCalls = new ATypeTag[argHolders.size()][0];
@@ -167,7 +168,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 for (Pair<ArrayBackedValueStorage, Counter> result : batchResults) {
                     if (result.getSecond().get() > -1) {
                         ArrayBackedValueStorage resBuf = result.getFirst();
-                        unpackerInput.reset(resBuf.array(), resBuf.position() + resBuf.arrayOffset(),
+                        unpackerInput.reset(resBuf.getByteArray(), resBuf.position() + resBuf.arrayOffset(),
                                 resBuf.remaining());
                         unpacker.reset(unpackerInput);
                         try {
@@ -189,7 +190,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
             }
 
             @Override
-            public void nextFrame(ArrayBackedValueStorage buffer) throws HyracksDataException {
+            public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
                 /*TODO: this whole transposition stuff is a stupid waste of time
                         the evaulator should accept a format that is a collection of rows, logically*/
                 tAccess.reset(buffer);
@@ -215,8 +216,8 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                             }
                             if (argumentStatus == ATypeTag.TYPE) {
                                 if (cols.length > 0) {
-                                    argHolders.get(func).put(ARRAY16);
-                                    argHolders.get(func).putShort((short) cols.length);
+                                    argHolders.get(func).getDataOutput().writeByte(ARRAY16);
+                                    argHolders.get(func).getDataOutput().writeShort((short) cols.length);
                                 }
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
@@ -240,16 +241,11 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 argHolders.get(argHolderIdx), numCalls[argHolderIdx]);
                         if (columnResult != null) {
                             Pair<ArrayBackedValueStorage, Counter> resultholder = batchResults.get(argHolderIdx);
-                            if (resultholder.getFirst().capacity() < columnResult.capacity()) {
-                                resultholder.setFirst(ctx.allocateFrame(ExternalDataUtils.roundUpToNearestFrameSize(
-                                        columnResult.capacity(), ctx.getInitialFrameSize())));
-                            }
                             ArrayBackedValueStorage resultBuf = resultholder.getFirst();
-                            resultBuf.clear();
-                            resultBuf.position(0);
+                            resultBuf.reset();
                             //offset 1 to skip message type
-                            System.arraycopy(columnResult.array(), columnResult.arrayOffset() + 1, resultBuf.array(),
-                                    resultBuf.arrayOffset(), columnResult.capacity() - 1);
+                            System.arraycopy(columnResult.getByteArray(), 1, resultBuf.getByteArray(), 0
+                                    , columnResult.getLength() - 1);
                             //wrapper for results and warnings arrays. always length 2
                             consumeAndGetBatchLength(resultBuf);
                             int numResults = (int) consumeAndGetBatchLength(resultBuf);
@@ -276,18 +272,18 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 ATypeTag functionCalled = nullCalls[k][i];
                                 if (functionCalled == ATypeTag.TYPE) {
                                     if (result.getSecond().get() > 0) {
-                                        unpackerToADM.unpack(result.getFirst(), outputWrapper, true);
+                                        unpackerToADM.unpack(result.getFirst(), outputWrapper.getDataOutput(), true);
                                         result.getSecond().set(result.getSecond().get() - 1);
                                     } else {
                                         //emit NULL for functions which failed with a warning
-                                        outputWrapper.put(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
+                                        outputWrapper.getDataOutput().writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
                                     }
                                 } else if (functionCalled == ATypeTag.NULL) {
-                                    outputWrapper.put(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
+                                    outputWrapper.getDataOutput().writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
                                 } else {
-                                    outputWrapper.put(ATypeTag.SERIALIZED_MISSING_TYPE_TAG);
+                                    outputWrapper.getDataOutput().writeByte(ATypeTag.SERIALIZED_MISSING_TYPE_TAG);
                                 }
-                                tupleBuilder.addField(outputWrapper.array(), start, start + outputWrapper.position());
+                                tupleBuilder.addField(outputWrapper.getByteArray(), 0, outputWrapper.getLength());
                             } else {
                                 tupleBuilder.addField(tAccess, i, projectionList[f]);
                             }

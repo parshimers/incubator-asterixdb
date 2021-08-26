@@ -130,8 +130,7 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
         outputWrapper.position(0);
         try {
             if (resultWrapper == null) {
-                outputWrapper.put(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
-                out.write(outputWrapper.array(), 0, outputWrapper.position() + outputWrapper.arrayOffset());
+                out.writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
                 return;
             }
             if ((resultWrapper.get() ^ FIXARRAY_PREFIX) != (byte) 2) {
@@ -140,20 +139,19 @@ class ExternalScalarPythonFunctionEvaluator extends ExternalScalarFunctionEvalua
             }
             int numresults = resultWrapper.get() ^ FIXARRAY_PREFIX;
             if (numresults > 0) {
-                unpackerToADM.unpack(resultWrapper, outputWrapper, true);
+                unpackerToADM.unpack(resultWrapper, out, true);
             }
             unpackerInput.reset(resultWrapper.array(), resultWrapper.position() + resultWrapper.arrayOffset(),
                     resultWrapper.remaining());
             unpacker.reset(unpackerInput);
-            int numEntries = unpacker.unpackArrayHeader();
-            for (int j = 0; j < numEntries; j++) {
-                outputWrapper.put(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
+            int numErrors = unpacker.unpackArrayHeader();
+            for (int j = 0; j < numErrors; j++) {
+                out.writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
                 if (evaluatorContext.getWarningCollector().shouldWarn()) {
                     evaluatorContext.getWarningCollector().warn(
                             Warning.of(sourceLocation, ErrorCode.EXTERNAL_UDF_EXCEPTION, unpacker.unpackString()));
                 }
             }
-            out.write(outputWrapper.array(), 0, outputWrapper.position() + outputWrapper.arrayOffset());
         } catch (IOException e) {
             throw HyracksDataException.create(e);
         }

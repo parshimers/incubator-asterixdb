@@ -51,6 +51,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.dataflow.data.nontagged.printers.PrintTools;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AbstractCollectionType;
@@ -66,6 +67,7 @@ import org.apache.hyracks.data.std.primitive.FloatPointable;
 import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.data.std.primitive.LongPointable;
 import org.apache.hyracks.data.std.primitive.ShortPointable;
+import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
 
 public class MessagePackerFromADM {
 
@@ -257,33 +259,8 @@ public class MessagePackerFromADM {
         encoder.reset();
         out.writeByte(STR32);
         final int calculatedLength = getUTFLength(in, offs);
-        int remainingLen = calculatedLength;
-        final int varSzOffset = getNumBytesToStoreLength(calculatedLength);
-        int pos = varSzOffset;
         out.writeInt(calculatedLength);
-        while (remainingLen > 0) {
-            char c = charAt(in, pos + offs);
-            boolean surrogate = Character.isHighSurrogate(c);
-            if (cbuf.capacity() <= 2) {
-                writeStringToStream(out, false);
-            }
-            cbuf.put(c);
-            int charLen = getModifiedUTF8Len(c);
-            pos += charLen;
-            remainingLen -= charLen;
-        }
-        writeStringToStream(out, true);
-    }
-
-    private void writeStringToStream(DataOutputStream out, boolean end) throws IOException {
-        cbuf.flip();
-        utfBuf.clear();
-        utfBuf.position(0);
-        encoder.encode(cbuf, utfBuf, end);
-        encoder.flush(utfBuf);
-        out.write(utfBuf.array(), 0, utfBuf.position());
-        cbuf.clear();
-        cbuf.position(0);
+        PrintTools.writeUTF8StringRaw(in,offs,calculatedLength,out);
     }
 
     private void packArray(byte[] in, int offs, IAType type, DataOutputStream out) throws IOException {

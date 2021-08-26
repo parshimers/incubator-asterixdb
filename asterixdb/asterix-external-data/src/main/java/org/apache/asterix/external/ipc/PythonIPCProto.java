@@ -161,6 +161,8 @@ public class PythonIPCProto {
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
         messageBuilder.callMulti(args.array(), args.position(), numTuples);
+        sendMsg();
+        for()
         //        sendMsg(key,messageBuilder.buf.position());
         //        receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {

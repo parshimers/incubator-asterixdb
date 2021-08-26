@@ -285,10 +285,39 @@ public class PrintTools {
             if (c == '"') {
                 os.write('"');
             }
-            os.write(c);
-            position += sz;
+            if (Character.isHighSurrogate(c)) {
+                position += writeSupplementaryChar(os, b, maxPosition, position, c, sz);
+                continue;
+            }
+            while (sz > 0) {
+                os.write(b[position]);
+                ++position;
+                --sz;
+            }
+            break;
         }
         os.write('"');
+    }
+    public static void writeUTF8StringRaw(byte[] b, int s, int l, OutputStream os) throws IOException {
+        int utfLength = UTF8StringUtil.getUTFLength(b, s);
+        int position = s + UTF8StringUtil.getNumBytesToStoreLength(utfLength); // skip 2 bytes containing string size
+        int maxPosition = position + utfLength;
+        os.write('"');
+        while (position < maxPosition) {
+            char c = UTF8StringUtil.charAt(b, position);
+            int sz = UTF8StringUtil.charSize(b, position);
+            if (Character.isHighSurrogate(c)) {
+                position += writeSupplementaryChar(os, b, maxPosition, position, c, sz);
+                continue;
+            }
+            while (sz > 0) {
+                os.write(b[position]);
+                ++position;
+                --sz;
+            }
+            break;
+        }
+        os.write('\"');
     }
 
     public static void writeUTF8StringAsJSON(byte[] b, int s, int l, OutputStream os) throws IOException {
