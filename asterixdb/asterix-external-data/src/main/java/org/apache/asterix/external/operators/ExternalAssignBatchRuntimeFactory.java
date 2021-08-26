@@ -63,7 +63,6 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
     private int[] outColumns;
     private final IExternalFunctionDescriptor[] fnDescs;
     private final int[][] fnArgColumns;
-    MessagePackerFromADM packer;
 
     public ExternalAssignBatchRuntimeFactory(int[] outColumns, IExternalFunctionDescriptor[] fnDescs,
             int[][] fnArgColumns, int[] projectionList) {
@@ -71,7 +70,6 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
         this.outColumns = outColumns;
         this.fnDescs = fnDescs;
         this.fnArgColumns = fnArgColumns;
-        this.packer = new MessagePackerFromADM();
     }
 
     @Override
@@ -86,6 +84,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
         return new AbstractOneInputOneOutputOneFramePushRuntime() {
 
             private ArrayBackedValueStorage outputWrapper;
+            MessagePackerFromADM packer;
             private List<ArrayBackedValueStorage> argHolders;
             ArrayTupleBuilder tupleBuilder;
             private List<Pair<Long, PythonLibraryEvaluator>> libraryEvaluators;
@@ -130,6 +129,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 unpackerInput = new ArrayBufferInput(new byte[0]);
                 unpacker = MessagePack.newDefaultUnpacker(unpackerInput);
                 unpackerToADM = new MessageUnpackerToADM();
+                packer = new MessagePackerFromADM();
             }
 
             private void resetBuffers(int numTuples, int[] numCalls) {
