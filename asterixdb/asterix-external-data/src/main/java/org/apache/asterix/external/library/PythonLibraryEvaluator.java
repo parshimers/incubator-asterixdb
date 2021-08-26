@@ -50,6 +50,7 @@ import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.resources.IDeallocatable;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
+import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 
@@ -143,7 +144,7 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         return ret;
     }
 
-    public ByteBuffer callPythonMulti(long id, ByteBuffer arguments, int numTuples) throws IOException {
+    public ByteBuffer callPythonMulti(long id, ArrayBackedValueStorage arguments, int numTuples) throws IOException {
         ByteBuffer ret = null;
         try {
             ret = proto.callMulti(id, arguments, numTuples);

@@ -42,7 +42,8 @@ import static org.msgpack.core.MessagePack.Code.NIL;
 import static org.msgpack.core.MessagePack.Code.STR32;
 import static org.msgpack.core.MessagePack.Code.TRUE;
 
-import java.io.DataOutputStream;
+import java.io.DataOutput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -86,12 +87,12 @@ public class MessagePackerFromADM {
         utfBuf = ByteBuffer.allocate(Short.MAX_VALUE);
     }
 
-    public ATypeTag pack(IValueReference ptr, IAType type, DataOutputStream out, boolean packUnknown)
+    public ATypeTag pack(IValueReference ptr, IAType type, DataOutput out, boolean packUnknown)
             throws HyracksDataException {
         return pack(ptr.getByteArray(), ptr.getStartOffset(), type, true, packUnknown, out);
     }
 
-    public ATypeTag pack(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown, DataOutputStream out)
+    public ATypeTag pack(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown, DataOutput out)
             throws HyracksDataException {
         int relOffs = tagged ? offs + 1 : offs;
         ATypeTag tag = type.getTypeTag();
@@ -165,42 +166,42 @@ public class MessagePackerFromADM {
         }
     }
 
-    public static void packNull(DataOutputStream out) throws IOException {
+    public static void packNull(DataOutput out) throws IOException {
         out.writeByte(NIL);
     }
 
-    public static void packByte(DataOutputStream out, byte in) throws IOException {
+    public static void packByte(DataOutput out, byte in) throws IOException {
         out.writeByte(INT8);
         out.writeByte(in);
     }
 
-    public static void packShort(DataOutputStream out, short in) throws IOException {
+    public static void packShort(DataOutput out, short in) throws IOException {
         out.writeByte(INT16);
         out.writeShort(in);
     }
 
-    public static void packInt(DataOutputStream out, int in) throws IOException {
+    public static void packInt(DataOutput out, int in) throws IOException {
         out.writeByte(INT32);
         out.writeInt(in);
 
     }
 
-    public static void packLong(DataOutputStream out, long in) throws IOException {
+    public static void packLong(DataOutput out, long in) throws IOException {
         out.writeByte(INT64);
         out.writeLong(in);
     }
 
-    public static void packFloat(DataOutputStream out, float in) throws IOException {
+    public static void packFloat(DataOutput out, float in) throws IOException {
         out.writeByte(FLOAT32);
         out.writeFloat(in);
     }
 
-    public static void packDouble(DataOutputStream out, double in) throws IOException {
+    public static void packDouble(DataOutput out, double in) throws IOException {
         out.writeByte(FLOAT64);
         out.writeDouble(in);
     }
 
-    public static void packFixPos(DataOutputStream out, byte in) throws IOException {
+    public static void packFixPos(DataOutput out, byte in) throws IOException {
         byte mask = (byte) (1 << 7);
         if ((in & mask) != 0) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
@@ -218,7 +219,7 @@ public class MessagePackerFromADM {
         buf.put(in);
     }
 
-    public static void packFixStr(DataOutputStream buf, String in) throws IOException {
+    public static void packFixStr(DataOutput buf, String in) throws IOException {
         byte[] strBytes = in.getBytes(StandardCharsets.UTF_8);
         if (strBytes.length > 31) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
@@ -238,7 +239,7 @@ public class MessagePackerFromADM {
         buf.put(strBytes);
     }
 
-    public static void packStr(DataOutputStream out, String in) throws IOException {
+    public static void packStr(DataOutput out, String in) throws IOException {
         out.writeByte(STR32);
         byte[] strBytes = in.getBytes(StandardCharsets.UTF_8);
         out.writeInt(strBytes.length);
@@ -252,7 +253,7 @@ public class MessagePackerFromADM {
         out.put(strBytes);
     }
 
-    private void packStr(byte[] in, int offs, DataOutputStream out) throws IOException {
+    private void packStr(byte[] in, int offs, DataOutput out) throws IOException {
         //TODO: tagged/untagged. closed support is borked so always tagged rn
         cbuf.clear();
         cbuf.position(0);
@@ -263,7 +264,7 @@ public class MessagePackerFromADM {
         PrintTools.writeUTF8StringRaw(in,offs,calculatedLength,out);
     }
 
-    private void packArray(byte[] in, int offs, IAType type, DataOutputStream out) throws IOException {
+    private void packArray(byte[] in, int offs, IAType type, DataOutput out) throws IOException {
         //TODO: - could optimize to pack fixarray/array16 for small arrays
         //      - this code is basically a static version of AListPointable, could be deduped
         AbstractCollectionType collType = (AbstractCollectionType) type;
@@ -287,7 +288,7 @@ public class MessagePackerFromADM {
         }
     }
 
-    private void packObject(byte[] in, int offs, IAType type, DataOutputStream out) throws IOException {
+    private void packObject(byte[] in, int offs, IAType type, DataOutput out) throws IOException {
         ARecordType recType = (ARecordType) type;
         out.writeByte(MAP32);
         int fieldCt = recType.getFieldNames().length + getOpenFieldCount(in, offs, recType);

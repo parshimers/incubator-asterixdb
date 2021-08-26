@@ -109,15 +109,7 @@ public class PythonMessageBuilder {
         buf.putInt(numArgs);
     }
 
-    public void callMulti(byte[] args, int lim, int numArgs) throws HyracksDataException {
-        if (args.length > buf.capacity()) {
-            int growTo = ExternalFunctionResultRouter.closestPow2(args.length);
-            if (growTo > MAX_BUF_SIZE) {
-                throw HyracksDataException.create(ErrorCode.ILLEGAL_STATE,
-                        "Unable to allocate message buffer larger than:" + MAX_BUF_SIZE + " bytes");
-            }
-            buf = ByteBuffer.allocate(growTo);
-        }
+    public void callMulti(int lim, int numArgs) throws HyracksDataException {
         buf.clear();
         buf.position(0);
         this.type = MessageType.CALL;
@@ -126,9 +118,6 @@ public class PythonMessageBuilder {
         //TODO: make this switch between fixarray/array16/array32
         buf.put(ARRAY16);
         buf.putShort((short) numArgs);
-        if (numArgs > 0) {
-            buf.put(args, 0, lim);
-        }
     }
 
     //this is used to send a serialized java inetaddress to the entrypoint so it can send it back

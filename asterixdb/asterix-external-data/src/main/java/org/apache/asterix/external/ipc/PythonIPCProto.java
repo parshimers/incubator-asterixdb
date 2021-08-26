@@ -35,6 +35,7 @@ import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
+import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.ipc.impl.Message;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageUnpacker;
@@ -154,17 +155,17 @@ public class PythonIPCProto {
         }
     }
 
-    public ByteBuffer callMulti(long key, ByteBuffer args, int numTuples) throws IOException, AsterixException {
+    public ByteBuffer callMulti(long key, ArrayBackedValueStorage args, int numTuples) throws IOException, AsterixException {
         recvBuffer.clear();
         recvBuffer.position(0);
         recvBuffer.limit(0);
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
-        messageBuilder.callMulti(args.array(), args.position(), numTuples);
+        messageBuilder.callMulti(0, numTuples);
         sendMsg();
-        for()
-        //        sendMsg(key,messageBuilder.buf.position());
-        //        receiveMsg();
+        sockOut.write(args.getByteArray());
+        sockOut.flush();
+        receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
                     "Expected CALL_RSP, recieved " + getResponseType().name());

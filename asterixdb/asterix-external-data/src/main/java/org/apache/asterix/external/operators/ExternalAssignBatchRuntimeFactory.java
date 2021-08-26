@@ -37,6 +37,7 @@ import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.library.PythonLibraryEvaluator;
 import org.apache.asterix.external.library.PythonLibraryEvaluatorFactory;
+import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
 import org.apache.asterix.external.library.msgpack.MessageUnpackerToADM;
 import org.apache.asterix.external.util.ExternalDataUtils;
 import org.apache.asterix.om.functions.IExternalFunctionDescriptor;
@@ -64,8 +65,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
     private int[] outColumns;
     private final IExternalFunctionDescriptor[] fnDescs;
     private final int[][] fnArgColumns;
-
-    private int rpcBufferSize;
+    MessagePackerFromADM packer;
 
     public ExternalAssignBatchRuntimeFactory(int[] outColumns, IExternalFunctionDescriptor[] fnDescs,
             int[][] fnArgColumns, int[] projectionList) {
@@ -73,6 +73,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
         this.outColumns = outColumns;
         this.fnDescs = fnDescs;
         this.fnArgColumns = fnArgColumns;
+        this.packer = new MessagePackerFromADM();
     }
 
     @Override
@@ -80,8 +81,6 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
 
         final int[] projectionToOutColumns = new int[projectionList.length];
         //this is a temporary bodge. these buffers need to work like vsize frames, or be absent entirely
-        int maxArgSz = ExternalDataUtils.getArgBufferSize();
-        rpcBufferSize = ExternalDataUtils.roundUpToNearestFrameSize(maxArgSz, ctx.getInitialFrameSize());
         for (int j = 0; j < projectionList.length; j++) {
             projectionToOutColumns[j] = Arrays.binarySearch(outColumns, projectionList[j]);
         }
@@ -222,9 +221,8 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
                                             tRef.getFieldLength(cols[colIdx]));
-                                    //                                    libraryEvaluators.get(func).getSecond().setArgument(
-                                    //                                            fnDescs[func].getArgumentTypes()[colIdx], ref, argHolders.get(func),
-                                    //                                            fnDescs[func].getFunctionInfo().getNullCall());
+                                            packer.pack(ref,fnDescs[func].getArgumentTypes()[colIdx],argHolders.get(func).getDataOutput(),
+                                                    fnDescs[func].getFunctionInfo().getNullCall());
                                 }
                             } else {
                                 numCalls[func]--;
@@ -297,10 +295,11 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
             }
 
             private long consumeAndGetBatchLength(ArrayBackedValueStorage buf) {
-                byte tag = buf.get();
+                byte tag = buf.getByteArray()[0];
                 if (isFixedArray(tag)) {
                     return tag ^ FIXARRAY_PREFIX;
                 } else if (tag == ARRAY16) {
+                    Short.
                     return Short.toUnsignedInt(buf.getShort());
                 } else if (tag == ARRAY32) {
                     return Integer.toUnsignedLong(buf.getInt());
