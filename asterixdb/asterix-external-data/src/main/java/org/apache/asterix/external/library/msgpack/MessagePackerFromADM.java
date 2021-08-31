@@ -41,7 +41,6 @@ import static org.msgpack.core.MessagePack.Code.TRUE;
 
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharsetEncoder;

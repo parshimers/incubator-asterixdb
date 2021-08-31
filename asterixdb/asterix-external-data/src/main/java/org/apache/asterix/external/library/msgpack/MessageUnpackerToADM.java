@@ -287,8 +287,8 @@ public class MessageUnpackerToADM {
     }
 
     private static void putInt(int index, int value, byte[] dst) {
-        for (int i = 0; i < 4; i++) {
-            dst[index + i] = (byte) (value >> (8 * i) & 0xFF);
+        for (int i = 4; i > 0; i--) {
+            dst[index + i] = (byte) (value >> (32-(8 * i)) & 0xFF);
         }
     }
 

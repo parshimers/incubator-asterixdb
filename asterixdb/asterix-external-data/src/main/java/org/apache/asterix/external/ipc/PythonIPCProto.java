@@ -162,6 +162,9 @@ public class PythonIPCProto {
         recvBuffer.limit(0);
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
+        //TODO: clarify that this is lengthof(type) + array 16 tag + array16 len + array32 tag for args + array32 len
+        int len = args.getLength() + 1 + 1 + 1 + 4;
+        sendHeader(key, len);
         messageBuilder.callMulti(0, numTuples);
         sendMsg();
         sockOut.write(args.getByteArray());

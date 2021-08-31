@@ -40,6 +40,9 @@ import org.apache.asterix.external.library.msgpack.MessageUnpackerToADM;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.om.functions.IExternalFunctionDescriptor;
 import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.EnumDeserializer;
+import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.Counter;
 import org.apache.hyracks.algebricks.runtime.operators.base.AbstractOneInputOneOutputOneFramePushRuntime;
@@ -48,6 +51,7 @@ import org.apache.hyracks.algebricks.runtime.operators.base.AbstractOneInputOneO
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.Warning;
+import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
@@ -221,9 +225,21 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
                                             tRef.getFieldLength(cols[colIdx]));
-                                    packer.pack(ref, fnDescs[func].getArgumentTypes()[colIdx],
-                                            argHolders.get(func).getDataOutput(),
-                                            fnDescs[func].getFunctionInfo().getNullCall());
+                                    ATypeTag tag = fnDescs[func].getArgumentTypes()[colIdx].getTypeTag();
+                                    //guacala
+                                    if (tag == ATypeTag.ANY) {
+                                        TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
+                                        pointy.set(ref);
+                                        ATypeTag rtTypeTag =
+                                                EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
+                                        IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
+                                        packer.pack(ref, rtType, argHolders.get(func).getDataOutput(),
+                                                fnDescs[func].getFunctionInfo().getNullCall());
+                                    } else {
+                                        packer.pack(ref, fnDescs[func].getArgumentTypes()[colIdx],
+                                                argHolders.get(func).getDataOutput(),
+                                                fnDescs[func].getFunctionInfo().getNullCall());
+                                    }
                                 }
                             } else {
                                 numCalls[func]--;
@@ -241,7 +257,8 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                         if (columnResult != null) {
                             Pair<ByteBuffer, Counter> resultholder = batchResults.get(argHolderIdx);
                             ByteBuffer resultBuf = resultholder.getFirst();
-                            resultBuf.reset();
+                            resultBuf.clear();
+                            resultBuf.position(0);
                             //offset 1 to skip message type
                             System.arraycopy(columnResult.array(), 1, resultBuf.array(), 0,
                                     columnResult.remaining() - 1);
