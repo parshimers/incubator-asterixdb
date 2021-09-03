@@ -160,15 +160,13 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     @Override
     public void startLocalRecovery(Set<Integer> partitions) throws IOException, ACIDException {
         state = SystemState.RECOVERING;
-        LOGGER.info("starting recovery ...");
-
+        LOGGER.info("starting recovery for partitions {}", partitions);
         long readableSmallestLSN = logMgr.getReadableSmallestLSN();
         Checkpoint checkpointObject = checkpointManager.getLatest();
         long lowWaterMarkLSN = checkpointObject.getMinMCTFirstLsn();
         if (lowWaterMarkLSN < readableSmallestLSN) {
             lowWaterMarkLSN = readableSmallestLSN;
         }
-
         //delete any recovery files from previous failed recovery attempts
         deleteRecoveryTemporaryFiles();
 
@@ -363,10 +361,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                 datasetLifecycleManager.register(localResource.getPath(), index);
                                 datasetLifecycleManager.open(localResource.getPath());
                                 try {
-                                    final DatasetResourceReference resourceReference =
-                                            DatasetResourceReference.of(localResource);
-                                    maxDiskLastLsn =
-                                            indexCheckpointManagerProvider.get(resourceReference).getLowWatermark();
+                                    maxDiskLastLsn = getResourceLowWaterMark(localResource, datasetLifecycleManager,
+                                            indexCheckpointManagerProvider);
                                 } catch (HyracksDataException e) {
                                     datasetLifecycleManager.close(localResource.getPath());
                                     throw e;
@@ -374,7 +370,12 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                 //#. set resourceId and maxDiskLastLSN to the map
                                 resourceId2MaxLSNMap.put(resourceId, maxDiskLastLsn);
                             } else {
-                                maxDiskLastLsn = resourceId2MaxLSNMap.get(resourceId);
+                                if (!resourceId2MaxLSNMap.containsKey(resourceId)) {
+                                    maxDiskLastLsn = getResourceLowWaterMark(localResource, datasetLifecycleManager,
+                                            indexCheckpointManagerProvider);
+                                } else {
+                                    maxDiskLastLsn = resourceId2MaxLSNMap.get(resourceId);
+                                }
                             }
                             // lsn @ maxDiskLastLsn is either a flush log or a master replica log
                             if (lsn >= maxDiskLastLsn) {
@@ -535,6 +536,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             if (flush) {
                 appCtx.getDatasetLifecycleManager().flushAllDatasets();
             }
+            cleanUp(partitions);
         } catch (IOException | ACIDException e) {
             throw HyracksDataException.create(e);
         } finally {
@@ -566,6 +568,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         String recoveryDirPath = getRecoveryDirPath();
         Path recoveryFolderPath = Paths.get(recoveryDirPath);
         FileUtils.deleteQuietly(recoveryFolderPath.toFile());
+    }
+
+    protected void cleanUp(Set<Integer> partitions) throws HyracksDataException {
+        // the cleanup is currently done by PersistentLocalResourceRepository#clean
     }
 
     private String getRecoveryDirPath() {
@@ -856,6 +862,19 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             throw HyracksDataException.create(flush.getFailure());
         }
         index.resetCurrentComponentIndex();
+    }
+
+    private long getResourceLowWaterMark(LocalResource localResource, IDatasetLifecycleManager datasetLifecycleManager,
+            IIndexCheckpointManagerProvider indexCheckpointManagerProvider) throws HyracksDataException {
+        long maxDiskLastLsn;
+        try {
+            final DatasetResourceReference resourceReference = DatasetResourceReference.of(localResource);
+            maxDiskLastLsn = indexCheckpointManagerProvider.get(resourceReference).getLowWatermark();
+        } catch (HyracksDataException e) {
+            datasetLifecycleManager.close(localResource.getPath());
+            throw e;
+        }
+        return maxDiskLastLsn;
     }
 
     private class JobEntityCommits {

@@ -48,6 +48,7 @@ public final class MetadataRecordTypes {
     public static final String FIELD_NAME_DATATYPE_NAME = "DatatypeName";
     public static final String FIELD_NAME_DATAVERSE_NAME = "DataverseName";
     public static final String FIELD_NAME_DATA_FORMAT = "DataFormat";
+    public static final String FIELD_NAME_DEFAULT = "Default";
     public static final String FIELD_NAME_DEFINITION = "Definition";
     public static final String FIELD_NAME_DEPENDENCIES = "Dependencies";
     public static final String FIELD_NAME_DERIVED = "Derived";
@@ -94,6 +95,7 @@ public final class MetadataRecordTypes {
     public static final String FIELD_NAME_PENDING_OP = "PendingOp";
     public static final String FIELD_NAME_POLICY_NAME = "PolicyName";
     public static final String FIELD_NAME_PRIMARY_KEY = "PrimaryKey";
+    public static final String FIELD_NAME_PRIMARY_KEY_ENFORCED = "PrimaryKeyEnforced";
     public static final String FIELD_NAME_PROPERTIES = "Properties";
     public static final String FIELD_NAME_RECORD = "Record";
     public static final String FIELD_NAME_RETURN_TYPE = "ReturnType";
@@ -107,6 +109,7 @@ public final class MetadataRecordTypes {
     public static final String FIELD_NAME_TYPE = "Type";
     public static final String FIELD_NAME_UNORDERED_LIST = "UnorderedList";
     public static final String FIELD_NAME_VALUE = "Value";
+    public static final String FIELD_NAME_VIEW_DETAILS = "ViewDetails";
     public static final String FIELD_NAME_WORKING_MEMORY_SIZE = "WorkingMemorySize";
     public static final String FIELD_NAME_APPLIED_FUNCTIONS = "AppliedFunctions";
     public static final String FIELD_NAME_WHERE_CLAUSE = "WhereClause";

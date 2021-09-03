@@ -34,6 +34,7 @@ import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.exceptions.SourceLocation;
+import org.apache.hyracks.util.OptionalBoolean;
 
 public class CreateIndexStatement extends AbstractStatement {
 
@@ -48,10 +49,11 @@ public class CreateIndexStatement extends AbstractStatement {
     private final int gramLength;
     // Specific to FullText indexes.
     private final String fullTextConfigName;
+    private final OptionalBoolean excludeUnknownKey;
 
     public CreateIndexStatement(DataverseName dataverseName, Identifier datasetName, Identifier indexName,
             IndexType indexType, List<IndexedElement> indexedElements, boolean enforced, int gramLength,
-            String fullTextConfigName, boolean ifNotExists) {
+            String fullTextConfigName, boolean ifNotExists, Boolean excludeUnknownKey) {
         this.dataverseName = dataverseName;
         this.datasetName = Objects.requireNonNull(datasetName);
         this.indexName = Objects.requireNonNull(indexName);
@@ -61,6 +63,7 @@ public class CreateIndexStatement extends AbstractStatement {
         this.gramLength = gramLength;
         this.ifNotExists = ifNotExists;
         this.fullTextConfigName = fullTextConfigName;
+        this.excludeUnknownKey = OptionalBoolean.ofNullable(excludeUnknownKey);
     }
 
     public String getFullTextConfigName() {
@@ -89,6 +92,14 @@ public class CreateIndexStatement extends AbstractStatement {
 
     public boolean isEnforced() {
         return enforced;
+    }
+
+    public boolean hasExcludeUnknownKey() {
+        return excludeUnknownKey.isPresent();
+    }
+
+    public OptionalBoolean isExcludeUnknownKey() {
+        return excludeUnknownKey;
     }
 
     public int getGramLength() {

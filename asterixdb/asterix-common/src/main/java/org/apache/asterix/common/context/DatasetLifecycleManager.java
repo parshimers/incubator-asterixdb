@@ -170,9 +170,15 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
         closeIndex(iInfo);
         dsInfo.removeIndex(resourceID);
         synchronized (dsInfo) {
-            if (dsInfo.getReferenceCount() == 0 && dsInfo.isOpen() && dsInfo.getIndexes().isEmpty()
-                    && !dsInfo.isExternal()) {
+            int referenceCount = dsInfo.getReferenceCount();
+            boolean open = dsInfo.isOpen();
+            boolean empty = dsInfo.getIndexes().isEmpty();
+            if (referenceCount == 0 && open && empty && !dsInfo.isExternal()) {
+                LOGGER.debug("removing dataset {} from cache", dsInfo.getDatasetID());
                 removeDatasetFromCache(dsInfo.getDatasetID());
+            } else {
+                LOGGER.debug("keeping dataset {} in cache, ref count {}, open {}, indexes count: {}",
+                        dsInfo.getDatasetID(), referenceCount, open, dsInfo.getIndexes().size());
             }
         }
     }
@@ -414,9 +420,10 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
         logManager.log(waitLog);
         for (PrimaryIndexOperationTracker primaryOpTracker : dsr.getOpTrackers()) {
             // flush each partition one by one
-            if (primaryOpTracker.getNumActiveOperations() > 0) {
-                throw new IllegalStateException(
-                        "flushDatasetOpenIndexes is called on a dataset with currently active operations");
+            int numActiveOperations = primaryOpTracker.getNumActiveOperations();
+            if (numActiveOperations > 0) {
+                throw new IllegalStateException("flushDatasetOpenIndexes is called on dataset " + dsInfo.getDatasetID()
+                        + " with currently " + "active operations, count=" + numActiveOperations);
             }
             primaryOpTracker.setFlushOnExit(true);
             primaryOpTracker.flushIfNeeded();
@@ -555,8 +562,55 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
         for (DatasetResource dsr : datasets.values()) {
             stats.addPendingFlushes(dsr.getDatasetInfo().getPendingFlushes());
             stats.addPendingMerges(dsr.getDatasetInfo().getPendingMerges());
+            stats.addPendingReplications(dsr.getDatasetInfo().getPendingReplications());
         }
         return stats;
+    }
+
+    //TODO refactor this method with unregister method
+    @Override
+    public synchronized void closeIfOpen(String resourcePath) throws HyracksDataException {
+        validateDatasetLifecycleManagerState();
+        int did = getDIDfromResourcePath(resourcePath);
+        long resourceID = getResourceIDfromResourcePath(resourcePath);
+
+        DatasetResource dsr = datasets.get(did);
+        IndexInfo iInfo = dsr == null ? null : dsr.getIndexInfo(resourceID);
+
+        if (dsr == null || iInfo == null) {
+            return;
+        }
+
+        PrimaryIndexOperationTracker opTracker = dsr.getOpTracker(iInfo.getPartition());
+        if (iInfo.getReferenceCount() != 0 || (opTracker != null && opTracker.getNumActiveOperations() != 0)) {
+            if (LOGGER.isErrorEnabled()) {
+                final String logMsg = String.format(
+                        "Failed to drop in-use index %s. Ref count (%d), Operation tracker active ops (%d)",
+                        resourcePath, iInfo.getReferenceCount(), opTracker.getNumActiveOperations());
+                LOGGER.error(logMsg);
+            }
+            throw HyracksDataException.create(ErrorCode.CANNOT_DROP_IN_USE_INDEX,
+                    StoragePathUtil.getIndexNameFromPath(resourcePath));
+        }
+
+        // TODO: use fine-grained counters, one for each index instead of a single counter per dataset.
+        DatasetInfo dsInfo = dsr.getDatasetInfo();
+        dsInfo.waitForIO();
+        closeIndex(iInfo);
+        dsInfo.removeIndex(resourceID);
+        synchronized (dsInfo) {
+            if (dsInfo.getReferenceCount() == 0 && dsInfo.isOpen() && dsInfo.getIndexes().isEmpty()
+                    && !dsInfo.isExternal()) {
+                removeDatasetFromCache(dsInfo.getDatasetID());
+            }
+        }
+    }
+
+    @Override
+    public synchronized void closePartition(int partitionId) {
+        for (DatasetResource ds : datasets.values()) {
+            ds.removePartition(partitionId);
+        }
     }
 
     private void closeIndex(IndexInfo indexInfo) throws HyracksDataException {

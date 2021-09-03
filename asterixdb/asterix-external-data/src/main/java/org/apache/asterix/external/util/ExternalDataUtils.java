@@ -18,37 +18,60 @@
  */
 package org.apache.asterix.external.util;
 
+import static com.google.cloud.storage.Storage.BlobListOption;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.asterix.common.exceptions.ErrorCode.EXTERNAL_SOURCE_ERROR;
+import static org.apache.asterix.common.exceptions.ErrorCode.PARAMETERS_NOT_ALLOWED_AT_SAME_TIME;
 import static org.apache.asterix.common.exceptions.ErrorCode.REQUIRED_PARAM_IF_PARAM_IS_PRESENT;
+import static org.apache.asterix.common.exceptions.ErrorCode.REQUIRED_PARAM_OR_PARAM_IF_PARAM_IS_PRESENT;
 import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.ACCESS_KEY_ID_FIELD_NAME;
 import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.ERROR_METHOD_NOT_IMPLEMENTED;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_ACCESS_KEY_ID;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_ANONYMOUS_ACCESS;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_CREDENTIAL_PROVIDER_KEY;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_PATH_STYLE_ACCESS;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_S3_CONNECTION_POOL_SIZE;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_SECRET_ACCESS_KEY;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_SESSION_TOKEN;
+import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.HADOOP_TEMP_ACCESS;
 import static org.apache.asterix.external.util.ExternalDataConstants.AwsS3.SECRET_ACCESS_KEY_FIELD_NAME;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.ACCOUNT_KEY_FIELD_NAME;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.ACCOUNT_NAME_FIELD_NAME;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.BLOB_ENDPOINT_FIELD_NAME;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CONNECTION_STRING_ACCOUNT_KEY;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CONNECTION_STRING_ACCOUNT_NAME;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CONNECTION_STRING_BLOB_ENDPOINT;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CONNECTION_STRING_ENDPOINT_SUFFIX;
+import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CLIENT_CERTIFICATE_FIELD_NAME;
+import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CLIENT_CERTIFICATE_PASSWORD_FIELD_NAME;
+import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CLIENT_ID_FIELD_NAME;
+import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CLIENT_SECRET_FIELD_NAME;
 import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CONNECTION_STRING_FIELD_NAME;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.CONNECTION_STRING_SHARED_ACCESS_SIGNATURE;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.ENDPOINT_SUFFIX_FIELD_NAME;
-import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.SHARED_ACCESS_SIGNATURE_FIELD_NAME;
+import static org.apache.asterix.external.util.ExternalDataConstants.AzureBlob.TENANT_ID_FIELD_NAME;
+import static org.apache.asterix.external.util.ExternalDataConstants.GCS.JSON_CREDENTIALS_FIELD_NAME;
+import static org.apache.asterix.external.util.ExternalDataConstants.KEY_ADAPTER_NAME_GCS;
 import static org.apache.asterix.external.util.ExternalDataConstants.KEY_DELIMITER;
 import static org.apache.asterix.external.util.ExternalDataConstants.KEY_ESCAPE;
+import static org.apache.asterix.external.util.ExternalDataConstants.KEY_EXCLUDE;
 import static org.apache.asterix.external.util.ExternalDataConstants.KEY_EXTERNAL_SCAN_BUFFER_SIZE;
+import static org.apache.asterix.external.util.ExternalDataConstants.KEY_INCLUDE;
 import static org.apache.asterix.external.util.ExternalDataConstants.KEY_QUOTE;
 import static org.apache.asterix.external.util.ExternalDataConstants.KEY_RECORD_END;
 import static org.apache.asterix.external.util.ExternalDataConstants.KEY_RECORD_START;
 import static org.apache.asterix.runtime.evaluators.functions.StringEvaluatorUtils.RESERVED_REGEX_CHARS;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiPredicate;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.CompilationException;
@@ -62,11 +85,14 @@ import org.apache.asterix.external.api.IDataParserFactory;
 import org.apache.asterix.external.api.IExternalDataSourceFactory.DataSourceType;
 import org.apache.asterix.external.api.IInputStreamFactory;
 import org.apache.asterix.external.api.IRecordReaderFactory;
+import org.apache.asterix.external.input.record.reader.abstracts.AbstractExternalInputStreamFactory.IncludeExcludeMatcher;
 import org.apache.asterix.external.library.JavaLibrary;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AUnionType;
 import org.apache.asterix.runtime.evaluators.common.NumberUtils;
+import org.apache.hadoop.fs.s3a.Constants;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hyracks.algebricks.common.exceptions.NotImplementedException;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.IWarningCollector;
@@ -82,11 +108,18 @@ import org.apache.hyracks.dataflow.common.data.parsers.LongParserFactory;
 import org.apache.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
 import org.apache.hyracks.util.StorageUtil;
 
+import com.azure.identity.ClientCertificateCredentialBuilder;
+import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
+import com.google.api.gax.paging.Page;
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -102,10 +135,10 @@ import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.S3Response;
 
 public class ExternalDataUtils {
-
     private static final Map<ATypeTag, IValueParserFactory> valueParserFactoryMap = new EnumMap<>(ATypeTag.class);
     private static final int DEFAULT_MAX_ARGUMENT_SZ = 1024 * 1024;
     private static final int HEADER_FUDGE = 64;
@@ -436,7 +469,8 @@ public class ExternalDataUtils {
         final String inputFormat = configuration.get(ExternalDataConstants.KEY_INPUT_FORMAT);
         if (ExternalDataConstants.INPUT_FORMAT_PARQUET.equals(inputFormat)) {
             //Parquet supports binary-to-binary conversion. No parsing is required
-            configuration.put(ExternalDataConstants.KEY_FORMAT, ExternalDataConstants.FORMAT_NOOP);
+            configuration.put(ExternalDataConstants.KEY_PARSER, ExternalDataConstants.FORMAT_NOOP);
+            configuration.put(ExternalDataConstants.KEY_FORMAT, ExternalDataConstants.FORMAT_PARQUET);
         }
         if (!configuration.containsKey(ExternalDataConstants.KEY_PARSER)
                 && configuration.containsKey(ExternalDataConstants.KEY_FORMAT)) {
@@ -542,7 +576,10 @@ public class ExternalDataUtils {
                 AwsS3.validateProperties(configuration, srcLoc, collector);
                 break;
             case ExternalDataConstants.KEY_ADAPTER_NAME_AZURE_BLOB:
-                ExternalDataUtils.Azure.validateProperties(configuration, srcLoc, collector);
+                Azure.validateProperties(configuration, srcLoc, collector);
+                break;
+            case KEY_ADAPTER_NAME_GCS:
+                GCS.validateProperties(configuration, srcLoc, collector);
                 break;
             default:
                 // Nothing needs to be done
@@ -711,12 +748,63 @@ public class ExternalDataUtils {
         }
     }
 
+    public static IncludeExcludeMatcher getIncludeExcludeMatchers(Map<String, String> configuration)
+            throws CompilationException {
+        // Get and compile the patterns for include/exclude if provided
+        List<Matcher> includeMatchers = new ArrayList<>();
+        List<Matcher> excludeMatchers = new ArrayList<>();
+        String pattern = null;
+        try {
+            for (Map.Entry<String, String> entry : configuration.entrySet()) {
+                if (entry.getKey().startsWith(KEY_INCLUDE)) {
+                    pattern = entry.getValue();
+                    includeMatchers.add(Pattern.compile(patternToRegex(pattern)).matcher(""));
+                } else if (entry.getKey().startsWith(KEY_EXCLUDE)) {
+                    pattern = entry.getValue();
+                    excludeMatchers.add(Pattern.compile(patternToRegex(pattern)).matcher(""));
+                }
+            }
+        } catch (PatternSyntaxException ex) {
+            throw new CompilationException(ErrorCode.INVALID_REGEX_PATTERN, pattern);
+        }
+
+        IncludeExcludeMatcher includeExcludeMatcher;
+        if (!includeMatchers.isEmpty()) {
+            includeExcludeMatcher =
+                    new IncludeExcludeMatcher(includeMatchers, (matchers1, key) -> matchPatterns(matchers1, key));
+        } else if (!excludeMatchers.isEmpty()) {
+            includeExcludeMatcher =
+                    new IncludeExcludeMatcher(excludeMatchers, (matchers1, key) -> !matchPatterns(matchers1, key));
+        } else {
+            includeExcludeMatcher = new IncludeExcludeMatcher(Collections.emptyList(), (matchers1, key) -> true);
+        }
+
+        return includeExcludeMatcher;
+    }
+
     public static boolean supportsPushdown(Map<String, String> properties) {
         //Currently, only Apache Parquet format is supported
-        return ExternalDataConstants.CLASS_NAME_PARQUET_INPUT_FORMAT
-                .equals(properties.get(ExternalDataConstants.KEY_INPUT_FORMAT))
-                || ExternalDataConstants.INPUT_FORMAT_PARQUET
-                        .equals(properties.get(ExternalDataConstants.KEY_INPUT_FORMAT));
+        return isParquetFormat(properties);
+    }
+
+    /**
+     * Validate the dataset type declared with a given type
+     *
+     * @param properties        external dataset configuration
+     * @param datasetRecordType dataset declared type
+     */
+    public static void validateType(Map<String, String> properties, ARecordType datasetRecordType)
+            throws CompilationException {
+        if (isParquetFormat(properties) && datasetRecordType.getFieldTypes().length != 0) {
+            throw new CompilationException(ErrorCode.UNSUPPORTED_TYPE_FOR_PARQUET, datasetRecordType.getTypeName());
+        }
+    }
+
+    private static boolean isParquetFormat(Map<String, String> properties) {
+        String inputFormat = properties.get(ExternalDataConstants.KEY_INPUT_FORMAT);
+        return ExternalDataConstants.CLASS_NAME_PARQUET_INPUT_FORMAT.equals(inputFormat)
+                || ExternalDataConstants.INPUT_FORMAT_PARQUET.equals(inputFormat)
+                || ExternalDataConstants.FORMAT_PARQUET.equals(properties.get(ExternalDataConstants.KEY_FORMAT));
     }
 
     public static class AwsS3 {
@@ -777,6 +865,58 @@ public class ExternalDataUtils {
             }
 
             return builder.build();
+        }
+
+        /**
+         * Builds the S3 client using the provided configuration
+         *
+         * @param configuration      properties
+         * @param numberOfPartitions number of partitions in the cluster
+         */
+        public static void configureAwsS3HdfsJobConf(JobConf conf, Map<String, String> configuration,
+                int numberOfPartitions) {
+            String accessKeyId = configuration.get(ExternalDataConstants.AwsS3.ACCESS_KEY_ID_FIELD_NAME);
+            String secretAccessKey = configuration.get(ExternalDataConstants.AwsS3.SECRET_ACCESS_KEY_FIELD_NAME);
+            String sessionToken = configuration.get(ExternalDataConstants.AwsS3.SESSION_TOKEN_FIELD_NAME);
+            String serviceEndpoint = configuration.get(ExternalDataConstants.AwsS3.SERVICE_END_POINT_FIELD_NAME);
+
+            /*
+             * Authentication Methods:
+             * 1- Anonymous: no accessKeyId and no secretAccessKey
+             * 2- Temporary: has to provide accessKeyId, secretAccessKey and sessionToken
+             * 3- Private: has to provide accessKeyId and secretAccessKey
+             */
+            if (accessKeyId == null) {
+                //Tells hadoop-aws it is an anonymous access
+                conf.set(HADOOP_CREDENTIAL_PROVIDER_KEY, HADOOP_ANONYMOUS_ACCESS);
+            } else {
+                conf.set(HADOOP_ACCESS_KEY_ID, accessKeyId);
+                conf.set(HADOOP_SECRET_ACCESS_KEY, secretAccessKey);
+                if (sessionToken != null) {
+                    conf.set(HADOOP_SESSION_TOKEN, sessionToken);
+                    //Tells hadoop-aws it is a temporary access
+                    conf.set(HADOOP_CREDENTIAL_PROVIDER_KEY, HADOOP_TEMP_ACCESS);
+                }
+            }
+
+            /*
+             * This is to allow S3 definition to have path-style form. Should always be true to match the current
+             * way we access files in S3
+             */
+            conf.set(HADOOP_PATH_STYLE_ACCESS, ExternalDataConstants.TRUE);
+
+            /*
+             * Set the size of S3 connection pool to be the number of partitions
+             */
+            conf.set(HADOOP_S3_CONNECTION_POOL_SIZE, String.valueOf(numberOfPartitions));
+
+            if (serviceEndpoint != null) {
+                // Validation of the URL should be done at hadoop-aws level
+                conf.set(ExternalDataConstants.AwsS3.HADOOP_SERVICE_END_POINT, serviceEndpoint);
+            } else {
+                //Region is ignored and buckets could be found by the central endpoint
+                conf.set(ExternalDataConstants.AwsS3.HADOOP_SERVICE_END_POINT, Constants.CENTRAL_ENDPOINT);
+            }
         }
 
         /**
@@ -856,11 +996,10 @@ public class ExternalDataUtils {
         /**
          * Checks for a single object in the specified bucket to determine if the bucket is empty or not.
          *
-         * @param s3Client s3 client
+         * @param s3Client  s3 client
          * @param container the container name
-         * @param prefix Prefix to be used
+         * @param prefix    Prefix to be used
          * @param useOldApi flag whether to use the old API or not
-         *
          * @return returns the S3 response
          */
         private static S3Response isBucketEmpty(S3Client s3Client, String container, String prefix, boolean useOldApi) {
@@ -875,6 +1014,155 @@ public class ExternalDataUtils {
                 response = s3Client.listObjectsV2(listObjectsBuilder.bucket(container).maxKeys(1).build());
             }
             return response;
+        }
+
+        /**
+         * Returns the lists of S3 objects.
+         *
+         * @param configuration         properties
+         * @param includeExcludeMatcher include/exclude matchers to apply
+         */
+        public static List<S3Object> listS3Objects(Map<String, String> configuration,
+                IncludeExcludeMatcher includeExcludeMatcher, IWarningCollector warningCollector)
+                throws CompilationException {
+            // Prepare to retrieve the objects
+            List<S3Object> filesOnly;
+            String container = configuration.get(ExternalDataConstants.CONTAINER_NAME_FIELD_NAME);
+            S3Client s3Client = buildAwsS3Client(configuration);
+            String prefix = getPrefix(configuration);
+
+            try {
+                filesOnly = listS3Objects(s3Client, container, prefix, includeExcludeMatcher);
+            } catch (S3Exception ex) {
+                // New API is not implemented, try falling back to old API
+                try {
+                    // For error code, see https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
+                    if (ex.awsErrorDetails().errorCode()
+                            .equals(ExternalDataConstants.AwsS3.ERROR_METHOD_NOT_IMPLEMENTED)) {
+                        filesOnly = oldApiListS3Objects(s3Client, container, prefix, includeExcludeMatcher);
+                    } else {
+                        throw ex;
+                    }
+                } catch (SdkException ex2) {
+                    throw new CompilationException(ErrorCode.EXTERNAL_SOURCE_ERROR, ex2.getMessage());
+                }
+            } catch (SdkException ex) {
+                throw new CompilationException(ErrorCode.EXTERNAL_SOURCE_ERROR, ex.getMessage());
+            } finally {
+                if (s3Client != null) {
+                    CleanupUtils.close(s3Client, null);
+                }
+            }
+
+            // Warn if no files are returned
+            if (filesOnly.isEmpty() && warningCollector.shouldWarn()) {
+                Warning warning = Warning.of(null, ErrorCode.EXTERNAL_SOURCE_CONFIGURATION_RETURNED_NO_FILES);
+                warningCollector.warn(warning);
+            }
+
+            return filesOnly;
+        }
+
+        /**
+         * Uses the latest API to retrieve the objects from the storage.
+         *
+         * @param s3Client              S3 client
+         * @param container             container name
+         * @param prefix                definition prefix
+         * @param includeExcludeMatcher include/exclude matchers to apply
+         */
+        private static List<S3Object> listS3Objects(S3Client s3Client, String container, String prefix,
+                IncludeExcludeMatcher includeExcludeMatcher) {
+            String newMarker = null;
+            List<S3Object> filesOnly = new ArrayList<>();
+
+            ListObjectsV2Response listObjectsResponse;
+            ListObjectsV2Request.Builder listObjectsBuilder = ListObjectsV2Request.builder().bucket(container);
+            listObjectsBuilder.prefix(prefix);
+
+            while (true) {
+                // List the objects from the start, or from the last marker in case of truncated result
+                if (newMarker == null) {
+                    listObjectsResponse = s3Client.listObjectsV2(listObjectsBuilder.build());
+                } else {
+                    listObjectsResponse =
+                            s3Client.listObjectsV2(listObjectsBuilder.continuationToken(newMarker).build());
+                }
+
+                // Collect the paths to files only
+                collectAndFilterFiles(listObjectsResponse.contents(), includeExcludeMatcher.getPredicate(),
+                        includeExcludeMatcher.getMatchersList(), filesOnly);
+
+                // Mark the flag as done if done, otherwise, get the marker of the previous response for the next request
+                if (!listObjectsResponse.isTruncated()) {
+                    break;
+                } else {
+                    newMarker = listObjectsResponse.nextContinuationToken();
+                }
+            }
+
+            return filesOnly;
+        }
+
+        /**
+         * Uses the old API (in case the new API is not implemented) to retrieve the objects from the storage
+         *
+         * @param s3Client              S3 client
+         * @param container             container name
+         * @param prefix                definition prefix
+         * @param includeExcludeMatcher include/exclude matchers to apply
+         */
+        private static List<S3Object> oldApiListS3Objects(S3Client s3Client, String container, String prefix,
+                IncludeExcludeMatcher includeExcludeMatcher) {
+            String newMarker = null;
+            List<S3Object> filesOnly = new ArrayList<>();
+
+            ListObjectsResponse listObjectsResponse;
+            ListObjectsRequest.Builder listObjectsBuilder = ListObjectsRequest.builder().bucket(container);
+            listObjectsBuilder.prefix(prefix);
+
+            while (true) {
+                // List the objects from the start, or from the last marker in case of truncated result
+                if (newMarker == null) {
+                    listObjectsResponse = s3Client.listObjects(listObjectsBuilder.build());
+                } else {
+                    listObjectsResponse = s3Client.listObjects(listObjectsBuilder.marker(newMarker).build());
+                }
+
+                // Collect the paths to files only
+                collectAndFilterFiles(listObjectsResponse.contents(), includeExcludeMatcher.getPredicate(),
+                        includeExcludeMatcher.getMatchersList(), filesOnly);
+
+                // Mark the flag as done if done, otherwise, get the marker of the previous response for the next request
+                if (!listObjectsResponse.isTruncated()) {
+                    break;
+                } else {
+                    newMarker = listObjectsResponse.nextMarker();
+                }
+            }
+
+            return filesOnly;
+        }
+
+        /**
+         * AWS S3 returns all the objects as paths, not differentiating between folder and files. The path is considered
+         * a file if it does not end up with a "/" which is the separator in a folder structure.
+         *
+         * @param s3Objects List of returned objects
+         */
+        private static void collectAndFilterFiles(List<S3Object> s3Objects,
+                BiPredicate<List<Matcher>, String> predicate, List<Matcher> matchers, List<S3Object> filesOnly) {
+            for (S3Object object : s3Objects) {
+                // skip folders
+                if (object.key().endsWith("/")) {
+                    continue;
+                }
+
+                // No filter, add file
+                if (predicate.test(matchers, object.key())) {
+                    filesOnly.add(object);
+                }
+            }
         }
     }
 
@@ -891,72 +1179,97 @@ public class ExternalDataUtils {
          */
         public static BlobServiceClient buildAzureClient(Map<String, String> configuration)
                 throws CompilationException {
-            // TODO(Hussain): Need to ensure that all required parameters are present in a previous step
             String connectionString = configuration.get(CONNECTION_STRING_FIELD_NAME);
-            String accountName = configuration.get(ACCOUNT_NAME_FIELD_NAME);
-            String accountKey = configuration.get(ACCOUNT_KEY_FIELD_NAME);
-            String sharedAccessSignature = configuration.get(SHARED_ACCESS_SIGNATURE_FIELD_NAME);
-            String blobEndpoint = configuration.get(BLOB_ENDPOINT_FIELD_NAME);
-            String endpointSuffix = configuration.get(ENDPOINT_SUFFIX_FIELD_NAME);
+            String tenantId = configuration.get(TENANT_ID_FIELD_NAME);
+            String clientId = configuration.get(CLIENT_ID_FIELD_NAME);
+            String clientSecret = configuration.get(CLIENT_SECRET_FIELD_NAME);
+            String clientCertificate = configuration.get(CLIENT_CERTIFICATE_FIELD_NAME);
+            String clientCertificatePassword = configuration.get(CLIENT_CERTIFICATE_PASSWORD_FIELD_NAME);
 
-            // Construct the connection string
-            // Connection string format: name1=value1;name2=value2;....
-            StringBuilder connectionStringBuilder = new StringBuilder();
+            // Client builder
             BlobServiceClientBuilder builder = new BlobServiceClientBuilder();
 
-            boolean authMethodFound = false;
-
+            // Connection string is used
             if (connectionString != null) {
-                // connection string
-                authMethodFound = true;
-                connectionStringBuilder.append(connectionString).append(";");
-            }
-
-            if (accountName != null && accountKey != null) {
-                if (authMethodFound) {
-                    throw new CompilationException(ErrorCode.ONLY_SINGLE_AUTHENTICATION_IS_ALLOWED);
+                try {
+                    builder.connectionString(connectionString);
+                } catch (Exception ex) {
+                    throw new CompilationException(ErrorCode.EXTERNAL_SOURCE_ERROR, ex.getMessage());
                 }
-                authMethodFound = true;
-                // account name + account key
-                connectionStringBuilder.append(CONNECTION_STRING_ACCOUNT_NAME).append("=").append(accountName)
-                        .append(";").append(CONNECTION_STRING_ACCOUNT_KEY).append("=").append(accountKey).append(";");
             }
 
-            if (accountName != null && sharedAccessSignature != null) {
-                if (authMethodFound) {
-                    throw new CompilationException(ErrorCode.ONLY_SINGLE_AUTHENTICATION_IS_ALLOWED);
-                }
-                // account name + shared access token
-                connectionStringBuilder.append(CONNECTION_STRING_ACCOUNT_NAME).append("=").append(accountName)
-                        .append(";").append(CONNECTION_STRING_SHARED_ACCESS_SIGNATURE).append("=")
-                        .append(sharedAccessSignature).append(";");
-            }
-
-            // Add blobEndpoint and endpointSuffix if present, adjust any '/' as needed
-            if (blobEndpoint != null) {
-                connectionStringBuilder.append(CONNECTION_STRING_BLOB_ENDPOINT).append("=").append(blobEndpoint)
-                        .append(";");
-                if (endpointSuffix != null) {
-                    String endpointSuffixUpdated;
-                    if (blobEndpoint.endsWith("/")) {
-                        endpointSuffixUpdated =
-                                endpointSuffix.startsWith("/") ? endpointSuffix.substring(1) : endpointSuffix;
+            // Active Directory authentication
+            if (clientId != null) {
+                // Both (or neither) client secret and client secret were provided, only one is allowed
+                if ((clientSecret == null) == (clientCertificate == null)) {
+                    if (clientSecret != null) {
+                        throw new CompilationException(PARAMETERS_NOT_ALLOWED_AT_SAME_TIME, CLIENT_SECRET_FIELD_NAME,
+                                CLIENT_CERTIFICATE_FIELD_NAME);
                     } else {
-                        endpointSuffixUpdated = endpointSuffix.startsWith("/") ? endpointSuffix : "/" + endpointSuffix;
+                        throw new CompilationException(REQUIRED_PARAM_OR_PARAM_IF_PARAM_IS_PRESENT,
+                                CLIENT_SECRET_FIELD_NAME, CLIENT_CERTIFICATE_FIELD_NAME, CLIENT_ID_FIELD_NAME);
                     }
-                    connectionStringBuilder.append(CONNECTION_STRING_ENDPOINT_SUFFIX).append("=")
-                            .append(endpointSuffixUpdated).append(";");
+                }
+
+                // Tenant ID is required
+                if (tenantId == null) {
+                    throw new CompilationException(REQUIRED_PARAM_IF_PARAM_IS_PRESENT, TENANT_ID_FIELD_NAME,
+                            CLIENT_ID_FIELD_NAME);
+                }
+
+                // Client certificate is required if client certificate password is present
+                if (clientCertificatePassword != null && clientCertificate == null) {
+                    throw new CompilationException(REQUIRED_PARAM_IF_PARAM_IS_PRESENT, CLIENT_CERTIFICATE_FIELD_NAME,
+                            CLIENT_CERTIFICATE_PASSWORD_FIELD_NAME);
+                }
+
+                // Use AD authentication
+                if (clientSecret != null) {
+                    ClientSecretCredentialBuilder secret = new ClientSecretCredentialBuilder();
+                    secret.clientId(clientId);
+                    secret.tenantId(tenantId);
+                    secret.clientSecret(clientSecret);
+                    builder.credential(secret.build());
+                } else {
+                    // Certificate
+                    ClientCertificateCredentialBuilder certificate = new ClientCertificateCredentialBuilder();
+                    certificate.clientId(clientId);
+                    certificate.tenantId(tenantId);
+                    try {
+                        InputStream certificateContent = new ByteArrayInputStream(clientCertificate.getBytes(UTF_8));
+                        if (clientCertificatePassword == null) {
+                            Method pemCertificate = ClientCertificateCredentialBuilder.class
+                                    .getDeclaredMethod("pemCertificate", InputStream.class);
+                            pemCertificate.setAccessible(true);
+                            pemCertificate.invoke(certificate, certificateContent);
+                        } else {
+                            Method pemCertificate = ClientCertificateCredentialBuilder.class
+                                    .getDeclaredMethod("pfxCertificate", InputStream.class, String.class);
+                            pemCertificate.setAccessible(true);
+                            pemCertificate.invoke(certificate, certificateContent, clientCertificatePassword);
+                        }
+                    } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException ex) {
+                        throw new CompilationException(EXTERNAL_SOURCE_ERROR, ex.getMessage());
+                    }
+                    builder.credential(certificate.build());
                 }
             }
 
-            // No credentials or endpoint provided
-            if (connectionStringBuilder.length() == 0) {
-                throw new CompilationException(ErrorCode.NO_AUTH_PROVIDED_ENDPOINT_REQUIRED_FOR_ANONYMOUS_ACCESS,
-                        BLOB_ENDPOINT_FIELD_NAME);
+            // If client id is not present, ensure client secret, certificate, tenant id and client certificate
+            // password are not present
+            if (clientId == null) {
+                Optional<String> param = Stream
+                        .of(CLIENT_SECRET_FIELD_NAME, CLIENT_CERTIFICATE_FIELD_NAME, TENANT_ID_FIELD_NAME,
+                                CLIENT_CERTIFICATE_PASSWORD_FIELD_NAME)
+                        .filter(field -> configuration.get(field) != null).findFirst();
+                if (param.isPresent()) {
+                    throw new CompilationException(REQUIRED_PARAM_IF_PARAM_IS_PRESENT, CLIENT_ID_FIELD_NAME,
+                            param.get());
+                }
             }
 
             try {
-                return builder.connectionString(connectionStringBuilder.toString()).buildClient();
+                return builder.buildClient();
             } catch (Exception ex) {
                 throw new CompilationException(ErrorCode.EXTERNAL_SOURCE_ERROR, ex.getMessage());
             }
@@ -991,6 +1304,74 @@ public class ExternalDataUtils {
                 Iterable<BlobItem> blobItems = blobContainer.listBlobs(listBlobsOptions, null);
 
                 if (!blobItems.iterator().hasNext() && collector.shouldWarn()) {
+                    Warning warning = Warning.of(srcLoc, ErrorCode.EXTERNAL_SOURCE_CONFIGURATION_RETURNED_NO_FILES);
+                    collector.warn(warning);
+                }
+            } catch (CompilationException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                throw new CompilationException(ErrorCode.EXTERNAL_SOURCE_ERROR, ex.getMessage());
+            }
+        }
+    }
+
+    public static class GCS {
+        private GCS() {
+            throw new AssertionError("do not instantiate");
+
+        }
+
+        //TODO(htowaileb): Add validation step similar to other externals, which also checks if empty bucket
+        //upon creating the external dataset
+
+        /**
+         * Builds the client using the provided configuration
+         *
+         * @param configuration properties
+         * @return clientasterixdb/asterix-external-data/src/main/java/org/apache/asterix/external/util/ExternalDataUtils.java
+         * @throws CompilationException CompilationException
+         */
+        public static Storage buildClient(Map<String, String> configuration) throws CompilationException {
+            String jsonCredentials = configuration.get(JSON_CREDENTIALS_FIELD_NAME);
+
+            StorageOptions.Builder builder = StorageOptions.newBuilder();
+
+            // Use credentials if available
+            if (jsonCredentials != null) {
+                try (InputStream credentialsStream = new ByteArrayInputStream(jsonCredentials.getBytes())) {
+                    builder.setCredentials(ServiceAccountCredentials.fromStream(credentialsStream));
+                } catch (IOException ex) {
+                    throw new CompilationException(EXTERNAL_SOURCE_ERROR, ex.getMessage());
+                }
+            }
+
+            return builder.build().getService();
+        }
+
+        /**
+         * Validate external dataset properties
+         *
+         * @param configuration properties
+         * @throws CompilationException Compilation exception
+         */
+        public static void validateProperties(Map<String, String> configuration, SourceLocation srcLoc,
+                IWarningCollector collector) throws CompilationException {
+
+            // check if the format property is present
+            if (configuration.get(ExternalDataConstants.KEY_FORMAT) == null) {
+                throw new CompilationException(ErrorCode.PARAMETERS_REQUIRED, srcLoc, ExternalDataConstants.KEY_FORMAT);
+            }
+
+            validateIncludeExclude(configuration);
+            String container = configuration.get(ExternalDataConstants.CONTAINER_NAME_FIELD_NAME);
+
+            try {
+                BlobListOption limitOption = BlobListOption.pageSize(1);
+                BlobListOption prefixOption = BlobListOption.prefix(getPrefix(configuration));
+                Storage storage = buildClient(configuration);
+                Page<Blob> items = storage.list(container, limitOption, prefixOption);
+
+                if (!items.iterateAll().iterator().hasNext() && collector.shouldWarn()) {
                     Warning warning = Warning.of(srcLoc, ErrorCode.EXTERNAL_SOURCE_CONFIGURATION_RETURNED_NO_FILES);
                     collector.warn(warning);
                 }

@@ -18,7 +18,8 @@
  */
 package org.apache.asterix.app.nc;
 
-import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +31,7 @@ import java.util.stream.Stream;
 
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.api.INcApplicationContext;
+import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.replication.IPartitionReplica;
 import org.apache.asterix.common.storage.IReplicaManager;
 import org.apache.asterix.common.storage.ReplicaIdentifier;
@@ -37,9 +39,7 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.replication.api.PartitionReplica;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.hyracks.api.client.NodeStatus;
-import org.apache.hyracks.api.config.IApplicationConfig;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.storage.common.LocalResource;
 import org.apache.hyracks.util.annotations.ThreadSafe;
@@ -60,10 +60,12 @@ public class ReplicaManager implements IReplicaManager {
      */
     private final Map<ReplicaIdentifier, PartitionReplica> replicas = new HashMap<>();
     private final Object replicaSyncLock = new Object();
+    private final Set<Integer> nodeOwnedPartitions = new HashSet<>();
 
     public ReplicaManager(INcApplicationContext appCtx, Set<Integer> partitions) {
         this.appCtx = appCtx;
         this.partitions.addAll(partitions);
+        setNodeOwnedPartitions(appCtx);
     }
 
     @Override
@@ -104,8 +106,19 @@ public class ReplicaManager implements IReplicaManager {
     }
 
     @Override
+    public synchronized IPartitionReplica getReplica(ReplicaIdentifier id) {
+        return replicas.get(id);
+    }
+
+    @Override
     public synchronized Set<Integer> getPartitions() {
         return Collections.unmodifiableSet(partitions);
+    }
+
+    @Override
+    public synchronized void setActivePartitions(Set<Integer> activePartitions) {
+        partitions.clear();
+        partitions.addAll(activePartitions);
     }
 
     @Override
@@ -113,6 +126,7 @@ public class ReplicaManager implements IReplicaManager {
         if (partitions.contains(partition)) {
             return;
         }
+        LOGGER.warn("promoting partition {}", partition);
         final PersistentLocalResourceRepository localResourceRepository =
                 (PersistentLocalResourceRepository) appCtx.getLocalResourceRepository();
         localResourceRepository.cleanup(partition);
@@ -126,8 +140,6 @@ public class ReplicaManager implements IReplicaManager {
         if (!partitions.contains(partition)) {
             return;
         }
-        final IDatasetLifecycleManager datasetLifecycleManager = appCtx.getDatasetLifecycleManager();
-        datasetLifecycleManager.flushDataset(appCtx.getReplicationManager().getReplicationStrategy());
         closePartitionResources(partition);
         final List<IPartitionReplica> partitionReplicas = getReplicas(partition);
         for (IPartitionReplica replica : partitionReplicas) {
@@ -141,22 +153,40 @@ public class ReplicaManager implements IReplicaManager {
         return replicaSyncLock;
     }
 
-    private void closePartitionResources(int partition) throws HyracksDataException {
+    @Override
+    public synchronized List<IPartitionReplica> getReplicas() {
+        return new ArrayList<>(replicas.values());
+    }
+
+    @Override
+    public boolean isPartitionOwner(int partition) {
+        return nodeOwnedPartitions.contains(partition);
+    }
+
+    public void closePartitionResources(int partition) throws HyracksDataException {
+        final IDatasetLifecycleManager datasetLifecycleManager = appCtx.getDatasetLifecycleManager();
+        //TODO(mhubail) we can flush only datasets of the requested partition
+        datasetLifecycleManager.flushAllDatasets();
         final PersistentLocalResourceRepository resourceRepository =
                 (PersistentLocalResourceRepository) appCtx.getLocalResourceRepository();
         final Map<Long, LocalResource> partitionResources = resourceRepository.getPartitionResources(partition);
-        final IDatasetLifecycleManager datasetLifecycleManager = appCtx.getDatasetLifecycleManager();
         for (LocalResource resource : partitionResources.values()) {
-            datasetLifecycleManager.close(resource.getPath());
+            datasetLifecycleManager.closeIfOpen(resource.getPath());
         }
+        datasetLifecycleManager.closePartition(partition);
     }
 
     private boolean isSelf(ReplicaIdentifier id) {
-        IApplicationConfig appConfig = appCtx.getServiceContext().getAppConfig();
-        String host = appConfig.getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS);
-        int port = appConfig.getInt(NCConfig.Option.REPLICATION_LISTEN_PORT);
+        String nodeId = appCtx.getServiceContext().getNodeId();
+        return id.getNodeId().equals(nodeId);
+    }
 
-        final InetSocketAddress replicaAddress = new InetSocketAddress(host, port);
-        return id.equals(ReplicaIdentifier.of(id.getPartition(), replicaAddress));
+    private void setNodeOwnedPartitions(INcApplicationContext appCtx) {
+        ClusterPartition[] clusterPartitions =
+                appCtx.getMetadataProperties().getNodePartitions().get(appCtx.getServiceContext().getNodeId());
+        if (clusterPartitions != null) {
+            nodeOwnedPartitions.addAll(Arrays.stream(clusterPartitions).map(ClusterPartition::getPartitionId)
+                    .collect(Collectors.toList()));
+        }
     }
 }

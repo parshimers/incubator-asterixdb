@@ -21,12 +21,10 @@ package org.apache.asterix.app.nc;
 import java.io.IOException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 
 import org.apache.asterix.active.ActiveManager;
 import org.apache.asterix.common.api.IConfigValidator;
@@ -38,7 +36,6 @@ import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.api.IPropertiesFactory;
 import org.apache.asterix.common.api.IReceptionist;
 import org.apache.asterix.common.api.IReceptionistFactory;
-import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.ActiveProperties;
 import org.apache.asterix.common.config.BuildProperties;
 import org.apache.asterix.common.config.CompilerProperties;
@@ -56,6 +53,7 @@ import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.replication.IReplicationStrategyFactory;
 import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
 import org.apache.asterix.common.storage.IReplicaManager;
 import org.apache.asterix.common.transactions.IRecoveryManager;
@@ -179,7 +177,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
 
     @Override
     public void initialize(IRecoveryManagerFactory recoveryManagerFactory, IReceptionistFactory receptionistFactory,
-            IConfigValidatorFactory configValidatorFactory, boolean initialRun) throws IOException {
+            IConfigValidatorFactory configValidatorFactory, IReplicationStrategyFactory replicationStrategyFactory,
+            boolean initialRun) throws IOException {
         ioManager = getServiceContext().getIoManager();
         int ioQueueLen = getServiceContext().getAppConfig().getInt(NCConfig.Option.IO_QUEUE_SIZE);
         threadExecutor =
@@ -225,10 +224,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                 new DatasetLifecycleManager(storageProperties, localResourceRepository, txnSubsystem.getLogManager(),
                         virtualBufferCache, indexCheckpointManagerProvider, ioManager.getIODevices().size());
         final String nodeId = getServiceContext().getNodeId();
-        final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
-        final Set<Integer> nodePartitionsIds =
-                Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId).collect(Collectors.toSet());
-        replicaManager = new ReplicaManager(this, nodePartitionsIds);
+        final Set<Integer> nodePartitions = metadataProperties.getNodeActivePartitions(nodeId);
+        replicaManager = new ReplicaManager(this, nodePartitions);
         isShuttingdown = false;
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),
                 activeProperties.getMemoryComponentGlobalBudget(), compilerProperties.getFrameSize(),
@@ -236,7 +233,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         receptionist = receptionistFactory.create();
 
         if (replicationProperties.isReplicationEnabled()) {
-            replicationManager = new ReplicationManager(this, replicationProperties);
+            replicationManager = new ReplicationManager(this, replicationStrategyFactory, replicationProperties);
 
             //pass replication manager to replication required object
             //LogManager to replicate logs

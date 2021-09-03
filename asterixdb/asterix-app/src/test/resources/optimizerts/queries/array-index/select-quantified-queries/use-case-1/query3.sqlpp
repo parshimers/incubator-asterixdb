@@ -33,6 +33,6 @@ CREATE INDEX IdxYelpCheckinDates ON YelpCheckin (UNNEST dates);
 
 SELECT COUNT(*)
 FROM YelpCheckin C
-WHERE LEN(C.dates) > 0 AND
+WHERE 0 < LEN(C.dates) AND
       (EVERY D IN C.dates
        SATISFIES D > "2016" AND D < "2017");

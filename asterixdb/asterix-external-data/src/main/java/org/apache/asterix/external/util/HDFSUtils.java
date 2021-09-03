@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.common.api.IApplicationContext;
-import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.ErrorCode;
@@ -36,7 +35,6 @@ import org.apache.asterix.external.indexing.RecordId.RecordIdType;
 import org.apache.asterix.external.input.record.reader.hdfs.parquet.MapredParquetInputFormat;
 import org.apache.asterix.external.input.record.reader.hdfs.parquet.ParquetReadSupport;
 import org.apache.asterix.external.input.stream.HDFSInputStream;
-import org.apache.asterix.hivecompat.io.RCFileInputFormat;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -171,8 +169,6 @@ public class HDFSUtils {
                 return ExternalDataConstants.CLASS_NAME_TEXT_INPUT_FORMAT;
             case ExternalDataConstants.INPUT_FORMAT_SEQUENCE:
                 return ExternalDataConstants.CLASS_NAME_SEQUENCE_INPUT_FORMAT;
-            case ExternalDataConstants.INPUT_FORMAT_RC:
-                return ExternalDataConstants.CLASS_NAME_RC_INPUT_FORMAT;
             case ExternalDataConstants.INPUT_FORMAT_PARQUET:
                 return ExternalDataConstants.CLASS_NAME_PARQUET_INPUT_FORMAT;
             default:
@@ -187,8 +183,6 @@ public class HDFSUtils {
                 return TextInputFormat.class;
             case ExternalDataConstants.INPUT_FORMAT_SEQUENCE:
                 return SequenceFileInputFormat.class;
-            case ExternalDataConstants.INPUT_FORMAT_RC:
-                return RCFileInputFormat.class;
             case ExternalDataConstants.INPUT_FORMAT_PARQUET:
                 return MapredParquetInputFormat.class;
             default:
@@ -232,20 +226,10 @@ public class HDFSUtils {
     public static AlgebricksAbsolutePartitionConstraint getPartitionConstraints(IApplicationContext appCtx,
             AlgebricksAbsolutePartitionConstraint clusterLocations) {
         if (clusterLocations == null) {
-            IClusterStateManager clusterStateManager = ((ICcApplicationContext) appCtx).getClusterStateManager();
-            ArrayList<String> locs = new ArrayList<>();
-            Map<String, String[]> stores = appCtx.getMetadataProperties().getStores();
-            for (String node : stores.keySet()) {
-                int numIODevices = clusterStateManager.getIODevices(node).length;
-                for (int k = 0; k < numIODevices; k++) {
-                    locs.add(node);
-                }
-            }
-            String[] cluster = new String[locs.size()];
-            cluster = locs.toArray(cluster);
-            return new AlgebricksAbsolutePartitionConstraint(cluster);
+            return ((ICcApplicationContext) appCtx).getClusterStateManager().getClusterLocations();
         }
         return clusterLocations;
+
     }
 
     public static RecordIdType getRecordIdType(Map<String, String> configuration) {
@@ -254,8 +238,6 @@ public class HDFSUtils {
             case ExternalDataConstants.INPUT_FORMAT_TEXT:
             case ExternalDataConstants.INPUT_FORMAT_SEQUENCE:
                 return RecordIdType.OFFSET;
-            case ExternalDataConstants.INPUT_FORMAT_RC:
-                return RecordIdType.RC;
             default:
                 return null;
         }

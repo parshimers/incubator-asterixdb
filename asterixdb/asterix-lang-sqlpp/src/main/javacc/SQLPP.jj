@@ -74,6 +74,7 @@ import org.apache.asterix.common.exceptions.WarningCollector;
 import org.apache.asterix.common.functions.FunctionConstants;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.asterix.common.metadata.DatasetFullyQualifiedName;
 import org.apache.asterix.lang.common.base.AbstractClause;
 import org.apache.asterix.lang.common.base.AbstractLangExpression;
 import org.apache.asterix.lang.common.base.AbstractStatement;
@@ -135,6 +136,7 @@ import org.apache.asterix.lang.common.statement.CreateIndexStatement;
 import org.apache.asterix.lang.common.statement.CreateSynonymStatement;
 import org.apache.asterix.lang.common.statement.CreateFullTextFilterStatement;
 import org.apache.asterix.lang.common.statement.CreateFullTextConfigStatement;
+import org.apache.asterix.lang.common.statement.CreateViewStatement;
 import org.apache.asterix.lang.common.statement.DatasetDecl;
 import org.apache.asterix.lang.common.statement.DataverseDecl;
 import org.apache.asterix.lang.common.statement.DataverseDropStatement;
@@ -162,6 +164,8 @@ import org.apache.asterix.lang.common.statement.TypeDecl;
 import org.apache.asterix.lang.common.statement.TypeDropStatement;
 import org.apache.asterix.lang.common.statement.UpdateStatement;
 import org.apache.asterix.lang.common.statement.UpsertStatement;
+import org.apache.asterix.lang.common.statement.ViewDecl;
+import org.apache.asterix.lang.common.statement.ViewDropStatement;
 import org.apache.asterix.lang.common.statement.WriteStatement;
 import org.apache.asterix.lang.common.struct.Identifier;
 import org.apache.asterix.lang.common.struct.OperatorType;
@@ -221,7 +225,9 @@ class SQLPPParser extends ScopeChecker implements IParser {
     // tokens parsed as identifiers
     private static final String CUBE = "CUBE";
     private static final String CURRENT = "CURRENT";
+    private static final String DEFAULT = "DEFAULT";
     private static final String EXCLUDE = "EXCLUDE";
+    private static final String INCLUDE = "INCLUDE";
     private static final String FIRST = "FIRST";
     private static final String FOLLOWING = "FOLLOWING";
     private static final String GROUPING = "GROUPING";
@@ -410,6 +416,22 @@ class SQLPPParser extends ScopeChecker implements IParser {
                 removeCurrentScope();
                 defaultDataverse = dataverse;
                 return new FunctionDecl(signature, paramVars, functionBodyExpr, isStored);
+            }
+        });
+    }
+
+    @Override
+    public ViewDecl parseViewBody(DatasetFullyQualifiedName viewName) throws CompilationException {
+        return parseImpl(new ParseFunction<ViewDecl>() {
+            @Override
+            public ViewDecl parse() throws ParseException {
+                DataverseName dataverse = defaultDataverse;
+                defaultDataverse = viewName.getDataverseName();
+                createNewScope();
+                Expression viewBodyExpr = SQLPPParser.this.ViewBody();
+                removeCurrentScope();
+                defaultDataverse = dataverse;
+                return new ViewDecl(viewName, viewBodyExpr);
             }
         });
     }
@@ -796,6 +818,7 @@ Statement CreateStatement() throws ParseException:
     | stmt = CreateFeedStatement(startToken)
     | stmt = CreateFeedPolicyStatement(startToken)
     | stmt = CreateFullTextStatement(startToken)
+    | stmt = CreateViewStatement(startToken, false)
   )
   {
     return stmt;
@@ -811,6 +834,7 @@ Statement CreateOrReplaceStatement(Token startStmtToken) throws ParseException:
   <OR> <IDENTIFIER> { replaceToken = token; }
   (
     stmt = CreateFunctionStatement(startStmtToken, true)
+    | stmt = CreateViewStatement(startStmtToken, true)
   )
   {
     // check expected token here to make the grammar extension plugin happy
@@ -1021,7 +1045,7 @@ TypeExpression DatasetReferenceTypeSpecification() throws ParseException:
   }
 }
 
-TypeExpression DatasetRecordTypeSpecification(boolean allowRecordKindModifier) throws ParseException:
+RecordTypeDefinition DatasetRecordTypeSpecification(boolean allowRecordKindModifier) throws ParseException:
 {
   RecordTypeDefinition recordTypeDef = null;
   RecordTypeDefinition.RecordKind recordKind = null;
@@ -1108,6 +1132,7 @@ CreateIndexStatement IndexSpecification(Token startStmtToken) throws ParseExcept
   boolean hasUnnest = false;
   String fullTextConfigName = null;
   Token startElementToken = null;
+  Boolean excludeUnknown = null;
 }
 {
   (
@@ -1126,6 +1151,17 @@ CreateIndexStatement IndexSpecification(Token startStmtToken) throws ParseExcept
       )*
     <RIGHTPAREN>
     ( <TYPE> indexParams = IndexType() )? ( <ENFORCED> { enforced = true; } )?
+    ( <IDENTIFIER>
+      {
+        if (isToken(EXCLUDE)) {
+          excludeUnknown = true;
+        } else if (isToken(INCLUDE)) {
+          excludeUnknown = false;
+        } else {
+          throw createUnexpectedTokenError();
+        }
+      } <UNKNOWN> <KEY>
+    )?
   )
   {
     IndexType indexType;
@@ -1140,7 +1176,8 @@ CreateIndexStatement IndexSpecification(Token startStmtToken) throws ParseExcept
       fullTextConfigName = null;
     }
     CreateIndexStatement stmt = new CreateIndexStatement(nameComponents.first, nameComponents.second,
-      new Identifier(indexName), indexType, indexedElementList, enforced, gramLength, fullTextConfigName, ifNotExists);
+      new Identifier(indexName), indexType, indexedElementList, enforced, gramLength, fullTextConfigName, ifNotExists,
+      excludeUnknown);
     return addSourceLocation(stmt, startStmtToken);
   }
 }
@@ -1269,7 +1306,7 @@ CreateIndexStatement PrimaryIndexSpecification(Token startStmtToken) throws Pars
       indexName = "primary_idx_" + nameComponents.second;
     }
     CreateIndexStatement stmt = new CreateIndexStatement(nameComponents.first, nameComponents.second,
-      new Identifier(indexName), IndexType.BTREE, Collections.emptyList(), false, -1, null, ifNotExists);
+      new Identifier(indexName), IndexType.BTREE, Collections.emptyList(), false, -1, null, ifNotExists, null);
     return addSourceLocation(stmt, startStmtToken);
   }
 }
@@ -1381,6 +1418,107 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
   }
 }
 
+CreateViewStatement CreateViewStatement(Token startStmtToken, boolean orReplace) throws ParseException:
+{
+  CreateViewStatement stmt = null;
+}
+{
+  <VIEW> stmt = ViewSpecification(startStmtToken, orReplace)
+  {
+    return stmt;
+  }
+}
+
+CreateViewStatement ViewSpecification(Token startStmtToken, boolean orReplace) throws ParseException:
+{
+  Pair<DataverseName, Identifier> nameComponents = null;
+  TypeExpression typeExpr = null;
+  boolean ifNotExists = false;
+  Token beginPos = null, endPos = null;
+  Expression viewBodyExpr = null;
+  Boolean defaultNull = null;
+  Map<String, String> viewConfig = null;
+  Pair<List<Integer>, List<List<String>>> primaryKeyFields = null;
+  DataverseName currentDataverse = defaultDataverse;
+}
+{
+  nameComponents = QualifiedName()
+  (
+      (
+        typeExpr = DatasetTypeSpecification()
+        ifNotExists = IfNotExists()
+        <IDENTIFIER> { expectToken(DEFAULT); } <NULL> { defaultNull = true; }
+        viewConfig = ViewConfiguration()
+        ( <PRIMARY> <KEY> <LEFTPAREN> primaryKeyFields = PrimaryKeyFields() <RIGHTPAREN> <NOT> <ENFORCED> )?
+      )
+      |
+      ( ifNotExists = IfNotExists() )
+  )
+  {
+    if (orReplace && ifNotExists) {
+      throw new SqlppParseException(getSourceLocation(startStmtToken), "Unexpected IF NOT EXISTS");
+    }
+  }
+  <AS>
+  {
+    beginPos = token;
+    createNewScope();
+    if (nameComponents.first != null) {
+      defaultDataverse = nameComponents.first;
+    }
+  }
+  viewBodyExpr = ViewBody()
+  {
+    endPos = token;
+    String viewBody = extractFragment(beginPos.beginLine, beginPos.beginColumn + 1, endPos.endLine,
+      endPos.endColumn + 1);
+    removeCurrentScope();
+    defaultDataverse = currentDataverse;
+    try {
+      CreateViewStatement stmt = new CreateViewStatement(nameComponents.first, nameComponents.second.getValue(),
+        typeExpr, viewBody, viewBodyExpr, defaultNull, viewConfig, primaryKeyFields, orReplace, ifNotExists);
+    return addSourceLocation(stmt, startStmtToken);
+    } catch (CompilationException e) {
+       throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
+    }
+  }
+}
+
+Expression ViewBody() throws ParseException:
+{
+  Expression viewBodyExpr = null;
+}
+{
+  (
+    ( viewBodyExpr = VariableRef() ( viewBodyExpr = FieldAccessor(viewBodyExpr) )* )
+    | viewBodyExpr = SelectExpression(true)
+  )
+  {
+    return viewBodyExpr;
+  }
+}
+
+Map<String, String> ViewConfiguration() throws ParseException:
+{
+  Map<String, String> config = null;
+  String name = null, value = null;
+}
+{
+  (
+    <IDENTIFIER> { name = token.image.toLowerCase(); }
+    value = StringLiteral()
+    {
+      if (config == null) {
+        config = new LinkedHashMap<String, String>();
+      }
+      config.put(name, value);
+    }
+  )*
+  {
+    return config;
+  }
+}
+
 CreateFunctionStatement CreateFunctionStatement(Token startStmtToken, boolean orReplace) throws ParseException:
 {
   CreateFunctionStatement stmt = null;
@@ -1421,6 +1559,11 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken, boolean orRe
     signature = new FunctionSignature(fctName.dataverse, fctName.function, arity);
   }
   ifNotExists = IfNotExists()
+  {
+    if (orReplace && ifNotExists) {
+      throw new SqlppParseException(getSourceLocation(token), "Unexpected IF NOT EXISTS");
+    }
+  }
   returnType = FunctionReturnType()
   (
     (
@@ -1457,9 +1600,6 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken, boolean orRe
     )
   )
   {
-    if (orReplace && ifNotExists) {
-      throw new SqlppParseException(getSourceLocation(startStmtToken), "Unexpected IF NOT EXISTS");
-    }
     defaultDataverse = currentDataverse;
     return addSourceLocation(stmt, startStmtToken);
   }
@@ -1812,12 +1952,23 @@ int FunctionArity() throws ParseException:
 
 Pair<List<Integer>, List<List<String>>> PrimaryKey() throws ParseException:
 {
+  Pair<List<Integer>, List<List<String>>> primaryKeyFields = null;
+}
+{
+  <PRIMARY> <KEY> primaryKeyFields = PrimaryKeyFields()
+  {
+    return primaryKeyFields;
+  }
+}
+
+Pair<List<Integer>, List<List<String>>> PrimaryKeyFields() throws ParseException:
+{
   Pair<Integer, List<String>> tmp = null;
   List<Integer> keyFieldSourceIndicators = new ArrayList<Integer>();
   List<List<String>> primaryKeyFields = new ArrayList<List<String>>();
 }
 {
-  <PRIMARY> <KEY> tmp = NestedField()
+  tmp = NestedField()
     {
       keyFieldSourceIndicators.add(tmp.first);
       primaryKeyFields.add(tmp.second);
@@ -1852,6 +2003,7 @@ Statement DropStatement() throws ParseException:
     | stmt = DropFeedPolicyStatement(startToken)
     | stmt = DropSynonymStatement(startToken)
     | stmt = DropFullTextStatement(startToken)
+    | stmt = DropViewStatement(startToken)
   )
   {
     return stmt;
@@ -1878,6 +2030,30 @@ DropDatasetStatement DropDatasetSpecification(Token startStmtToken) throws Parse
   pairId = QualifiedName() ifExists = IfExists()
   {
     DropDatasetStatement stmt = new DropDatasetStatement(pairId.first, pairId.second, ifExists);
+    return addSourceLocation(stmt, startStmtToken);
+  }
+}
+
+ViewDropStatement DropViewStatement(Token startStmtToken) throws ParseException:
+{
+  ViewDropStatement stmt = null;
+}
+{
+  <VIEW> stmt = DropViewSpecification(startStmtToken)
+  {
+    return stmt;
+  }
+}
+
+ViewDropStatement DropViewSpecification(Token startStmtToken) throws ParseException:
+{
+  Pair<DataverseName,Identifier> pairId = null;
+  boolean ifExists = false;
+}
+{
+  pairId = QualifiedName() ifExists = IfExists()
+  {
+    ViewDropStatement stmt = new ViewDropStatement(pairId.first, pairId.second, ifExists);
     return addSourceLocation(stmt, startStmtToken);
   }
 }
@@ -3122,6 +3298,7 @@ Expression RelExpr() throws ParseException:
 {
   boolean not = false;
   OperatorExpr op = null;
+  Token opToken = null;
   Expression operand = null;
   IExpressionAnnotation annotation = null;
 }
@@ -3129,8 +3306,12 @@ Expression RelExpr() throws ParseException:
     operand = BetweenExpr()
 
     (
-      LOOKAHEAD(2)( <LT> | <GT> | <LE> | <GE> | <EQ> | <NE> | <LG> |<SIMILAR> | (<NOT> { not = true; })? <IN>)
+      LOOKAHEAD(3)( <LT> | <GT> | <LE> | <GE> | <EQ> | <NE> | <LG> |<SIMILAR> | (<NOT> { not = true; })? <IN> |
+                    <IS> (<NOT> { not = true; })? <DISTINCT> { opToken = token; } <FROM> )
         {
+          if (opToken == null) {
+            opToken = token;
+          }
           Token hintToken = fetchHint(token,
             SqlppHint.HASH_BROADCAST_JOIN_HINT, SqlppHint.INDEXED_NESTED_LOOP_JOIN_HINT,
             SqlppHint.SKIP_SECONDARY_INDEX_SEARCH_HINT, SqlppHint.USE_SECONDARY_INDEX_SEARCH_HINT
@@ -3138,7 +3319,7 @@ Expression RelExpr() throws ParseException:
           if (hintToken != null) {
             annotation = parseExpressionAnnotation(hintToken);
           }
-          String operator = token.image.toLowerCase();
+          String operator = opToken.image.toLowerCase();
           if (operator.equals("<>")){
               operator = "!=";
           }
@@ -3240,7 +3421,9 @@ Expression IsExpr() throws ParseException:
 }
 {
     operand = LikeExpr()
-    ( <IS>
+    (
+      LOOKAHEAD(3)
+      <IS>
         (<NOT> { not = true; notToken = token; })?
         (
             <NULL> { fn = BuiltinFunctions.IS_NULL; } |
@@ -3876,6 +4059,7 @@ Expression FunctionCallExpr() throws ParseException:
 WindowExpression WindowExpr(FunctionSignature signature, List<Expression> argList, Expression aggFilterExpr)
   throws ParseException:
 {
+  WindowExpression windowExpr = null;
   Boolean fromLast = null, ignoreNulls = null;
 }
 {
@@ -3913,9 +4097,9 @@ WindowExpression WindowExpr(FunctionSignature signature, List<Expression> argLis
       }
     }
   )?
-  <OVER>
+  <OVER> windowExpr = OverClause(signature, argList, aggFilterExpr, token, fromLast, ignoreNulls)
   {
-    return OverClause(signature, argList, aggFilterExpr, token, fromLast, ignoreNulls);
+    return windowExpr;
   }
 }
 
@@ -3927,6 +4111,7 @@ WindowExpression OverClause(FunctionSignature signature, List<Expression> argLis
   OrderbyClause orderByClause = null;
   List<Expression> orderbyList = null;
   List<OrderbyClause.OrderModifier> orderbyModifierList = null;
+  List<OrderbyClause.NullOrderModifier> orderbyNullModifierList = null;
   WindowExpression.FrameMode frameMode = null;
   Pair<WindowExpression.FrameBoundaryKind, Expression> frameStart = null, frameEnd = null;
   WindowExpression.FrameBoundaryKind frameStartKind = null, frameEndKind = null;
@@ -3955,6 +4140,7 @@ WindowExpression OverClause(FunctionSignature signature, List<Expression> argLis
     {
       orderbyList = orderByClause.getOrderbyList();
       orderbyModifierList = orderByClause.getModifierList();
+      orderbyNullModifierList = orderByClause.getNullModifierList();
     }
     (
       frameMode = WindowFrameMode()
@@ -3981,8 +4167,8 @@ WindowExpression OverClause(FunctionSignature signature, List<Expression> argLis
   <RIGHTPAREN>
   {
     WindowExpression winExpr = new WindowExpression(signature, argList, aggFilterExpr, partitionExprs, orderbyList,
-      orderbyModifierList, frameMode, frameStartKind, frameStartExpr, frameEndKind, frameEndExpr, frameExclusionKind,
-      windowVar, windowFieldList, ignoreNulls, fromLast);
+      orderbyModifierList, orderbyNullModifierList, frameMode, frameStartKind, frameStartExpr, frameEndKind,
+      frameEndExpr, frameExclusionKind, windowVar, windowFieldList, ignoreNulls, fromLast);
     return addSourceLocation(winExpr, startToken);
   }
 }
@@ -4079,17 +4265,35 @@ WindowExpression.FrameExclusionKind WindowFrameExclusion() throws ParseException
 
 Expression ParenthesizedExpression() throws ParseException:
 {
-  Expression expr;
+  Token startToken = null;
+  Expression expr = null, expr2 = null;
+  List<Expression> exprList = null;
 }
 {
     (
     LOOKAHEAD(2)
-    <LEFTPAREN> expr = Expression() <RIGHTPAREN>
+    <LEFTPAREN> { startToken = token; } expr = Expression()
+    (
+      <COMMA> expr2 = Expression()
+      {
+        if (exprList == null) {
+          exprList = new ArrayList<Expression>();
+          exprList.add(expr);
+        }
+        exprList.add(expr2);
+      }
+    )*
+    <RIGHTPAREN>
     |
     expr = Subquery()
     )
     {
-      return expr;
+      if (exprList != null) {
+        ListConstructor listExpr = new ListConstructor(ListConstructor.Type.ORDERED_LIST_CONSTRUCTOR, exprList);
+        return addSourceLocation(listExpr, startToken);
+      } else {
+        return expr;
+      }
     }
 }
 
@@ -4210,12 +4414,21 @@ SelectBlock SelectBlock() throws ParseException:
 }
 {
   (
+    (
      selectClause = SelectClause() { startSrcLoc = selectClause.getSourceLocation(); }
      (
         (
           fromClause = FromClause()
           (
               fromLetClauses = LetClause()
+          )?
+          (whereClause = WhereClause())?
+          (
+            groupbyClause = GroupbyClause()
+            (
+                gbyLetClauses = LetClause()
+            )?
+            (havingClause = HavingClause())?
           )?
         )
         |
@@ -4236,17 +4449,12 @@ SelectBlock SelectBlock() throws ParseException:
             fromTerms.add(new FromTerm(listExpr, fromVar, null, new ArrayList<AbstractBinaryCorrelateClause>()));
             fromClause = new FromClause(fromTerms);
           }
+          (whereClause = WhereClause())?
         )
      )?
-     (whereClause = WhereClause())?
-     (
-        groupbyClause = GroupbyClause()
-        (
-            gbyLetClauses = LetClause()
-        )?
-        (havingClause = HavingClause())?
-     )?
+    )
     |
+    (
      fromClause = FromClause() { startSrcLoc = fromClause.getSourceLocation(); }
      (
         fromLetClauses = LetClause()
@@ -4260,6 +4468,7 @@ SelectBlock SelectBlock() throws ParseException:
         (havingClause = HavingClause())?
      )?
      selectClause = SelectClause()
+    )
   )
   {
     if (fromLetClauses != null) {
@@ -4413,6 +4622,7 @@ FromTerm FromTerm() throws ParseException :
       | ( <INNER> correlateClause = JoinOrUnnestClause(JoinType.INNER, UnnestType.INNER) )
       | ( <LEFT> ( <OUTER> )? correlateClause = JoinOrUnnestClause(JoinType.LEFTOUTER, UnnestType.LEFTOUTER) )
       | ( <RIGHT> ( <OUTER> )? correlateClause = JoinClause(JoinType.RIGHTOUTER) )
+      | ( <CROSS> correlateClause = CrossJoinClause() )
      )
      {
         correlateClauses.add(correlateClause);
@@ -4442,19 +4652,46 @@ AbstractBinaryCorrelateClause JoinOrUnnestClause(JoinType joinType, UnnestType u
 JoinClause JoinClause(JoinType joinType) throws ParseException :
 {
     Token startToken = null;
-    Expression rightExpr = null;
-    VariableExpr rightVar = null;
-    VariableExpr posVar = null;
+    Triple<Expression, VariableExpr, VariableExpr> rightInput = null;
     Expression conditionExpr = null;
 }
 {
-  <JOIN> { startToken = token; } rightExpr = Expression() ((<AS>)? rightVar = Variable())? (<AT> posVar = Variable())? <ON> conditionExpr = Expression()
+  <JOIN> { startToken = token; } rightInput = JoinClauseRightInput() <ON> conditionExpr = Expression()
+  {
+    JoinClause joinClause = new JoinClause(joinType, rightInput.first, rightInput.second, rightInput.third,
+      conditionExpr);
+    return addSourceLocation(joinClause, startToken);
+  }
+}
+
+JoinClause CrossJoinClause() throws ParseException :
+{
+    Token startToken = null;
+    Triple<Expression, VariableExpr, VariableExpr> rightInput = null;
+    Expression conditionExpr = null;
+}
+{
+  <JOIN> { startToken = token; } rightInput = JoinClauseRightInput()
+  {
+    JoinClause joinClause = new JoinClause(JoinType.INNER, rightInput.first, rightInput.second, rightInput.third,
+      new LiteralExpr(TrueLiteral.INSTANCE));
+    return addSourceLocation(joinClause, startToken);
+  }
+}
+
+Triple<Expression, VariableExpr, VariableExpr> JoinClauseRightInput() throws ParseException :
+{
+    Expression rightExpr = null;
+    VariableExpr rightVar = null;
+    VariableExpr posVar = null;
+}
+{
+  rightExpr = Expression() ((<AS>)? rightVar = Variable())? (<AT> posVar = Variable())?
   {
     if (rightVar == null) {
       rightVar = ExpressionToVariableUtil.getGeneratedVariable(rightExpr, true);
     }
-    JoinClause joinClause = new JoinClause(joinType, rightExpr, rightVar, posVar, conditionExpr);
-    return addSourceLocation(joinClause, startToken);
+    return new Triple<Expression, VariableExpr, VariableExpr>(rightExpr, rightVar, posVar);
   }
 }
 
@@ -4509,65 +4746,89 @@ OrderbyClause OrderbyClause() throws ParseException :
 {
     Token startToken = null;
     OrderbyClause oc = new OrderbyClause();
-    Expression orderbyExpr;
+    Triple<Expression, OrderbyClause.OrderModifier, OrderbyClause.NullOrderModifier> orderbyExpr = null;
     List<Expression> orderbyList = new ArrayList<Expression>();
     List<OrderbyClause.OrderModifier> modifierList = new ArrayList<OrderbyClause.OrderModifier>();
-    int numOfOrderby = 0;
+    List<OrderbyClause.NullOrderModifier> nullModifierList = new ArrayList<OrderbyClause.NullOrderModifier>();
 }
 {
-    <ORDER>
-      {
-        startToken = token;
-        Token hintToken = fetchHint(token, SqlppHint.INMEMORY_HINT, SqlppHint.RANGE_HINT);
-        if (hintToken != null) {
-          switch (hintToken.hint) {
-            case INMEMORY_HINT:
-              String[] splits = hintToken.hintParams.split("\\s+");
-              int numFrames = Integer.parseInt(splits[0]);
-              int numTuples = Integer.parseInt(splits[1]);
-              oc.setNumFrames(numFrames);
-              oc.setNumTuples(numTuples);
-              break;
-            case RANGE_HINT:
-              try {
-                Expression rangeExpr = parseExpression(hintToken.hintParams);
-                RangeMap rangeMap = RangeMapBuilder.parseHint(rangeExpr);
-                oc.setRangeMap(rangeMap);
-              } catch (CompilationException e) {
-                throw new SqlppParseException(getSourceLocation(hintToken), e.getMessage());
-              }
-              break;
+  <ORDER>
+  {
+    startToken = token;
+    Token hintToken = fetchHint(token, SqlppHint.INMEMORY_HINT, SqlppHint.RANGE_HINT);
+    if (hintToken != null) {
+      switch (hintToken.hint) {
+        case INMEMORY_HINT:
+          String[] splits = hintToken.hintParams.split("\\s+");
+          int numFrames = Integer.parseInt(splits[0]);
+          int numTuples = Integer.parseInt(splits[1]);
+          oc.setNumFrames(numFrames);
+          oc.setNumTuples(numTuples);
+          break;
+        case RANGE_HINT:
+          try {
+            Expression rangeExpr = parseExpression(hintToken.hintParams);
+            RangeMap rangeMap = RangeMapBuilder.parseHint(rangeExpr);
+            oc.setRangeMap(rangeMap);
+          } catch (CompilationException e) {
+            throw new SqlppParseException(getSourceLocation(hintToken), e.getMessage());
           }
-        }
+          break;
       }
-    <BY> orderbyExpr = Expression()
-    {
-      orderbyList.add(orderbyExpr);
-      OrderbyClause.OrderModifier modif = OrderbyClause.OrderModifier.ASC;
     }
-    ( (<ASC> { modif = OrderbyClause.OrderModifier.ASC; })
-    | (<DESC> { modif = OrderbyClause.OrderModifier.DESC; }))?
+  }
+  <BY> orderbyExpr = OrderByExpression()
+  {
+    orderbyList.add(orderbyExpr.first);
+    modifierList.add(orderbyExpr.second);
+    nullModifierList.add(orderbyExpr.third);
+  }
+  (
+    LOOKAHEAD(2) <COMMA> orderbyExpr = OrderByExpression()
     {
-      modifierList.add(modif);
+      orderbyList.add(orderbyExpr.first);
+      modifierList.add(orderbyExpr.second);
+      nullModifierList.add(orderbyExpr.third);
     }
+  )*
+  {
+    oc.setOrderbyList(orderbyList);
+    oc.setModifierList(modifierList);
+    oc.setNullModifierList(nullModifierList);
+    return addSourceLocation(oc, startToken);
+  }
+}
 
-    (LOOKAHEAD(2) <COMMA> orderbyExpr = Expression()
+Triple<Expression, OrderbyClause.OrderModifier, OrderbyClause.NullOrderModifier> OrderByExpression()
+  throws ParseException:
+{
+  Expression orderbyExpr = null;
+  OrderbyClause.OrderModifier modif = OrderbyClause.OrderModifier.ASC;
+  OrderbyClause.NullOrderModifier nullModif = null;
+}
+{
+  orderbyExpr = Expression()
+  (
+    <ASC> { modif = OrderbyClause.OrderModifier.ASC; }
+    |
+    <DESC> { modif = OrderbyClause.OrderModifier.DESC; }
+  )?
+  (
+    LOOKAHEAD({ laIdentifier(NULLS) }) <IDENTIFIER> { expectToken(NULLS); } <IDENTIFIER>
     {
-      orderbyList.add(orderbyExpr);
-      modif = OrderbyClause.OrderModifier.ASC;
+      if (isToken(FIRST)) {
+        nullModif = OrderbyClause.NullOrderModifier.FIRST;
+      } else if (isToken(LAST)) {
+        nullModif = OrderbyClause.NullOrderModifier.LAST;
+      } else {
+        throw createUnexpectedTokenError();
+      }
     }
-    ( (<ASC> { modif = OrderbyClause.OrderModifier.ASC; })
-    | (<DESC> { modif = OrderbyClause.OrderModifier.DESC; }))?
-    {
-      modifierList.add(modif);
-    }
-    )*
-
-    {
-      oc.setModifierList(modifierList);
-      oc.setOrderbyList(orderbyList);
-      return addSourceLocation(oc, startToken);
-    }
+  )?
+  {
+    return new Triple<Expression, OrderbyClause.OrderModifier, OrderbyClause.NullOrderModifier>(orderbyExpr, modif,
+      nullModif);
+  }
 }
 
 GroupbyClause GroupbyClause()throws ParseException :
@@ -4781,8 +5042,10 @@ QuantifiedExpression QuantifiedExpression()throws ParseException:
     createNewScope();
   }
 
-   ( ((<ANY>|<SOME>) { startToken = token; qc.setQuantifier(QuantifiedExpression.Quantifier.SOME); })
-     | (<EVERY> {  startToken = token; qc.setQuantifier(QuantifiedExpression.Quantifier.EVERY); }))
+     ( LOOKAHEAD(2)
+       (<ANY>|<SOME>)<AND><EVERY> { startToken = token; qc.setQuantifier(QuantifiedExpression.Quantifier.SOME_AND_EVERY); }
+       | (<ANY>|<SOME>) { startToken = token; qc.setQuantifier(QuantifiedExpression.Quantifier.SOME); }
+       | <EVERY> {  startToken = token; qc.setQuantifier(QuantifiedExpression.Quantifier.EVERY); } )
     var = Variable() <IN> inExpr = Expression()
     {
       pair = new QuantifiedPair(var, inExpr);
@@ -4885,6 +5148,7 @@ TOKEN [IGNORE_CASE]:
   | <CASE : "case">
   | <CLOSED : "closed">
   | <CREATE : "create">
+  | <CROSS : "cross">
   | <COMPACTION : "compaction"> // no longer used
   | <COMPACT : "compact">
   | <CONNECT : "connect">
@@ -4988,6 +5252,7 @@ TOKEN [IGNORE_CASE]:
   | <USING : "using">
   | <VALUE : "value">
   | <VALUED : "valued">
+  | <VIEW : "view">
   | <WHEN : "when">
   | <WHERE : "where">
   | <WITH : "with">

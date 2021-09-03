@@ -26,7 +26,11 @@ import java.util.Map;
 
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
+import org.apache.asterix.om.functions.BuiltinFunctions;
+import org.apache.asterix.optimizer.rules.am.array.IIntroduceAccessMethodRuleLocalRewrite;
+import org.apache.asterix.optimizer.rules.am.array.JoinFromSubplanRewrite;
 import org.apache.commons.lang3.mutable.Mutable;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
@@ -90,6 +94,9 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
     protected IVariableTypeEnvironment typeEnvironment = null;
     protected List<Mutable<ILogicalOperator>> afterJoinRefs = null;
 
+    // For plan rewriting to recognize applicable array indexes.
+    private final JoinFromSubplanRewrite joinFromSubplanRewrite = new JoinFromSubplanRewrite();
+
     // Registers access methods.
     protected static Map<FunctionIdentifier, List<IAccessMethod>> accessMethods = new HashMap<>();
 
@@ -98,6 +105,7 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
         registerAccessMethod(BTreeAccessMethod.INSTANCE, accessMethods);
         registerAccessMethod(RTreeAccessMethod.INSTANCE, accessMethods);
         registerAccessMethod(InvertedIndexAccessMethod.INSTANCE, accessMethods);
+        JoinFromSubplanRewrite.addOptimizableFunction(BuiltinFunctions.EQ);
     }
 
     /**
@@ -294,6 +302,23 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
                 analyzedAMs = new HashMap<>();
             }
 
+            if (continueCheck && context.getPhysicalOptimizationConfig().isArrayIndexEnabled()) {
+                // If there exists a SUBPLAN in our plan, and we are conditioning on a variable, attempt to rewrite
+                // this subplan to allow an array-index AM to be introduced. If successful, this rewrite will transform
+                // into an index-nested-loop-join. This rewrite is to be used for pushing the UNNESTs and ASSIGNs from
+                // the subplan into the index branch and giving the join a condition for this rule to optimize.
+                // *No nodes* from this rewrite will be used beyond this point.
+                joinFromSubplanRewrite.findAfterSubplanSelectOperator(afterJoinRefs);
+                if (rewriteLocallyAndTransform(joinRef, context, joinFromSubplanRewrite)) {
+                    // Connect the after-join operators to the index subtree root before this rewrite. This also avoids
+                    // performing the secondary index validation step twice.
+                    ILogicalOperator lastAfterJoinOp = afterJoinRefs.get(afterJoinRefs.size() - 1).getValue();
+                    OperatorManipulationUtil.substituteOpInInput(lastAfterJoinOp, joinOp, joinOp.getInputs().get(1));
+                    context.computeAndSetTypeEnvironmentForOperator(lastAfterJoinOp);
+                    return true;
+                }
+            }
+
             // Checks the condition of JOIN operator is a function call since only function call can be transformed
             // using available indexes. If so, initializes the subtree information that will be used later to decide
             // whether the given plan is truly optimizable or not.
@@ -331,12 +356,8 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
             if (continueCheck && checkRightSubTreeMetadata) {
                 // Map variables to the applicable indexes and find the field name and type.
                 // Then find the applicable indexes for the variables used in the JOIN condition.
-                if (checkLeftSubTreeMetadata) {
-                    fillSubTreeIndexExprs(leftSubTree, analyzedAMs, context);
-                } else {
-                    fillSubTreeIndexExprs(leftSubTree, analyzedAMs, context, true);
-                }
-                fillSubTreeIndexExprs(rightSubTree, analyzedAMs, context);
+                fillSubTreeIndexExprs(leftSubTree, analyzedAMs, context, true, !checkLeftSubTreeMetadata);
+                fillSubTreeIndexExprs(rightSubTree, analyzedAMs, context, false);
 
                 // Prunes the access methods based on the function expression and access methods.
                 pruneIndexCandidates(analyzedAMs, context, typeEnvironment);
@@ -456,4 +477,18 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
         return false;
     }
 
+    private boolean rewriteLocallyAndTransform(Mutable<ILogicalOperator> opRef, IOptimizationContext context,
+            IIntroduceAccessMethodRuleLocalRewrite<AbstractBinaryJoinOperator> rewriter) throws AlgebricksException {
+        AbstractBinaryJoinOperator joinRewrite = rewriter.createOperator(joinOp, context);
+        boolean transformationResult = false;
+        if (joinRewrite != null) {
+            Mutable<ILogicalOperator> joinRuleInput = new MutableObject<>(joinRewrite);
+            transformationResult = checkAndApplyJoinTransformation(joinRuleInput, context);
+        }
+
+        // Restore our state, so we can look for more optimizations if this transformation failed.
+        joinOp = rewriter.restoreBeforeRewrite(afterJoinRefs, context);
+        joinRef = opRef;
+        return transformationResult;
+    }
 }

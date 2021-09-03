@@ -21,6 +21,7 @@ package org.apache.asterix.lang.sqlpp.util;
 import java.util.List;
 
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.hyracks.util.OptionalBoolean;
 
 public class SqlppStatementUtil {
 
@@ -32,6 +33,8 @@ public class SqlppStatementUtil {
     public static final String CREATE_INDEX = "CREATE INDEX ";
     public static final String CREATE_PRIMARY_INDEX = "CREATE PRIMARY INDEX ";
     public static final String DROP_INDEX = "DROP INDEX ";
+    public static final String INCLUDE_UNKNOWN_KEY = " INCLUDE UNKNOWN KEY ";
+    public static final String EXCLUDE_UNKNOWN_KEY = " EXCLUDE UNKNOWN KEY ";
     public static final String ON = " ON ";
     public static final String WHERE = " WHERE ";
     public static final String AND = " AND ";
@@ -69,10 +72,18 @@ public class SqlppStatementUtil {
 
     @SuppressWarnings("squid:S1172") // unused variable
     public static StringBuilder getCreateIndexStatement(StringBuilder stringBuilder, DataverseName dataverseName,
-            String datasetName, String indexName, String fields, int version) {
+            String datasetName, String indexName, String fields, OptionalBoolean excludeUnknown, int version) {
         stringBuilder.append(CREATE_INDEX);
         enclose(stringBuilder, indexName).append(ON);
-        return enclose(stringBuilder, dataverseName, datasetName).append(fields).append(SEMI_COLON);
+        StringBuilder appender = enclose(stringBuilder, dataverseName, datasetName).append(fields);
+        if (excludeUnknown.isPresent()) {
+            if (excludeUnknown.get()) {
+                appender.append(EXCLUDE_UNKNOWN_KEY);
+            } else {
+                appender.append(INCLUDE_UNKNOWN_KEY);
+            }
+        }
+        return appender.append(SEMI_COLON);
     }
 
     @SuppressWarnings("squid:S1172") // unused variable

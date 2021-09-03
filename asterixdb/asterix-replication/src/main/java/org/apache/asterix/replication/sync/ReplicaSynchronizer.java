@@ -43,7 +43,7 @@ public class ReplicaSynchronizer {
         this.replica = replica;
     }
 
-    public void sync() throws IOException {
+    public void sync(boolean register) throws IOException {
         synchronized (appCtx.getReplicaManager().getReplicaSyncLock()) {
             final ICheckpointManager checkpointManager = appCtx.getTransactionSubsystem().getCheckpointManager();
             try {
@@ -51,7 +51,9 @@ public class ReplicaSynchronizer {
                 checkpointManager.suspend();
                 syncFiles();
                 checkpointReplicaIndexes();
-                appCtx.getReplicationManager().register(replica);
+                if (register) {
+                    appCtx.getReplicationManager().register(replica);
+                }
             } finally {
                 checkpointManager.resume();
             }
@@ -69,8 +71,10 @@ public class ReplicaSynchronizer {
 
     private void checkpointReplicaIndexes() throws IOException {
         final int partition = replica.getIdentifier().getPartition();
+        String masterNode =
+                appCtx.getReplicaManager().isPartitionOwner(partition) ? appCtx.getServiceContext().getNodeId() : null;
         CheckpointPartitionIndexesTask task =
-                new CheckpointPartitionIndexesTask(partition, getPartitionMaxComponentId(partition));
+                new CheckpointPartitionIndexesTask(partition, getPartitionMaxComponentId(partition), masterNode);
         ReplicationProtocol.sendTo(replica, task);
         ReplicationProtocol.waitForAck(replica);
     }

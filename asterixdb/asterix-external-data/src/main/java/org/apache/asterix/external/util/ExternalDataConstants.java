@@ -136,13 +136,13 @@ public class ExternalDataConstants {
     public static final String KEY_ADAPTER_NAME_HTTP = "http_adapter";
     public static final String KEY_ADAPTER_NAME_AWS_S3 = "S3";
     public static final String KEY_ADAPTER_NAME_AZURE_BLOB = "AZUREBLOB";
+    public static final String KEY_ADAPTER_NAME_GCS = "GCS";
 
     /**
      * HDFS class names
      */
     public static final String CLASS_NAME_TEXT_INPUT_FORMAT = "org.apache.hadoop.mapred.TextInputFormat";
     public static final String CLASS_NAME_SEQUENCE_INPUT_FORMAT = "org.apache.hadoop.mapred.SequenceFileInputFormat";
-    public static final String CLASS_NAME_RC_INPUT_FORMAT = "org.apache.asterix.hivecompat.io.RCFileInputFormat";
     public static final String CLASS_NAME_PARQUET_INPUT_FORMAT =
             "org.apache.asterix.external.input.record.reader.hdfs.parquet.MapredParquetInputFormat";
     public static final String CLASS_NAME_HDFS_FILESYSTEM = "org.apache.hadoop.hdfs.DistributedFileSystem";
@@ -151,7 +151,6 @@ public class ExternalDataConstants {
      */
     public static final String INPUT_FORMAT_TEXT = "text-input-format";
     public static final String INPUT_FORMAT_SEQUENCE = "sequence-input-format";
-    public static final String INPUT_FORMAT_RC = "rc-input-format";
     public static final String INPUT_FORMAT_PARQUET = "parquet-input-format";
     /**
      * Builtin streams
@@ -164,7 +163,6 @@ public class ExternalDataConstants {
 
     public static final String CLUSTER_LOCATIONS = "cluster-locations";
     public static final String SCHEDULER = "hdfs-scheduler";
-    public static final String PARSER_HIVE = "hive-parser";
     public static final String HAS_HEADER = "has.header";
     public static final String TIME_TRACKING = "time.tracking";
     public static final String DEFAULT_QUOTE = "\"";
@@ -190,10 +188,11 @@ public class ExternalDataConstants {
     public static final String FORMAT_KV = "kv";
     public static final String FORMAT_CSV = "csv";
     public static final String FORMAT_TSV = "tsv";
+    public static final String FORMAT_PARQUET = "parquet";
     public static final Set<String> ALL_FORMATS;
 
     static {
-        Set<String> formats = new HashSet<>(13);
+        Set<String> formats = new HashSet<>(14);
         formats.add(FORMAT_HIVE);
         formats.add(FORMAT_BINARY);
         formats.add(FORMAT_ADM);
@@ -207,6 +206,7 @@ public class ExternalDataConstants {
         formats.add(FORMAT_KV);
         formats.add(FORMAT_CSV);
         formats.add(FORMAT_TSV);
+        formats.add(FORMAT_PARQUET);
         ALL_FORMATS = Collections.unmodifiableSet(formats);
     }
 
@@ -310,6 +310,34 @@ public class ExternalDataConstants {
         public static boolean isRetryableError(String errorCode) {
             return errorCode.equals(ERROR_INTERNAL_ERROR) || errorCode.equals(ERROR_SLOW_DOWN);
         }
+
+        /*
+         * Hadoop-AWS
+         * AWS connectors for s3 and s3n are deprecated.
+         */
+        public static final String HADOOP_ACCESS_KEY_ID = "fs.s3a.access.key";
+        public static final String HADOOP_SECRET_ACCESS_KEY = "fs.s3a.secret.key";
+        public static final String HADOOP_SESSION_TOKEN = "fs.s3a.session.token";
+        public static final String HADOOP_REGION = "fs.s3a.region";
+        public static final String HADOOP_SERVICE_END_POINT = "fs.s3a.endpoint";
+
+        /*
+         * Internal configurations
+         */
+        //Allows accessing directories as file system path
+        public static final String HADOOP_PATH_STYLE_ACCESS = "fs.s3a.path.style.access";
+        //The number of maximum HTTP connections in connection pool
+        public static final String HADOOP_S3_CONNECTION_POOL_SIZE = "fs.s3a.connection.maximum";
+        //S3 used protocol
+        public static final String HADOOP_S3_PROTOCOL = "s3a";
+
+        //Hadoop credentials provider key
+        public static final String HADOOP_CREDENTIAL_PROVIDER_KEY = "fs.s3a.aws.credentials.provider";
+        //Anonymous credential provider
+        public static final String HADOOP_ANONYMOUS_ACCESS = "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider";
+        //Temporary credential provider
+        public static final String HADOOP_TEMP_ACCESS = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider";
+
     }
 
     public static class AzureBlob {
@@ -318,18 +346,18 @@ public class ExternalDataConstants {
         }
 
         public static final String CONNECTION_STRING_FIELD_NAME = "connectionString";
-        public static final String ACCOUNT_NAME_FIELD_NAME = "accountName";
-        public static final String ACCOUNT_KEY_FIELD_NAME = "accountKey";
-        public static final String SHARED_ACCESS_SIGNATURE_FIELD_NAME = "sharedAccessSignature";
-        public static final String BLOB_ENDPOINT_FIELD_NAME = "blobEndpoint";
-        public static final String ENDPOINT_SUFFIX_FIELD_NAME = "endpointSuffix";
+        public static final String TENANT_ID_FIELD_NAME = "tenantId";
+        public static final String CLIENT_ID_FIELD_NAME = "clientId";
+        public static final String CLIENT_SECRET_FIELD_NAME = "clientSecret";
+        public static final String CLIENT_CERTIFICATE_FIELD_NAME = "clientCertificate";
+        public static final String CLIENT_CERTIFICATE_PASSWORD_FIELD_NAME = "clientCertificatePassword";
+    }
 
-        // Connection string requires PascalCase (MyFieldFormat)
-        public static final String CONNECTION_STRING_CONNECTION_STRING = "ConnectionString";
-        public static final String CONNECTION_STRING_ACCOUNT_NAME = "AccountName";
-        public static final String CONNECTION_STRING_ACCOUNT_KEY = "AccountKey";
-        public static final String CONNECTION_STRING_SHARED_ACCESS_SIGNATURE = "SharedAccessSignature";
-        public static final String CONNECTION_STRING_BLOB_ENDPOINT = "BlobEndpoint";
-        public static final String CONNECTION_STRING_ENDPOINT_SUFFIX = "EndpointSuffix";
+    public static class GCS {
+        private GCS() {
+            throw new AssertionError("do not instantiate");
+        }
+
+        public static final String JSON_CREDENTIALS_FIELD_NAME = "jsonCredentials";
     }
 }

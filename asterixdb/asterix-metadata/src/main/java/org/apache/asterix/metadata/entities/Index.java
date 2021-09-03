@@ -38,6 +38,7 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.util.OptionalBoolean;
 
 /**
  * Metadata describing an index.
@@ -81,11 +82,21 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
     @Deprecated
     public Index(DataverseName dataverseName, String datasetName, String indexName, IndexType indexType,
             List<List<String>> keyFieldNames, List<Integer> keyFieldSourceIndicators, List<IAType> keyFieldTypes,
-            boolean overrideKeyFieldTypes, boolean isEnforced, boolean isPrimaryIndex, int pendingOp) {
-        this(dataverseName,
-                datasetName, indexName, indexType, createSimpleIndexDetails(indexType, keyFieldNames,
-                        keyFieldSourceIndicators, keyFieldTypes, overrideKeyFieldTypes),
+            boolean overrideKeyFieldTypes, boolean isEnforced, boolean isPrimaryIndex, int pendingOp,
+            OptionalBoolean excludeUnknownKey) {
+        this(dataverseName, datasetName,
+                indexName, indexType, createSimpleIndexDetails(indexType, keyFieldNames, keyFieldSourceIndicators,
+                        keyFieldTypes, overrideKeyFieldTypes, excludeUnknownKey),
                 isEnforced, isPrimaryIndex, pendingOp);
+    }
+
+    public static Index createPrimaryIndex(DataverseName dataverseName, String datasetName,
+            List<List<String>> keyFieldNames, List<Integer> keyFieldSourceIndicators, List<IAType> keyFieldTypes,
+            int pendingOp) {
+        return new Index(dataverseName,
+                datasetName, datasetName, IndexType.BTREE, new ValueIndexDetails(keyFieldNames,
+                        keyFieldSourceIndicators, keyFieldTypes, false, OptionalBoolean.empty()),
+                false, true, pendingOp);
     }
 
     public DataverseName getDataverseName() {
@@ -322,12 +333,15 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
 
         private final boolean overrideKeyFieldTypes;
 
+        private final Boolean excludeUnknownKey;
+
         public ValueIndexDetails(List<List<String>> keyFieldNames, List<Integer> keyFieldSourceIndicators,
-                List<IAType> keyFieldTypes, boolean overrideKeyFieldTypes) {
+                List<IAType> keyFieldTypes, boolean overrideKeyFieldTypes, OptionalBoolean excludeUnknownKey) {
             this.keyFieldNames = keyFieldNames;
             this.keyFieldSourceIndicators = keyFieldSourceIndicators;
             this.keyFieldTypes = keyFieldTypes;
             this.overrideKeyFieldTypes = overrideKeyFieldTypes;
+            this.excludeUnknownKey = excludeUnknownKey.isEmpty() ? null : excludeUnknownKey.get();
         }
 
         @Override
@@ -345,6 +359,10 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
 
         public List<IAType> getKeyFieldTypes() {
             return keyFieldTypes;
+        }
+
+        public OptionalBoolean isExcludeUnknownKey() {
+            return OptionalBoolean.ofNullable(excludeUnknownKey);
         }
 
         @Override
@@ -481,15 +499,19 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
 
     @Deprecated
     private static Index.IIndexDetails createSimpleIndexDetails(IndexType indexType, List<List<String>> keyFieldNames,
-            List<Integer> keyFieldSourceIndicators, List<IAType> keyFieldTypes, boolean overrideKeyFieldTypes) {
+            List<Integer> keyFieldSourceIndicators, List<IAType> keyFieldTypes, boolean overrideKeyFieldTypes,
+            OptionalBoolean excludeUnknownKey) {
         if (indexType == null) {
             return null;
         }
         switch (Index.IndexCategory.of(indexType)) {
             case VALUE:
                 return new ValueIndexDetails(keyFieldNames, keyFieldSourceIndicators, keyFieldTypes,
-                        overrideKeyFieldTypes);
+                        overrideKeyFieldTypes, excludeUnknownKey);
             case TEXT:
+                if (excludeUnknownKey.isPresent()) {
+                    throw new IllegalArgumentException("excludeUnknownKey");
+                }
                 return new TextIndexDetails(keyFieldNames, keyFieldSourceIndicators, keyFieldTypes,
                         overrideKeyFieldTypes, -1, null);
             default:

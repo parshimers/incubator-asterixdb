@@ -26,6 +26,7 @@ import java.util.TreeMap;
 
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
+import org.apache.asterix.optimizer.rules.am.array.ArrayIndexStructureMatcher;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.common.utils.Quadruple;
@@ -36,6 +37,7 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCall
  * Context for analyzing the applicability of a single access method.
  */
 public class AccessMethodAnalysisContext {
+    private final ArrayIndexStructureMatcher arrayIndexStructureMatcher = new ArrayIndexStructureMatcher();
 
     private List<IOptimizableFuncExpr> matchedFuncExprs = new ArrayList<IOptimizableFuncExpr>();
 
@@ -176,4 +178,7 @@ public class AccessMethodAnalysisContext {
         this.indexDatasetMap = indexDatasetMap;
     }
 
+    public ArrayIndexStructureMatcher getArrayIndexStructureMatcher() {
+        return arrayIndexStructureMatcher;
+    }
 }

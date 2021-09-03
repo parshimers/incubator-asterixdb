@@ -81,7 +81,6 @@ import com.google.common.base.Strings;
  * methods.
  */
 public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRewriteRule {
-
     protected MetadataProvider metadataProvider;
 
     public abstract Map<FunctionIdentifier, List<IAccessMethod>> getAccessMethods();
@@ -110,9 +109,9 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
     }
 
     protected void fillSubTreeIndexExprs(OptimizableOperatorSubTree subTree,
-            Map<IAccessMethod, AccessMethodAnalysisContext> analyzedAMs, IOptimizationContext context)
-            throws AlgebricksException {
-        fillSubTreeIndexExprs(subTree, analyzedAMs, context, false);
+            Map<IAccessMethod, AccessMethodAnalysisContext> analyzedAMs, IOptimizationContext context,
+            boolean isJoinLeftBranch) throws AlgebricksException {
+        fillSubTreeIndexExprs(subTree, analyzedAMs, context, isJoinLeftBranch, false);
     }
 
     /**
@@ -121,6 +120,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
      * @param subTree
      * @param analyzedAMs
      * @param context
+     * @param isJoinLeftBranch
      * @param isArbitraryFormOfSubtree
      *            if the given subtree is in an arbitrary form that OptimizableSubTree class can't initialize, we try
      *            to fill the field type of each variable that is used in the optimizable function expressions.
@@ -130,7 +130,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
      */
     protected void fillSubTreeIndexExprs(OptimizableOperatorSubTree subTree,
             Map<IAccessMethod, AccessMethodAnalysisContext> analyzedAMs, IOptimizationContext context,
-            boolean isArbitraryFormOfSubtree) throws AlgebricksException {
+            boolean isJoinLeftBranch, boolean isArbitraryFormOfSubtree) throws AlgebricksException {
         Iterator<Map.Entry<IAccessMethod, AccessMethodAnalysisContext>> amIt = analyzedAMs.entrySet().iterator();
         // Check applicability of indexes by access method type.
         while (amIt.hasNext()) {
@@ -138,10 +138,13 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             AccessMethodAnalysisContext amCtx = entry.getValue();
             // For the current access method type, map variables to applicable
             // indexes.
-            if (!isArbitraryFormOfSubtree) {
-                fillAllIndexExprs(subTree, amCtx, context);
-            } else {
+            if (isArbitraryFormOfSubtree) {
                 fillVarFieldTypeForOptFuncExprs(subTree, amCtx, context);
+            } else {
+                if (isJoinLeftBranch) {
+                    fillVarFieldTypeForOptFuncExprs(subTree, amCtx, context);
+                }
+                fillAllIndexExprs(subTree, amCtx, context);
             }
         }
     }
@@ -484,6 +487,25 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 if (lastFieldMatched < 0) {
                     indexExprAndVarIt.remove();
                     continue;
+
+                } else if (Index.IndexCategory.of(indexType).equals(Index.IndexCategory.ARRAY)) {
+                    // For array indexes, we cannot make the decision to apply the prefix until we see a conjunct
+                    // conditioning on an array. We should improve using array indexes for queries that don't involve
+                    // the array component in the future.
+                    Index.ArrayIndexDetails arrayIndexDetails = (Index.ArrayIndexDetails) index.getIndexDetails();
+                    int indexOfFirstArrayField = 0;
+                    for (Index.ArrayIndexElement e : arrayIndexDetails.getElementList()) {
+                        if (!e.getUnnestList().isEmpty()) {
+                            break;
+                        }
+                        for (List<String> ignored : e.getProjectList()) {
+                            indexOfFirstArrayField++;
+                        }
+                    }
+                    if (lastFieldMatched < indexOfFirstArrayField) {
+                        indexExprAndVarIt.remove();
+                        continue;
+                    }
                 }
             }
             analysisCtx.putNumberOfMatchedKeys(index, numMatchedKeys);
@@ -825,9 +847,8 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             if (optVarIndex == -1) {
                 if (doesArrayIndexQualify && subTree.getDataSourceType() == DataSourceType.DATASOURCE_SCAN) {
                     // We may be able to apply an array index to this variable.
-                    Triple<Integer, List<String>, IAType> fieldTriplet =
-                            AccessMethodUtils.analyzeVarForArrayIndexes(assignOp, optFuncExpr, subTree, datasetMetaVar,
-                                    context, datasetIndexes, analysisCtx.getMatchedFuncExprs(), varIndex);
+                    Triple<Integer, List<String>, IAType> fieldTriplet = AccessMethodUtils
+                            .analyzeVarForArrayIndexes(datasetIndexes, optFuncExpr, subTree, context, var, analysisCtx);
                     if (fieldTriplet != null && subTree.hasDataSource()) {
                         fillIndexExprs(datasetIndexes, fieldTriplet.second, fieldTriplet.third, optFuncExpr,
                                 optFuncExprIndex, fieldTriplet.first, subTree, analysisCtx, fieldSource.intValue());
