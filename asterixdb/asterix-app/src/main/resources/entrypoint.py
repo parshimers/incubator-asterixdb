@@ -257,7 +257,6 @@ class Wrapper(object):
                     
                 self.unpacker.feed(self.readview[REAL_HEADER_SZ:self.sz])
                 self.unpacked_msg = list(self.unpacker)
-                print(self.unpacked_msg,file=sys.stderr)
                 self.msg_type = MessageType(self.unpacked_msg[0])
                 self.type_handler[self.msg_type](self)
             except BaseException:

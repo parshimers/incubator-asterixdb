@@ -21,11 +21,8 @@ package org.apache.asterix.external.library;
 import static org.apache.asterix.common.exceptions.ErrorCode.EXTERNAL_UDF_EXCEPTION;
 import static org.msgpack.core.MessagePack.Code.ARRAY16;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -113,10 +110,6 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         pb.directory(new File(wd));
         p = pb.start();
         proto = new PythonIPCProto(p.getOutputStream(), router, p);
-        StreamGobbler stdin = new StreamGobbler(p.getInputStream(), "OUT");
-        StreamGobbler stderr = new StreamGobbler(p.getErrorStream(), "ERR");
-        stdin.start();
-        stderr.start();
         proto.start();
         proto.helo();
     }
@@ -228,29 +221,6 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
             ctx.setStateObject(evaluator);
         }
         return evaluator;
-    }
-
-    private class StreamGobbler extends Thread {
-        InputStream is;
-        String type;
-
-        private StreamGobbler(InputStream is, String type) {
-            this.is = is;
-            this.type = type;
-        }
-
-        @Override
-        public void run() {
-            try {
-                InputStreamReader isr = new InputStreamReader(is);
-                BufferedReader br = new BufferedReader(isr);
-                String line = null;
-                while ((line = br.readLine()) != null)
-                    System.out.println(type + "> " + line);
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-            }
-        }
     }
 
 }
