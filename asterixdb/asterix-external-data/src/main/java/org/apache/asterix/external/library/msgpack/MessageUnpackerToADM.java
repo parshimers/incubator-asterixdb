@@ -32,6 +32,7 @@ import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.asterix.om.util.container.ListObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IMutableValueStorage;
+import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.util.string.UTF8StringUtil;
 
@@ -227,14 +228,14 @@ public class MessageUnpackerToADM {
         bufOut.writeInt(count);
         int slotStartOffs = asxLenPos + Integer.BYTES * 2;
         for (int i = 0; i < count; i++) {
-            out.writeInt(0xFFFF);
+            bufOut.writeInt(0xFFFF);
         }
         for (int i = 0; i < count; i++) {
-            putInt((slotStartOffs + (i * 4)), buildBuf.getLength(), buildBuf.getByteArray());
+            IntegerPointable.setInteger(buildBuf.getByteArray(), ((slotStartOffs) + (i * 4)), buildBuf.getLength());
             unpack(in, bufOut, true);
         }
-        putInt(asxLenPos, buildBuf.getLength(), buildBuf.getByteArray());
-        out.write(buildBuf.getByteArray());
+        IntegerPointable.setInteger(buildBuf.getByteArray(), asxLenPos, buildBuf.getLength());
+        out.write(buildBuf.getByteArray(), buildBuf.getStartOffset(), buildBuf.getLength());
     }
 
     public void unpackMap(ByteBuffer in, DataOutput out, int count) throws IOException {
@@ -250,7 +251,7 @@ public class MessageUnpackerToADM {
         int openPartOffs = totalSizeOffs + Byte.BYTES + Integer.BYTES;
         bufOut.writeInt(-1);
         //isExpanded, so num of open fields
-        putInt(openPartOffs, buildBuf.getLength(), buildBuf.getByteArray());
+        IntegerPointable.setInteger(buildBuf.getByteArray(), openPartOffs, buildBuf.getLength());
         bufOut.writeInt(count);
         int offsetAryPos = buildBuf.getLength();
         int offsetArySz = count * 2;
@@ -262,14 +263,14 @@ public class MessageUnpackerToADM {
             int offs = buildBuf.getLength();
             unpack(in, bufOut, false);
             int hash = UTF8StringUtil.hash(buildBuf.getByteArray(), offs);
-            putInt(offsetAryPos, hash, buildBuf.getByteArray());
+            IntegerPointable.setInteger(buildBuf.getByteArray(), offsetAryPos, hash);
             offsetAryPos += 4;
-            putInt(offsetAryPos, offs, buildBuf.getByteArray());
+            IntegerPointable.setInteger(buildBuf.getByteArray(), offsetAryPos, offs);
             offsetAryPos += 4;
             unpack(in, bufOut, true);
         }
-        putInt(totalSizeOffs, buildBuf.getLength(), buildBuf.getByteArray());
-        out.write(buildBuf.getByteArray());
+        IntegerPointable.setInteger(buildBuf.getByteArray(), totalSizeOffs, buildBuf.getLength());
+        out.write(buildBuf.getByteArray(), buildBuf.getStartOffset(), buildBuf.getLength());
     }
 
     public void unpackStr(ByteBuffer in, DataOutput out, long uLen, boolean tag) throws IOException {
@@ -284,12 +285,6 @@ public class MessageUnpackerToADM {
         conv.setDataOutput(out);
         conv.write(in.array(), in.arrayOffset() + in.position(), len);
         in.position(in.position() + len);
-    }
-
-    private static void putInt(int index, int value, byte[] dst) {
-        for (int i = 3; i >= 0; i--) {
-            dst[index + i] = (byte) (value >> (8 *(i-3)) & 0xFF);
-        }
     }
 
 }

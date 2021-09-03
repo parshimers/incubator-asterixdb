@@ -52,6 +52,7 @@ import org.apache.asterix.dataflow.data.nontagged.printers.PrintTools;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AbstractCollectionType;
+import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
@@ -64,6 +65,7 @@ import org.apache.hyracks.data.std.primitive.FloatPointable;
 import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.data.std.primitive.LongPointable;
 import org.apache.hyracks.data.std.primitive.ShortPointable;
+import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
 
 public class MessagePackerFromADM {
 
@@ -84,7 +86,16 @@ public class MessagePackerFromADM {
 
     public ATypeTag pack(IValueReference ptr, IAType type, DataOutput out, boolean packUnknown)
             throws HyracksDataException {
-        return pack(ptr.getByteArray(), ptr.getStartOffset(), type, true, packUnknown, out);
+        ATypeTag tag = type.getTypeTag();
+        if (tag == ATypeTag.ANY) {
+            TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
+            pointy.set(ptr);
+            ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
+            IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
+            return pack(ptr.getByteArray(), ptr.getStartOffset(), rtType, true, packUnknown, out);
+        } else {
+            return pack(ptr.getByteArray(), ptr.getStartOffset(), type, true, packUnknown, out);
+        }
     }
 
     public ATypeTag pack(byte[] ptr, int offs, IAType type, boolean tagged, boolean packUnknown, DataOutput out)
@@ -138,7 +149,7 @@ public class MessagePackerFromADM {
                     }
                 default:
                     throw HyracksDataException.create(AsterixException
-                            .create(ErrorCode.PARSER_ADM_DATA_PARSER_CAST_ERROR, tag.name(), "to a msgpack"));
+                            .create(ErrorCode.PARSER_ADM_DATA_PARSER_CAST_ERROR, tag.name(), "msgpack"));
             }
         } catch (IOException e) {
             if (e instanceof HyracksDataException) {

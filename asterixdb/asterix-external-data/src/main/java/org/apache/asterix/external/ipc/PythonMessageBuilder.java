@@ -104,8 +104,8 @@ public class PythonMessageBuilder {
         packHeader();
         //TODO: make this switch between fixarray/array16/array32
         buf.put((byte) (FIXARRAY_PREFIX + 1));
-        buf.put(ARRAY32);
-        buf.putInt(numArgs);
+        buf.put(ARRAY16);
+        buf.putShort((short) numArgs);
     }
 
     public void callMulti(int lim, int numArgs) throws HyracksDataException {

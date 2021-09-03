@@ -55,6 +55,7 @@ public class PythonIPCProto {
     private long maxFunctionId;
     private ArrayBufferInput unpackerInput;
     private MessageUnpacker unpacker;
+    private ArrayBackedValueStorage argsStorage;
 
     public PythonIPCProto(OutputStream sockOut, ExternalFunctionResultRouter router, Process pythonProc) {
         this.sockOut = new DataOutputStream(sockOut);
@@ -65,6 +66,7 @@ public class PythonIPCProto {
         unpackerInput = new ArrayBufferInput(new byte[0]);
         unpacker = MessagePack.newDefaultUnpacker(unpackerInput);
         this.packerFromADM = new MessagePackerFromADM();
+        this.argsStorage = new ArrayBackedValueStorage();
     }
 
     public void start() {
@@ -114,15 +116,16 @@ public class PythonIPCProto {
         recvBuffer.limit(0);
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
-        //TODO: clarify that this is lengthof(type) + dummy fixint array wrapper + array32 tag for args + array32 len
-        int len = getArgsLength(argTypes, argValues, nullCall) + 1 + 1 + 1 + 4;
+        argsStorage.reset();
+        for (int i = 0; i < argTypes.length; i++) {
+            packerFromADM.pack(argValues[i], argTypes[i], argsStorage.getDataOutput(), nullCall);
+        }
+        int len = argsStorage.getLength() + 5;
         sendHeader(functionId, len);
         messageBuilder.call(argValues.length, len);
         /* !!!HACK!!! */
         sendMsg();
-        for (int i = 0; i < argTypes.length; i++) {
-            packerFromADM.pack(argValues[i], argTypes[i], sockOut, nullCall);
-        }
+        sockOut.write(argsStorage.getByteArray(),argsStorage.getStartOffset(),argsStorage.getLength());
         sockOut.flush();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
@@ -132,28 +135,6 @@ public class PythonIPCProto {
         return recvBuffer;
     }
 
-    public int getArgsLength(IAType[] types, IValueReference[] valueReferences, boolean nullCall)
-            throws HyracksDataException {
-        int argLength = 0;
-        for (int i = 0; i < types.length; i++) {
-            argLength += getArgLength(types[i], valueReferences[i], nullCall);
-        }
-        return argLength;
-    }
-
-    public long getArgLength(IAType type, IValueReference valueReference, boolean nullCall)
-            throws HyracksDataException {
-        ATypeTag tag = type.getTypeTag();
-        if (tag == ATypeTag.ANY) {
-            TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
-            pointy.set(valueReference);
-            ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
-            IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-            return MessagePackUtils.getPackedLen(valueReference, rtType, nullCall);
-        } else {
-            return MessagePackUtils.getPackedLen(valueReference, type, nullCall);
-        }
-    }
 
     public ByteBuffer callMulti(long key, ArrayBackedValueStorage args, int numTuples)
             throws IOException, AsterixException {
@@ -163,11 +144,11 @@ public class PythonIPCProto {
         messageBuilder.buf.clear();
         messageBuilder.buf.position(0);
         //TODO: clarify that this is lengthof(type) + array 16 tag + array16 len + array32 tag for args + array32 len
-        int len = args.getLength() + 1 + 1 + 1 + 4;
+        int len = args.getLength() + 4;
         sendHeader(key, len);
         messageBuilder.callMulti(0, numTuples);
         sendMsg();
-        sockOut.write(args.getByteArray());
+        sockOut.write(args.getByteArray(), args.getStartOffset(), args.getLength());
         sockOut.flush();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
@@ -226,13 +207,6 @@ public class PythonIPCProto {
     }
 
     public void sendMsg() throws IOException {
-        //        headerBuffer.clear();
-        //        headerBuffer.position(0);
-        //        headerBuffer.putInt(HEADER_SIZE + Integer.BYTES + sz);
-        //        headerBuffer.putLong(key);
-        //        headerBuffer.putLong(routeId);
-        //        headerBuffer.put(Message.NORMAL);
-        //        sockOut.write(headerBuffer.array(), 0, HEADER_SIZE + Integer.BYTES);
         sockOut.write(messageBuilder.buf.array(), 0, messageBuilder.buf.position());
         sockOut.flush();
     }
