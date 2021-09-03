@@ -25,16 +25,11 @@ import java.nio.ByteBuffer;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.external.library.msgpack.MessagePackUtils;
 import org.apache.asterix.external.library.msgpack.MessagePackerFromADM;
-import org.apache.asterix.om.types.ATypeTag;
-import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IValueReference;
-import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.ipc.impl.Message;
 import org.msgpack.core.MessagePack;
@@ -125,7 +120,7 @@ public class PythonIPCProto {
         messageBuilder.call(argValues.length, len);
         /* !!!HACK!!! */
         sendMsg();
-        sockOut.write(argsStorage.getByteArray(),argsStorage.getStartOffset(),argsStorage.getLength());
+        sockOut.write(argsStorage.getByteArray(), argsStorage.getStartOffset(), argsStorage.getLength());
         sockOut.flush();
         receiveMsg();
         if (getResponseType() != MessageType.CALL_RSP) {
@@ -134,7 +129,6 @@ public class PythonIPCProto {
         }
         return recvBuffer;
     }
-
 
     public ByteBuffer callMulti(long key, ArrayBackedValueStorage args, int numTuples)
             throws IOException, AsterixException {
