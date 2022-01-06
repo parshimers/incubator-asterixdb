@@ -163,9 +163,9 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
     }
 
     @Override
-    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2odid)
+    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2phys)
             throws AlgebricksException {
-        this.log2odid = log2odid;
+        this.log2odid = log2phys;
         printPlanImpl(plan);
         flushContentToWriter();
         return this;

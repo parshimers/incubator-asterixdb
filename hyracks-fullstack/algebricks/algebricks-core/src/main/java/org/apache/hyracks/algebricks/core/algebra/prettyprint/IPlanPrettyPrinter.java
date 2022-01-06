@@ -46,7 +46,7 @@ public interface IPlanPrettyPrinter {
     IPlanPrettyPrinter printPlan(ILogicalPlan plan) throws AlgebricksException;
 
     /** Prints the logical plan, annotated with physical operator and connector ids */
-    IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2odid) throws AlgebricksException;
+    IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2phys) throws AlgebricksException;
 
     /** Resets the state of the pretty printer. */
     IPlanPrettyPrinter reset() throws AlgebricksException;

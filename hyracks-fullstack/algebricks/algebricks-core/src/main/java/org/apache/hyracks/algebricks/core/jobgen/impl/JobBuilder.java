@@ -148,7 +148,7 @@ public class JobBuilder implements IHyracksJobBuilder {
         hyracksOps.put(op, opDesc);
     }
 
-    public Map<ILogicalOperator, String> getLogical2OperatorMap() {
+    public Map<ILogicalOperator, String> getLogical2PhysicalMap() {
         Map<ILogicalOperator, String> mergedOperatorMap = new HashMap<>();
         hyracksOps.forEach(((k, v) -> mergedOperatorMap.put(k, v.getOperatorId().toString())));
         algebraicOpBelongingToMetaAsterixOp

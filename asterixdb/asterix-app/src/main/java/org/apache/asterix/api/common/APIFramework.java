@@ -350,7 +350,7 @@ public class APIFramework {
 
         if (conf.is(SessionConfig.OOB_OPTIMIZED_LOGICAL_PLAN) || isExplainOnly) {
             if (isQuery || isLoad) {
-                generateOptimizedLogicalPlan(plan, jobBuilder.getLogical2OperatorMap(),
+                generateOptimizedLogicalPlan(plan, jobBuilder.getLogical2PhysicalMap(),
                         output.config().getPlanFormat());
             }
         }

@@ -97,7 +97,7 @@ public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPr
     }
 
     @Override
-    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2odid)
+    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2phys)
             throws AlgebricksException {
         //TODO(ian): would be nice if the text plan returned real operator ids too
         printPlanImpl(plan, 0);
