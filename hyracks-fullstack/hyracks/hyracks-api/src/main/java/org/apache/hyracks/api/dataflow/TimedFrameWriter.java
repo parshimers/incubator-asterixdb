@@ -23,7 +23,9 @@ import java.nio.ByteBuffer;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
+import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 
 public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
@@ -43,10 +45,6 @@ public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
         this.name = name;
         this.counter = counter;
         this.root = root;
-    }
-
-    protected TimedFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, ActivityId root) {
-        this(writer, collector, name, collector.getOrAddOperatorStats(name).getTimeCounter(), root);
     }
 
     @Override
@@ -127,7 +125,12 @@ public class TimedFrameWriter implements IFrameWriter, IPassableTimer {
 
     public static IFrameWriter time(IFrameWriter writer, IHyracksTaskContext ctx, String name, ActivityId root)
             throws HyracksDataException {
-        return writer instanceof TimedFrameWriter ? writer
-                : new TimedFrameWriter(writer, ctx.getStatsCollector(), name, root);
+        if (!(writer instanceof TimedFrameWriter)) {
+            IStatsCollector statsCollector = ctx.getStatsCollector();
+            IOperatorStats stats = new OperatorStats(name);
+            statsCollector.add(stats);
+            return new TimedFrameWriter(writer, ctx.getStatsCollector(), name, stats.getTimeCounter(), root);
+        } else
+            return writer;
     }
 }

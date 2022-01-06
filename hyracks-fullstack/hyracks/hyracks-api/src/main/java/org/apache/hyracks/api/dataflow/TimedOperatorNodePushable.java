@@ -24,7 +24,10 @@ import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
+import org.apache.hyracks.api.job.profiling.OperatorStats;
+import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 
 public class TimedOperatorNodePushable extends TimedFrameWriter implements IOperatorNodePushable, IPassableTimer {
@@ -34,8 +37,9 @@ public class TimedOperatorNodePushable extends TimedFrameWriter implements IOper
     HashMap<Integer, IFrameWriter> inputs;
     long frameStart;
 
-    TimedOperatorNodePushable(IOperatorNodePushable op, ActivityId acId, IStatsCollector collector, ActivityId root) {
-        super(null, collector, acId.toString() + "-" + op.getDisplayName(), root);
+    TimedOperatorNodePushable(IOperatorNodePushable op, ActivityId acId, IStatsCollector collector, ICounter counter,
+            ActivityId parent) throws HyracksDataException {
+        super(null, collector, acId.toString() + " - " + op.getDisplayName(), counter, parent);
         this.op = op;
         this.acId = acId;
         inputs = new HashMap<>();
@@ -115,7 +119,11 @@ public class TimedOperatorNodePushable extends TimedFrameWriter implements IOper
     public static IOperatorNodePushable time(IOperatorNodePushable op, IHyracksTaskContext ctx, ActivityId acId)
             throws HyracksDataException {
         if (!(op instanceof TimedOperatorNodePushable) && !(op instanceof SuperActivityOperatorNodePushable)) {
-            return new TimedOperatorNodePushable(op, acId, ctx.getStatsCollector(), acId);
+            String name = acId.toString() + " - " + op.getDisplayName();
+            IStatsCollector statsCollector = ctx.getStatsCollector();
+            IOperatorStats stats = new OperatorStats(name);
+            statsCollector.add(stats);
+            return new TimedOperatorNodePushable(op, acId, ctx.getStatsCollector(), stats.getTimeCounter(), acId);
         }
         return op;
     }

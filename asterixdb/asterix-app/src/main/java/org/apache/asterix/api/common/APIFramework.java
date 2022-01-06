@@ -92,6 +92,7 @@ import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.compiler.api.HeuristicCompilerFactoryBuilder;
 import org.apache.hyracks.algebricks.compiler.api.ICompiler;
 import org.apache.hyracks.algebricks.compiler.api.ICompilerFactory;
+import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalPlan;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.expressions.ExpressionRuntimeProvider;
@@ -103,6 +104,7 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.IMissableTypeCompu
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.AlgebricksStringBuilderWriter;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.IPlanPrettyPrinter;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.PlanPrettyPrinter;
+import org.apache.hyracks.algebricks.core.jobgen.impl.JobBuilder;
 import org.apache.hyracks.algebricks.core.rewriter.base.IOptimizationContextFactory;
 import org.apache.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import org.apache.hyracks.algebricks.data.IPrinterFactoryProvider;
@@ -110,6 +112,7 @@ import org.apache.hyracks.api.client.IClusterInfoCollector;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.config.IOptionType;
+import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.exceptions.IWarningCollector;
@@ -274,9 +277,9 @@ public class APIFramework {
                     PlanPrettyPrinter.printPhysicalOps(plan, buf, 0, true);
                     output.out().write(buf.toString());
                 } else {
-                    if (isQuery || isLoad) {
-                        generateOptimizedLogicalPlan(plan, output.config().getPlanFormat());
-                    }
+                    //                    if (isQuery || isLoad) {
+                    //                        generateOptimizedLogicalPlan(plan, output.config().getPlanFormat());
+                    //                    }
                 }
             }
         }
@@ -330,7 +333,8 @@ public class APIFramework {
 
         JobEventListenerFactory jobEventListenerFactory =
                 new JobEventListenerFactory(txnId, metadataProvider.isWriteTransaction());
-        JobSpecification spec = compiler.createJob(metadataProvider.getApplicationContext(), jobEventListenerFactory);
+        JobBuilder jobBuilder = compiler.createJob(metadataProvider.getApplicationContext(), jobEventListenerFactory);
+        JobSpecification spec = jobBuilder.getJobSpec();
 
         if (isQuery) {
             if (requestParameters == null || !requestParameters.isSkipAdmissionPolicy()) {
@@ -347,6 +351,13 @@ public class APIFramework {
         }
         if (isQuery && conf.is(SessionConfig.OOB_HYRACKS_JOB)) {
             generateJob(spec);
+        }
+
+        if (conf.is(SessionConfig.OOB_OPTIMIZED_LOGICAL_PLAN) || isExplainOnly) {
+            if (isQuery || isLoad) {
+                generateOptimizedLogicalPlan(plan, jobBuilder.getLogical2OperatorMap(),
+                        output.config().getPlanFormat());
+            }
         }
         return spec;
     }
@@ -537,6 +548,11 @@ public class APIFramework {
     private void generateOptimizedLogicalPlan(ILogicalPlan plan, SessionConfig.PlanFormat format)
             throws AlgebricksException {
         executionPlans.setOptimizedLogicalPlan(getPrettyPrintVisitor(format).printPlan(plan).toString());
+    }
+
+    private void generateOptimizedLogicalPlan(ILogicalPlan plan, Map<ILogicalOperator, IOperatorDescriptor> log2phys,
+            SessionConfig.PlanFormat format) throws AlgebricksException {
+        executionPlans.setOptimizedLogicalPlan(getPrettyPrintVisitor(format).printPlan(plan, log2phys).toString());
     }
 
     private void generateJob(JobSpecification spec) {

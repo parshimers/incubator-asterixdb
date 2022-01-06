@@ -168,7 +168,7 @@ public abstract class AbstractPhysicalOperator implements IPhysicalOperator {
         if (p.getRoots().size() > 1) {
             throw new NotImplementedException("Nested plans with several roots are not supported.");
         }
-        JobSpecification nestedJob = pc.compileNestedPlan(p, outerPlanSchema);
+        JobSpecification nestedJob = pc.compileNestedPlan(p, outerPlanSchema).getJobSpec();
         if (withProjection) {
             ILogicalOperator topOpInSubplan = p.getRoots().get(0).getValue();
             JobGenContext context = pc.getContext();

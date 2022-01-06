@@ -21,6 +21,7 @@ package org.apache.hyracks.algebricks.core.jobgen.impl;
 import static org.apache.hyracks.api.exceptions.ErrorCode.DESCRIPTOR_GENERATION_ERROR;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -145,6 +146,15 @@ public class JobBuilder implements IHyracksJobBuilder {
     @Override
     public void contributeHyracksOperator(ILogicalOperator op, IOperatorDescriptor opDesc) {
         hyracksOps.put(op, opDesc);
+    }
+
+    public Map<ILogicalOperator, IOperatorDescriptor> getLogical2OperatorMap() {
+        Map<ILogicalOperator, IOperatorDescriptor> mergedOperatorMap = new HashMap<>();
+        mergedOperatorMap.putAll(hyracksOps);
+        for (Map.Entry<ILogicalOperator, Integer> e : algebraicOpBelongingToMetaAsterixOp.entrySet()) {
+            mergedOperatorMap.put(e.getKey(), metaAsterixOps.get(e.getValue()));
+        }
+        return Collections.unmodifiableMap(mergedOperatorMap);
     }
 
     @Override

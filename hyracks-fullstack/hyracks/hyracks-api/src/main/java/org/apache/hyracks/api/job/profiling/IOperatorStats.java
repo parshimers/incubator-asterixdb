@@ -43,7 +43,7 @@ public interface IOperatorStats extends IWritable, Serializable {
     ICounter getTimeCounter();
 
     /**
-     * @return A counter used to track the number of pages pinned by an opeartor
+     * @return A counter used to track the number of pages pinned by an operator
      */
     ICounter getDiskIoCounter();
 }

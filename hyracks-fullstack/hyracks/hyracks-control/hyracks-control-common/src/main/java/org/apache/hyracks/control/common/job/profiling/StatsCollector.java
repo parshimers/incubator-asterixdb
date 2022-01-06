@@ -50,8 +50,8 @@ public class StatsCollector implements IStatsCollector {
     }
 
     @Override
-    public IOperatorStats getOrAddOperatorStats(String operatorName) {
-        return operatorStatsMap.computeIfAbsent(operatorName, OperatorStats::new);
+    public IOperatorStats getOperatorStats(String operatorName) {
+        return operatorStatsMap.get(operatorName);
     }
 
     @Override

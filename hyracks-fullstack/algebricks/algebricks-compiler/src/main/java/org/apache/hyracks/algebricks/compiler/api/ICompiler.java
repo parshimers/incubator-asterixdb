@@ -19,12 +19,12 @@
 package org.apache.hyracks.algebricks.compiler.api;
 
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.core.jobgen.impl.JobBuilder;
 import org.apache.hyracks.api.job.IJobletEventListenerFactory;
-import org.apache.hyracks.api.job.JobSpecification;
 
 public interface ICompiler {
     public void optimize() throws AlgebricksException;
 
-    public JobSpecification createJob(Object appContext, IJobletEventListenerFactory jobEventListenerFactory)
+    public JobBuilder createJob(Object appContext, IJobletEventListenerFactory jobEventListenerFactory)
             throws AlgebricksException;
 }

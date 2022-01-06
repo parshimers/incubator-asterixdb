@@ -72,7 +72,7 @@ public class ExternalScanOperatorDescriptor extends AbstractSingleActivityOperat
             public void initialize() throws HyracksDataException {
                 IDataSourceAdapter adapter;
                 if (ctx.getStatsCollector() != null) {
-                    stats = ctx.getStatsCollector().getOrAddOperatorStats(getActivityId() + "-" + getDisplayName());
+                    stats = ctx.getStatsCollector().getOperatorStats(getActivityId() + "-" + getDisplayName());
                 }
                 try {
                     writer.open();

@@ -29,6 +29,7 @@ import org.apache.hyracks.api.dataflow.value.IMissingWriterFactory;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
+import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
@@ -156,7 +157,8 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         this.outputLimit = outputLimit;
 
         if (ctx != null && ctx.getStatsCollector() != null) {
-            stats = ctx.getStatsCollector().getOrAddOperatorStats(getDisplayName());
+            stats = new OperatorStats(getDisplayName());
+            ctx.getStatsCollector().add(stats);
         }
 
         if (this.tupleFilterFactory != null && this.retainMissing) {

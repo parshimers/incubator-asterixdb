@@ -18,10 +18,14 @@
  */
 package org.apache.hyracks.algebricks.core.algebra.prettyprint;
 
+import java.util.Map;
+
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
+import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalPlan;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 
 /**
  * Note: Some implementations may be stateful and not thread-safe.
@@ -41,6 +45,10 @@ public interface IPlanPrettyPrinter {
 
     /** Prints the whole logical plan. */
     IPlanPrettyPrinter printPlan(ILogicalPlan plan) throws AlgebricksException;
+
+    /** Prints the whole logical plan. */
+    IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, IOperatorDescriptor> log2odid)
+            throws AlgebricksException;
 
     /** Resets the state of the pretty printer. */
     IPlanPrettyPrinter reset() throws AlgebricksException;

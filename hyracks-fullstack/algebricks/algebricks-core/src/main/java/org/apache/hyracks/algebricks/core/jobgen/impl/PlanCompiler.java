@@ -47,17 +47,16 @@ public class PlanCompiler {
         return context;
     }
 
-    public JobSpecification compilePlan(ILogicalPlan plan, IJobletEventListenerFactory jobEventListenerFactory)
+    public JobBuilder compilePlan(ILogicalPlan plan, IJobletEventListenerFactory jobEventListenerFactory)
             throws AlgebricksException {
         return compilePlanImpl(plan, false, null, jobEventListenerFactory);
     }
 
-    public JobSpecification compileNestedPlan(ILogicalPlan plan, IOperatorSchema outerPlanSchema)
-            throws AlgebricksException {
+    public JobBuilder compileNestedPlan(ILogicalPlan plan, IOperatorSchema outerPlanSchema) throws AlgebricksException {
         return compilePlanImpl(plan, true, outerPlanSchema, null);
     }
 
-    private JobSpecification compilePlanImpl(ILogicalPlan plan, boolean isNestedPlan, IOperatorSchema outerPlanSchema,
+    private JobBuilder compilePlanImpl(ILogicalPlan plan, boolean isNestedPlan, IOperatorSchema outerPlanSchema,
             IJobletEventListenerFactory jobEventListenerFactory) throws AlgebricksException {
         JobSpecification spec = new JobSpecification(context.getFrameSize());
         spec.setMaxWarnings(context.getMaxWarnings());
@@ -79,7 +78,7 @@ public class PlanCompiler {
         if (isNestedPlan) {
             spec.setMetaOps(builder.getGeneratedMetaOps());
         }
-        return spec;
+        return builder;
     }
 
     private void compileOpRef(Mutable<ILogicalOperator> opRef, IOperatorDescriptorRegistry spec,
