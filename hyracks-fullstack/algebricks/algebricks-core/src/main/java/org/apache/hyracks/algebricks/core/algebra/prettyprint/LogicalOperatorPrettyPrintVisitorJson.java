@@ -19,7 +19,9 @@
 package org.apache.hyracks.algebricks.core.algebra.prettyprint;
 
 import java.io.IOException;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -98,6 +100,7 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
 
     private final Map<AbstractLogicalOperator, String> operatorIdentity = new HashMap<>();
     private Map<ILogicalOperator, IOperatorDescriptor> log2odid = null;
+    private final IdCounter idCounter = new IdCounter();
     private final JsonGenerator jsonGenerator;
 
     LogicalOperatorPrettyPrintVisitorJson() {
@@ -108,6 +111,40 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
             jsonGenerator = JSON_FACTORY.createGenerator(buffer).setPrettyPrinter(prettyPrinter);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private class IdCounter {
+        private int id;
+        private final Deque<Integer> prefix;
+
+        private IdCounter() {
+            prefix = new LinkedList<>();
+            prefix.add(1);
+            this.id = 0;
+        }
+
+        private void previousPrefix() {
+            this.id = prefix.removeLast();
+        }
+
+        private void nextPrefix() {
+            prefix.add(this.id);
+            this.id = 0;
+        }
+
+        private String printOperatorId(AbstractLogicalOperator op) {
+            String stringPrefix = "";
+            Object[] values = this.prefix.toArray();
+            for (Object val : values) {
+                stringPrefix = stringPrefix.isEmpty() ? val.toString() : stringPrefix + "." + val.toString();
+            }
+            if (!operatorIdentity.containsKey(op)) {
+                String opId = stringPrefix.isEmpty() ? "" + Integer.toString(++id)
+                        : stringPrefix + "." + Integer.toString(++id);
+                operatorIdentity.put(op, opId);
+            }
+            return operatorIdentity.get(op);
         }
     }
 
@@ -164,10 +201,11 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
         try {
             jsonGenerator.writeStartObject();
             op.accept(this, null);
+            jsonGenerator.writeStringField("operatorId", idCounter.printOperatorId(op));
             if (log2odid != null) {
                 IOperatorDescriptor od = log2odid.get(op);
                 if (od != null) {
-                    jsonGenerator.writeStringField("operatorId", od.getOperatorId().toString());
+                    jsonGenerator.writeStringField("runtime-operator-id", od.getOperatorId().toString());
                 }
             }
             IPhysicalOperator pOp = op.getPhysicalOperator();
@@ -742,12 +780,14 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
 
     private void writeNestedPlans(AbstractOperatorWithNestedPlans op, Void indent) throws AlgebricksException {
         try {
+            idCounter.nextPrefix();
             jsonGenerator.writeArrayFieldStart("subplan");
             List<ILogicalPlan> nestedPlans = op.getNestedPlans();
             for (int i = 0, size = nestedPlans.size(); i < size; i++) {
                 printPlanImpl(nestedPlans.get(i));
             }
             jsonGenerator.writeEndArray();
+            idCounter.previousPrefix();
         } catch (IOException e) {
             throw AlgebricksException.create(ErrorCode.ERROR_PRINTING_PLAN, e, String.valueOf(e));
         }
