@@ -112,7 +112,6 @@ import org.apache.hyracks.api.client.IClusterInfoCollector;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.config.IOptionType;
-import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.exceptions.IWarningCollector;
@@ -276,10 +275,6 @@ public class APIFramework {
                     AlgebricksStringBuilderWriter buf = new AlgebricksStringBuilderWriter(PlanPrettyPrinter.INIT_SIZE);
                     PlanPrettyPrinter.printPhysicalOps(plan, buf, 0, true);
                     output.out().write(buf.toString());
-                } else {
-                    //                    if (isQuery || isLoad) {
-                    //                        generateOptimizedLogicalPlan(plan, output.config().getPlanFormat());
-                    //                    }
                 }
             }
         }
@@ -550,7 +545,7 @@ public class APIFramework {
         executionPlans.setOptimizedLogicalPlan(getPrettyPrintVisitor(format).printPlan(plan).toString());
     }
 
-    private void generateOptimizedLogicalPlan(ILogicalPlan plan, Map<ILogicalOperator, IOperatorDescriptor> log2phys,
+    private void generateOptimizedLogicalPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2phys,
             SessionConfig.PlanFormat format) throws AlgebricksException {
         executionPlans.setOptimizedLogicalPlan(getPrettyPrintVisitor(format).printPlan(plan, log2phys).toString());
     }

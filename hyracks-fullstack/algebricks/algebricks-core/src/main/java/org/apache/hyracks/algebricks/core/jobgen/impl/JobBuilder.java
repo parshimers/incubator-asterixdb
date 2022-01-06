@@ -148,12 +148,12 @@ public class JobBuilder implements IHyracksJobBuilder {
         hyracksOps.put(op, opDesc);
     }
 
-    public Map<ILogicalOperator, IOperatorDescriptor> getLogical2OperatorMap() {
-        Map<ILogicalOperator, IOperatorDescriptor> mergedOperatorMap = new HashMap<>();
-        mergedOperatorMap.putAll(hyracksOps);
-        for (Map.Entry<ILogicalOperator, Integer> e : algebraicOpBelongingToMetaAsterixOp.entrySet()) {
-            mergedOperatorMap.put(e.getKey(), metaAsterixOps.get(e.getValue()));
-        }
+    public Map<ILogicalOperator, String> getLogical2OperatorMap() {
+        Map<ILogicalOperator, String> mergedOperatorMap = new HashMap<>();
+        hyracksOps.forEach(((k, v) -> mergedOperatorMap.put(k, v.getOperatorId().toString())));
+        algebraicOpBelongingToMetaAsterixOp
+                .forEach((k, v) -> mergedOperatorMap.put(k, metaAsterixOps.get(v).getOperatorId().toString()));
+        connectors.forEach((k, v) -> mergedOperatorMap.put(k, v.getFirst().getConnectorId().toString()));
         return Collections.unmodifiableMap(mergedOperatorMap);
     }
 

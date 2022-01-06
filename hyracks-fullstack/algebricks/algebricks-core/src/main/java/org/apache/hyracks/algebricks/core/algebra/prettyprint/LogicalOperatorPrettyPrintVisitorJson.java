@@ -77,7 +77,6 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestOperat
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.WindowOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
-import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 
 import com.fasterxml.jackson.core.JsonFactory;
@@ -99,7 +98,7 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
     private static final String MISSING_VALUE_FIELD = "missing-value";
 
     private final Map<AbstractLogicalOperator, String> operatorIdentity = new HashMap<>();
-    private Map<ILogicalOperator, IOperatorDescriptor> log2odid = null;
+    private Map<ILogicalOperator, String> log2odid = null;
     private final IdCounter idCounter = new IdCounter();
     private final JsonGenerator jsonGenerator;
 
@@ -164,7 +163,7 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
     }
 
     @Override
-    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, IOperatorDescriptor> log2odid)
+    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2odid)
             throws AlgebricksException {
         this.log2odid = log2odid;
         printPlanImpl(plan);
@@ -203,9 +202,9 @@ public class LogicalOperatorPrettyPrintVisitorJson extends AbstractLogicalOperat
             op.accept(this, null);
             jsonGenerator.writeStringField("operatorId", idCounter.printOperatorId(op));
             if (log2odid != null) {
-                IOperatorDescriptor od = log2odid.get(op);
+                String od = log2odid.get(op);
                 if (od != null) {
-                    jsonGenerator.writeStringField("runtime-operator-id", od.getOperatorId().toString());
+                    jsonGenerator.writeStringField("runtime-id", od);
                 }
             }
             IPhysicalOperator pOp = op.getPhysicalOperator();

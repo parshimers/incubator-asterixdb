@@ -73,7 +73,6 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestOperat
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.WindowOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
-import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 
 public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPrettyPrintVisitor<Integer>
         implements IPlanPrettyPrinter {
@@ -98,7 +97,7 @@ public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPr
     }
 
     @Override
-    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, IOperatorDescriptor> log2odid)
+    public final IPlanPrettyPrinter printPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2odid)
             throws AlgebricksException {
         //TODO(ian): would be nice if the text plan returned real operator ids too
         printPlanImpl(plan, 0);
