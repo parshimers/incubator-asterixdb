@@ -4194,7 +4194,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 stats.updateTotalWarningsCount(warningCollector.getTotalWarningsCount());
                 afterCompile();
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                stats.setCompileTime(System.nanoTime()-start);
+                stats.setCompileTime(System.nanoTime() - start);
                 bActiveTxn = false;
                 return query.isExplain() || !sessionConfig.isExecuteQuery() ? null : jobSpec;
             } catch (Exception e) {

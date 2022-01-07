@@ -193,11 +193,11 @@ public interface IStatementExecutor {
             this.profileType = profileType;
         }
 
-        public void setCompileTime(long compileTime){
+        public void setCompileTime(long compileTime) {
             this.compileTime = compileTime;
         }
 
-        public long getCompileTime(){
+        public long getCompileTime() {
             return compileTime;
         }
     }

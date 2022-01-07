@@ -75,5 +75,7 @@ public class ResponseMetrics {
         return warnCount;
     }
 
-    public long getCompileTime() { return compileTime; }
+    public long getCompileTime() {
+        return compileTime;
+    }
 }
