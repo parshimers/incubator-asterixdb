@@ -141,6 +141,7 @@ public interface IStatementExecutor {
         private Profile profile;
         private ProfileType profileType;
         private long totalWarningsCount;
+        private long compileTime;
 
         public long getCount() {
             return count;
@@ -190,6 +191,14 @@ public interface IStatementExecutor {
 
         public void setProfileType(ProfileType profileType) {
             this.profileType = profileType;
+        }
+
+        public void setCompileTime(long compileTime){
+            this.compileTime = compileTime;
+        }
+
+        public long getCompileTime(){
+            return compileTime;
         }
     }
 
@@ -283,6 +292,7 @@ public interface IStatementExecutor {
      *
      * @param hcc
      * @param requestParameters
+     * @return elapsed compilation time
      * @throws Exception
      */
     void compileAndExecute(IHyracksClientConnection hcc, IRequestParameters requestParameters) throws Exception;

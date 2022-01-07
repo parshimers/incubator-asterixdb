@@ -4183,6 +4183,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             }
         };
         final IStatementCompiler compiler = () -> {
+            long start = System.nanoTime();
             MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             boolean bActiveTxn = true;
             metadataProvider.setMetadataTxnContext(mdTxnCtx);
@@ -4193,6 +4194,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 stats.updateTotalWarningsCount(warningCollector.getTotalWarningsCount());
                 afterCompile();
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                stats.setCompileTime(System.nanoTime()-start);
                 bActiveTxn = false;
                 return query.isExplain() || !sessionConfig.isExecuteQuery() ? null : jobSpec;
             } catch (Exception e) {
@@ -4320,7 +4322,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 (ClientRequest) requestTracker.get(requestParameters.getRequestReference().getUuid());
         locker.lock();
         try {
+            long compileStart = System.currentTimeMillis();
             final JobSpecification jobSpec = compiler.compile();
+            long compileTime = System.currentTimeMillis() - compileStart;
             if (jobSpec == null) {
                 return;
             }

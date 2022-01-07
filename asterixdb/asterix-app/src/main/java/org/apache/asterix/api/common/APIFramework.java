@@ -540,11 +540,6 @@ public class APIFramework {
         executionPlans.setLogicalPlan(getPrettyPrintVisitor(format).printPlan(plan).toString());
     }
 
-    private void generateOptimizedLogicalPlan(ILogicalPlan plan, SessionConfig.PlanFormat format)
-            throws AlgebricksException {
-        executionPlans.setOptimizedLogicalPlan(getPrettyPrintVisitor(format).printPlan(plan).toString());
-    }
-
     private void generateOptimizedLogicalPlan(ILogicalPlan plan, Map<ILogicalOperator, String> log2phys,
             SessionConfig.PlanFormat format) throws AlgebricksException {
         executionPlans.setOptimizedLogicalPlan(getPrettyPrintVisitor(format).printPlan(plan, log2phys).toString());
