@@ -36,14 +36,12 @@ public class ProfilingTestExecutor extends TestExecutor {
     public InputStream executeQueryService(String str, TestCaseContext.OutputFormat fmt, URI uri,
             List<TestCase.CompilationUnit.Parameter> params, boolean jsonEncoded, Charset responseCharset,
             Predicate<Integer> responseCodeValidator, boolean cancellable) throws Exception {
-        List<TestCase.CompilationUnit.Parameter> newParams = new ArrayList<>();
         profile.setName("profile");
         profile.setValue("timings");
         profile.setType(ParameterTypeEnum.STRING);
-        newParams.addAll(params);
-        newParams.add(profile);
-        return super.executeQueryService(str, fmt, uri, constructQueryParameters(str, fmt, newParams), jsonEncoded,
-                responseCharset, responseCodeValidator, true);
+        params.add(profile);
+        return super.executeQueryService(str, fmt, uri, constructQueryParameters(str, fmt, params), jsonEncoded,
+                responseCharset, responseCodeValidator, cancellable);
 
     }
 }

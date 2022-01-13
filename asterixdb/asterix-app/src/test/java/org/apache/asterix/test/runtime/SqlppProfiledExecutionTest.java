@@ -55,7 +55,7 @@ public class SqlppProfiledExecutionTest {
         LangExecutionUtil.tearDown();
     }
 
-    @Parameters(name = "SqlppExecutionTest {index}: {0}")
+    @Parameters(name = "SqlppProfiledExecutionTest {index}: {0}")
     public static Collection<Object[]> tests() throws Exception {
         return LangExecutionUtil.tests("only_sqlpp.xml", "testsuite_sqlpp.xml");
     }

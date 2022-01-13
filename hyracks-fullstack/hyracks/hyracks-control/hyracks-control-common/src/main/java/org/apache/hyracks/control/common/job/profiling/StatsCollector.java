@@ -36,10 +36,10 @@ import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
 
 public class StatsCollector implements IStatsCollector {
-    private static final long serialVersionUID = 6858817639895434578L;
+    private static final long serialVersionUID = 6858817639895434571L;
 
     private final Map<String, IOperatorStats> operatorStatsMap = new LinkedHashMap<>();
-    private ConcurrentMap<ActivityId, Deque<IPassableTimer>> clockHolders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ActivityId, Deque<IPassableTimer>> clockHolders = new ConcurrentHashMap<>();
 
     @Override
     public void add(IOperatorStats operatorStats) {
@@ -96,7 +96,7 @@ public class StatsCollector implements IStatsCollector {
     @Override
     public long takeClock(IPassableTimer newHolder, ActivityId root) {
         if (newHolder != null) {
-            Deque<IPassableTimer> clockHolder = clockHolders.getOrDefault(root, new ArrayDeque<>());
+            Deque<IPassableTimer> clockHolder = clockHolders.computeIfAbsent(root,k -> new ArrayDeque<>());
             if (clockHolder.peek() != null) {
                 clockHolder.peek().pause();
             }

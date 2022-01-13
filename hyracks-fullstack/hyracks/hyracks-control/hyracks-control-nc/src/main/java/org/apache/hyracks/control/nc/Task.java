@@ -132,8 +132,6 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
 
     private final Map<Long, IThreadStats> perThreadStats = new HashMap<>();
 
-    private final Map<IOperatorNodePushable, ActivityId> rootOperators = new HashMap<>();
-
     public Task(Joblet joblet, Set<JobFlag> jobFlags, TaskAttemptId taskId, String displayName,
             ExecutorService executor, NodeControllerService ncs,
             List<List<PartitionChannel>> inputChannelsFromConnectors) {
