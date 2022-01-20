@@ -36,6 +36,8 @@ public interface IOperatorStats extends IWritable, Serializable {
      */
     ICounter getTupleCounter();
 
+    ICounter getParentCounter();
+
     /**
      * @return A counter used to track the execution time
      * of an operator
@@ -46,4 +48,17 @@ public interface IOperatorStats extends IWritable, Serializable {
      * @return A counter used to track the number of pages pinned by an operator
      */
     ICounter getDiskIoCounter();
+
+    /**
+     * @return A counter used to track the number of pages read from disk by an operator
+     */
+
+    ICounter coldReadCounter();
+
+    ICounter getAverageTupleSz();
+
+    ICounter getMaxTupleSz();
+
+    ICounter getMinTupleSz();
+
 }

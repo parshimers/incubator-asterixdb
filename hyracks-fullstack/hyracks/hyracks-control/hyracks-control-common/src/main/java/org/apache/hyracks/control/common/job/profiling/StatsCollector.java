@@ -67,7 +67,7 @@ public class StatsCollector implements IStatsCollector {
 
     @Override
     public IOperatorStats getAggregatedStats() {
-        IOperatorStats aggregatedStats = new OperatorStats("aggregated");
+        IOperatorStats aggregatedStats = new OperatorStats("aggregated", null);
         for (IOperatorStats stats : operatorStatsMap.values()) {
             aggregatedStats.getTupleCounter().update(stats.getTupleCounter().get());
             aggregatedStats.getTimeCounter().update(stats.getTimeCounter().get());
@@ -96,7 +96,7 @@ public class StatsCollector implements IStatsCollector {
     @Override
     public long takeClock(IPassableTimer newHolder, ActivityId root) {
         if (newHolder != null) {
-            Deque<IPassableTimer> clockHolder = clockHolders.computeIfAbsent(root,k -> new ArrayDeque<>());
+            Deque<IPassableTimer> clockHolder = clockHolders.computeIfAbsent(root, k -> new ArrayDeque<>());
             if (clockHolder.peek() != null) {
                 clockHolder.peek().pause();
             }

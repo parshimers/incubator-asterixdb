@@ -44,7 +44,7 @@ import org.apache.hyracks.api.dataflow.IActivity;
 import org.apache.hyracks.api.dataflow.IConnectorDescriptor;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
-import org.apache.hyracks.api.dataflow.TimedOperatorNodePushable;
+import org.apache.hyracks.api.dataflow.ProfiledOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -112,7 +112,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
             if (profile) {
                 IOperatorNodePushable wrapped =
                         entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
-                opPushable = TimedOperatorNodePushable.time(wrapped, ctx, entry.getKey());
+                opPushable = ProfiledOperatorNodePushable.time(wrapped, ctx, entry.getKey(), null);
             } else {
                 opPushable = entry.getValue().createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
             }
@@ -145,8 +145,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
                 if (profile) {
                     IOperatorNodePushable wrapped = channel.getRight().getLeft().createPushRuntime(ctx,
                             recordDescProvider, partition, nPartitions);
-                    OperatorDescriptorId odId = channel.getRight().getLeft().getActivityId().getOperatorDescriptorId();
-                    destOp = TimedOperatorNodePushable.time(wrapped, ctx, destId);
+                    destOp = ProfiledOperatorNodePushable.time(wrapped, ctx, destId, sourceOp);
                 } else {
                     destOp = channel.getRight().getLeft().createPushRuntime(ctx, recordDescProvider, partition,
                             nPartitions);

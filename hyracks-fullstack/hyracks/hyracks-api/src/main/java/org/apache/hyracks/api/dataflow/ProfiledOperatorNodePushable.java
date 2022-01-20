@@ -30,16 +30,16 @@ import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 
-public class TimedOperatorNodePushable extends TimedFrameWriter implements IOperatorNodePushable, IPassableTimer {
+public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements IOperatorNodePushable, IPassableTimer {
 
     IOperatorNodePushable op;
     ActivityId acId;
     HashMap<Integer, IFrameWriter> inputs;
     long frameStart;
 
-    TimedOperatorNodePushable(IOperatorNodePushable op, ActivityId acId, IStatsCollector collector, ICounter counter,
-            ActivityId parent) throws HyracksDataException {
-        super(null, collector, acId.toString() + " - " + op.getDisplayName(), counter, parent);
+    ProfiledOperatorNodePushable(IOperatorNodePushable op, ActivityId acId, IStatsCollector collector,
+            IOperatorStats stats, ActivityId parent, IOperatorNodePushable parentOp) throws HyracksDataException {
+        super(null, collector, acId.toString() + " - " + op.getDisplayName(), stats, parent);
         this.op = op;
         this.acId = acId;
         inputs = new HashMap<>();
@@ -73,9 +73,9 @@ public class TimedOperatorNodePushable extends TimedFrameWriter implements IOper
     @Override
     public IFrameWriter getInputFrameWriter(int index) {
         IFrameWriter ifw = op.getInputFrameWriter(index);
-        if (!(op instanceof TimedFrameWriter) && ifw.equals(op)) {
-            return new TimedFrameWriter(op.getInputFrameWriter(index), collector,
-                    acId.toString() + "-" + op.getDisplayName(), counter, root);
+        if (!(op instanceof ProfiledFrameWriter) && ifw.equals(op)) {
+            return new ProfiledFrameWriter(op.getInputFrameWriter(index), collector,
+                    acId.toString() + "-" + op.getDisplayName(), stats, root);
         }
         return op.getInputFrameWriter(index);
     }
@@ -111,19 +111,22 @@ public class TimedOperatorNodePushable extends TimedFrameWriter implements IOper
         if (frameStart > 0) {
             long nt = System.nanoTime();
             long delta = nt - frameStart;
-            counter.update(delta);
+            timeCounter.update(delta);
             frameStart = -1;
         }
     }
 
-    public static IOperatorNodePushable time(IOperatorNodePushable op, IHyracksTaskContext ctx, ActivityId acId)
+    public static IOperatorNodePushable time(IOperatorNodePushable op, IHyracksTaskContext ctx, ActivityId acId, IOperatorNodePushable source)
             throws HyracksDataException {
-        if (!(op instanceof TimedOperatorNodePushable) && !(op instanceof SuperActivityOperatorNodePushable)) {
+        if (!(op instanceof ProfiledOperatorNodePushable) && !(op instanceof SuperActivityOperatorNodePushable)) {
             String name = acId.toString() + " - " + op.getDisplayName();
             IStatsCollector statsCollector = ctx.getStatsCollector();
-            IOperatorStats stats = new OperatorStats(name);
+            IOperatorStats stats = new OperatorStats(name, source == null ? null : ((ProfiledOperatorNodePushable)source).tupleCounter );
+            if( op instanceof IIntrospectingOperator ){
+                ((IIntrospectingOperator) op).setOperatorStats(stats);
+            }
             statsCollector.add(stats);
-            return new TimedOperatorNodePushable(op, acId, ctx.getStatsCollector(), stats.getTimeCounter(), acId);
+            return new ProfiledOperatorNodePushable(op, acId, ctx.getStatsCollector(), stats, acId, source);
         }
         return op;
     }

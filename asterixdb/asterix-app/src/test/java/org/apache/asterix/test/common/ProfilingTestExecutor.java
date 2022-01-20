@@ -21,7 +21,6 @@ package org.apache.asterix.test.common;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 

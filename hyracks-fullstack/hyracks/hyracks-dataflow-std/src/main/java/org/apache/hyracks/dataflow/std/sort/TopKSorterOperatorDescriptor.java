@@ -67,7 +67,7 @@ public class TopKSorterOperatorDescriptor extends AbstractSorterOperatorDescript
                 IRunGenerator runGen = new HybridTopKSortRunGenerator(ctx, framesLimit, topK, sortFields,
                         keyNormalizerFactories, comparatorFactories, outRecDescs[0]);
                 try {
-                    return profile ? TimedRunGenerator.time(runGen, ctx, "TopKSort (Sort)", this.getActivityId())
+                    return profile ? ProfiledRunGenerator.time(runGen, ctx, "TopKSort (Sort)", this.getActivityId())
                             : runGen;
                 } catch (HyracksDataException e) {
                     e.printStackTrace();

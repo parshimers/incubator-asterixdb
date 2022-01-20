@@ -22,21 +22,20 @@ import java.util.List;
 
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.ActivityId;
-import org.apache.hyracks.api.dataflow.TimedFrameWriter;
+import org.apache.hyracks.api.dataflow.ProfiledFrameWriter;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
-import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.dataflow.common.io.GeneratedRunFileReader;
 
-public class TimedRunGenerator extends TimedFrameWriter implements IRunGenerator {
+public class ProfiledRunGenerator extends ProfiledFrameWriter implements IRunGenerator {
 
     private final IRunGenerator runGenerator;
 
-    private TimedRunGenerator(IRunGenerator runGenerator, IStatsCollector collector, String name, ICounter counter,
-            ActivityId root) {
-        super(runGenerator, collector, name, counter, root);
+    private ProfiledRunGenerator(IRunGenerator runGenerator, IStatsCollector collector, String name,
+                                 IOperatorStats stats, ActivityId root) {
+        super(runGenerator, collector, name, stats, root);
         this.runGenerator = runGenerator;
     }
 
@@ -52,12 +51,13 @@ public class TimedRunGenerator extends TimedFrameWriter implements IRunGenerator
 
     public static IRunGenerator time(IRunGenerator runGenerator, IHyracksTaskContext ctx, String name, ActivityId root)
             throws HyracksDataException {
-        if (!(runGenerator instanceof TimedRunGenerator)) {
+        if (!(runGenerator instanceof ProfiledRunGenerator)) {
             String statName = root.toString() + " - " + name;
             IStatsCollector statsCollector = ctx.getStatsCollector();
-            IOperatorStats stats = new OperatorStats(statName);
+            IOperatorStats stats = new OperatorStats(statName, null);
             statsCollector.add(stats);
-            return new TimedRunGenerator(runGenerator, ctx.getStatsCollector(), name, stats.getTimeCounter(), root);
+            return new ProfiledRunGenerator(runGenerator, ctx.getStatsCollector(), name,
+                    stats, root);
         }
         return runGenerator;
     }

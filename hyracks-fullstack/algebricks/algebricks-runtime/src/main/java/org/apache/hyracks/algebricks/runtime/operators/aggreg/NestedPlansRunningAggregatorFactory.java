@@ -30,7 +30,7 @@ import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.EnforceFrameWriter;
 import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
-import org.apache.hyracks.api.dataflow.TimedFrameWriter;
+import org.apache.hyracks.api.dataflow.ProfiledFrameWriter;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobFlag;
@@ -70,7 +70,7 @@ public class NestedPlansRunningAggregatorFactory extends AbstractAggregatorDescr
         IFrameWriter fw = outputWriter;
         if (profile) {
             //TODO: how to pass activity here without breaking interfaces?...
-            fw = TimedFrameWriter.time(outputWriter, ctx, "Aggregate Writer",
+            fw = ProfiledFrameWriter.time(outputWriter, ctx, "Aggregate Writer",
                     new ActivityId(new OperatorDescriptorId(-1), -1));
         } else if (enforce) {
             fw = EnforceFrameWriter.enforce(outputWriter);

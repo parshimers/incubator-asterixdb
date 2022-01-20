@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.IIntrospectingOperator;
 import org.apache.hyracks.api.dataflow.value.IMissingWriter;
 import org.apache.hyracks.api.dataflow.value.IMissingWriterFactory;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
@@ -60,7 +61,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
+public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable implements IIntrospectingOperator {
 
     static final Logger LOGGER = LogManager.getLogger();
     protected final IHyracksTaskContext ctx;
@@ -155,11 +156,6 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         this.searchCallbackProceedResultTrueValue = searchCallbackProceedResultTrueValue;
         this.tupleFilterFactory = tupleFactoryFactory;
         this.outputLimit = outputLimit;
-
-        if (ctx != null && ctx.getStatsCollector() != null) {
-            stats = new OperatorStats(getDisplayName());
-            ctx.getStatsCollector().add(stats);
-        }
 
         if (this.tupleFilterFactory != null && this.retainMissing) {
             throw new IllegalStateException("RetainMissing with tuple filter is not supported");
@@ -317,6 +313,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
                         appender.write(writer, true);
                     }
                     stats.getDiskIoCounter().update(ctx.getThreadStats().getPinnedPagesCount());
+                    stats.coldReadCounter().update(ctx.getThreadStats().getColdReadCount());
                 } catch (Throwable th) { // NOSONAR Must ensure writer.fail is called.
                     // subsequently, the failure will be thrown
                     failure = th;
@@ -399,6 +396,11 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     @Override
     public String getDisplayName() {
         return "Index Search";
+    }
+
+    @Override
+    public void setOperatorStats(IOperatorStats stats) {
+        this.stats = stats;
     }
 
 }
