@@ -6630,6 +6630,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="join">
+      <compilation-unit name="hash_join_missing">
+        <output-dir compare="Text">hash_join_missing</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="join">
       <compilation-unit name="hash_join_record">
         <output-dir compare="Text">hash_join_record</output-dir>
       </compilation-unit>
@@ -11369,6 +11374,11 @@
         <output-dir compare="Text">query-ASTERIXDB-2845</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="subquery">
+      <compilation-unit name="query-ASTERIXDB-3006">
+        <output-dir compare="Text">query-ASTERIXDB-3006</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
   <test-group name="subset-collection">
     <test-case FilePath="subset-collection">
@@ -14600,6 +14610,13 @@
         <expected-error>ASX0001: Field type null cannot be promoted to type integer</expected-error>
         <expected-error>ASX0001: Field type null cannot be promoted to type bigint</expected-error>
         <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="types">
+      <compilation-unit name="query-ASTERIXDB-2950">
+        <output-dir compare="Text">none</output-dir>
+        <expected-error>ASX1002: Type mismatch: function get-item expects its 1st input parameter to be of type multiset or array, but the actual input type is bigint (in line 24, at column 21)</expected-error>
+        <expected-error>ASX1002: Type mismatch: function get-item expects its 1st input parameter to be of type multiset or array, but the actual input type is bigint (in line 25, at column 31)</expected-error>
       </compilation-unit>
     </test-case>
   </test-group>
