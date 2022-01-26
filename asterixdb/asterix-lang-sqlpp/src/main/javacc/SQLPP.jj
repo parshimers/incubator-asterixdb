@@ -1647,6 +1647,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken, boolean orRe
   boolean ifNotExists = false;
   CreateFunctionStatement stmt = null;
   DataverseName currentDataverse = defaultDataverse;
+  boolean isAggregate = false;
 }
 {
   fctName = FunctionName()
@@ -1690,10 +1691,11 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken, boolean orRe
       <AS> externalIdentifier = FunctionExternalIdentifier()
       <AT> libraryName = QualifiedName()
       (<WITH> withOptions = RecordConstructor())?
+      (<AGGREGATE> { isAggregate = true; })?
       {
         try {
           stmt = new CreateFunctionStatement(signature, params, returnType, libraryName.first,
-            libraryName.second.getValue(), externalIdentifier, withOptions, orReplace, ifNotExists);
+            libraryName.second.getValue(), externalIdentifier, withOptions, orReplace, ifNotExists, isAggregate);
         } catch (AlgebricksException e) {
             throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
         }
@@ -5317,6 +5319,7 @@ TOKEN_MGR_DECLS:
 TOKEN [IGNORE_CASE]:
 {
   <ADAPTER: "adapter">
+  | <AGGREGATE : "aggregate">
   | <ALL : "all">
   | <AND : "and">
   | <ANY : "any">

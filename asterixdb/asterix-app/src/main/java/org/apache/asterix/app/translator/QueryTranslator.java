@@ -2922,10 +2922,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<List<Triple<DataverseName, String, String>>> dependencies =
                         FunctionUtil.getExternalFunctionDependencies(depTypes);
 
+                String functionKind =
+                        cfs.getIsAggregate() ? FunctionKind.AGGREGATE.toString() : FunctionKind.SCALAR.toString();
+
                 function = new Function(functionSignature, paramNames, paramTypes, returnTypeSignature, null,
-                        FunctionKind.SCALAR.toString(), library.getLanguage(), libraryDataverseName, libraryName,
-                        externalIdentifier, cfs.getNullCall(), cfs.getDeterministic(), cfs.getResources(),
-                        dependencies);
+                        functionKind, library.getLanguage(), libraryDataverseName, libraryName, externalIdentifier,
+                        cfs.getNullCall(), cfs.getDeterministic(), cfs.getResources(), dependencies);
             } else {
                 List<Pair<VarIdentifier, TypeExpression>> paramList = cfs.getParameters();
                 int paramCount = paramList.size();

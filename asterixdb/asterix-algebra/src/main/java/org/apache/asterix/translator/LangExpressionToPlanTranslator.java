@@ -20,6 +20,7 @@ package org.apache.asterix.translator;
 
 import static org.apache.asterix.common.api.IIdentifierMapper.Modifier.PLURAL;
 import static org.apache.asterix.common.utils.IdentifierUtil.dataset;
+import static org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind.SCALAR;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -943,7 +944,12 @@ abstract class LangExpressionToPlanTranslator
                 throw new CompilationException(ErrorCode.COMPILATION_ILLEGAL_STATE, sourceLoc, signature);
             }
             IFunctionInfo finfo = ExternalFunctionCompilerUtil.getExternalFunctionInfo(metadataProvider, function);
-            AbstractFunctionCallExpression f = new ScalarFunctionCallExpression(finfo, args);
+            AbstractFunctionCallExpression f = null;
+            if (function.getKind().equals(SCALAR.toString())) {
+                f = new ScalarFunctionCallExpression(finfo, args);
+            } else if (function.getKind().equals(FunctionKind.AGGREGATE.toString())){
+                f = new AggregateFunctionCallExpression(finfo, false, args);
+            }
             f.setSourceLocation(sourceLoc);
             return f;
         } catch (CompilationException e) {
@@ -1850,7 +1856,7 @@ abstract class LangExpressionToPlanTranslator
                 AbstractFunctionCallExpression fce = (AbstractFunctionCallExpression) expr;
                 if (fce.getKind() == FunctionKind.UNNEST) {
                     return new Pair<>(expr, topOpRef);
-                } else if (fce.getKind() == FunctionKind.SCALAR && unnestNeedsAssign(fce)) {
+                } else if (fce.getKind() == SCALAR && unnestNeedsAssign(fce)) {
                     LogicalVariable var = context.newVar();
                     AssignOperator assignOp = new AssignOperator(var, new MutableObject<>(expr));
                     assignOp.setSourceLocation(sourceLoc);

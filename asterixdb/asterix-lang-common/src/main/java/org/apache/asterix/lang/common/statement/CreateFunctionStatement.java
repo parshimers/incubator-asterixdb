@@ -62,6 +62,7 @@ public class CreateFunctionStatement extends AbstractStatement {
 
     private final boolean replaceIfExists;
     private final boolean ifNotExists;
+    private final boolean isAggregate;
 
     public CreateFunctionStatement(FunctionSignature signature, List<Pair<VarIdentifier, TypeExpression>> paramList,
             String functionBody, Expression functionBodyExpression, boolean replaceIfExists, boolean ifNotExists) {
@@ -76,12 +77,13 @@ public class CreateFunctionStatement extends AbstractStatement {
         this.options = null;
         this.replaceIfExists = replaceIfExists;
         this.ifNotExists = ifNotExists;
+        this.isAggregate = false;
     }
 
     public CreateFunctionStatement(FunctionSignature signature, List<Pair<VarIdentifier, TypeExpression>> paramList,
             TypeExpression returnType, DataverseName libraryDataverseName, String libraryName,
-            List<String> externalIdentifier, RecordConstructor options, boolean replaceIfExists, boolean ifNotExists)
-            throws CompilationException {
+            List<String> externalIdentifier, RecordConstructor options, boolean replaceIfExists, boolean ifNotExists,
+            boolean isAggregate) throws CompilationException {
         this.signature = signature;
         this.paramList = paramList;
         this.returnType = returnType;
@@ -93,6 +95,7 @@ public class CreateFunctionStatement extends AbstractStatement {
         this.functionBodyExpression = null;
         this.replaceIfExists = replaceIfExists;
         this.ifNotExists = ifNotExists;
+        this.isAggregate = isAggregate;
     }
 
     public boolean getReplaceIfExists() {
@@ -101,6 +104,10 @@ public class CreateFunctionStatement extends AbstractStatement {
 
     public boolean getIfNotExists() {
         return this.ifNotExists;
+    }
+
+    public boolean getIsAggregate() {
+        return this.isAggregate;
     }
 
     @Override
