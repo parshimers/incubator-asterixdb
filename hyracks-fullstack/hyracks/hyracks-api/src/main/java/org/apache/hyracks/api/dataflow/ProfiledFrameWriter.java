@@ -46,8 +46,8 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     final String name;
     protected final ActivityId root;
 
-    public ProfiledFrameWriter(IFrameWriter writer, IStatsCollector collector, String name,
-                               IOperatorStats stats, ActivityId root) {
+    public ProfiledFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, IOperatorStats stats,
+            ActivityId root) {
         this.writer = writer;
         this.collector = collector;
         this.name = name;
@@ -74,16 +74,16 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
             int tupleCountOffset = FrameHelper.getTupleCountOffset(buffer.limit());
             int tupleCount = IntSerDeUtils.getInt(buffer.array(), tupleCountOffset);
             long prevCount = tupleCounter.get();
-            for(int i=0;i<tupleCount;i++){
-                int tupleLen = getTupleLength(i,tupleCountOffset,buffer);
-                if(maxSz < tupleLen){
+            for (int i = 0; i < tupleCount; i++) {
+                int tupleLen = getTupleLength(i, tupleCountOffset, buffer);
+                if (maxSz < tupleLen) {
                     maxSz = tupleLen;
                 }
-                if(minSz > tupleLen){
+                if (minSz > tupleLen) {
                     minSz = tupleLen;
                 }
                 long prev = avgSz * prevCount;
-                avgSz = (prev + tupleLen)/(prevCount+1);
+                avgSz = (prev + tupleLen) / (prevCount + 1);
                 prevCount++;
             }
             stats.getMaxTupleSz().set(maxSz);
@@ -162,7 +162,8 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     }
 
     public int getTupleLength(int tupleIndex, int tupleCountOffset, ByteBuffer buffer) {
-        return getTupleEndOffset(tupleIndex, tupleCountOffset, buffer) - getTupleStartOffset(tupleIndex, tupleCountOffset, buffer);
+        return getTupleEndOffset(tupleIndex, tupleCountOffset, buffer)
+                - getTupleStartOffset(tupleIndex, tupleCountOffset, buffer);
     }
 
     public static IFrameWriter time(IFrameWriter writer, IHyracksTaskContext ctx, String name, ActivityId root)
@@ -171,8 +172,7 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
             IStatsCollector statsCollector = ctx.getStatsCollector();
             IOperatorStats stats = new OperatorStats(name, null);
             statsCollector.add(stats);
-            return new ProfiledFrameWriter(writer, ctx.getStatsCollector(), name,
-                   stats, root);
+            return new ProfiledFrameWriter(writer, ctx.getStatsCollector(), name, stats, root);
 
         } else
             return writer;

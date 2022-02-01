@@ -71,7 +71,9 @@ public class OperatorStats implements IOperatorStats {
     }
 
     @Override
-    public ICounter getParentCounter(){ return  parent; }
+    public ICounter getParentCounter() {
+        return parent;
+    }
 
     @Override
     public ICounter getTimeCounter() {
@@ -113,7 +115,7 @@ public class OperatorStats implements IOperatorStats {
         output.writeLong(avgTupleSz.get());
         output.writeLong(minTupleSz.get());
         output.writeLong(maxTupleSz.get());
-        if(parent!= null) {
+        if (parent != null) {
             output.writeLong(parent.get());
         } else {
             output.writeLong(-1);
@@ -129,7 +131,7 @@ public class OperatorStats implements IOperatorStats {
         avgTupleSz.set(input.readLong());
         minTupleSz.set(input.readLong());
         maxTupleSz.set(input.readLong());
-        if(parent == null){
+        if (parent == null) {
             parent = new Counter("parentCounter");
         }
         parent.set(input.readLong());
@@ -138,12 +140,9 @@ public class OperatorStats implements IOperatorStats {
     @Override
     public String toString() {
         return "{ " + "\"operatorName\": \"" + operatorName + "\", " + "\"" + tupleCounter.getName() + "\": "
-                + tupleCounter.get() + ", \"" +
-                timeCounter.getName() + "\": " + timeCounter.get() + ", \"" +
-                coldReadCounter.getName() + "\": " + coldReadCounter.get() +
-        avgTupleSz.getName() + "\": " + avgTupleSz.get() + ", \"" +
-        minTupleSz.getName() + "\": " + minTupleSz.get() + ", \"" +
-        minTupleSz.getName() + "\": " + timeCounter.get() + ", \""
-                +  " }";
+                + tupleCounter.get() + ", \"" + timeCounter.getName() + "\": " + timeCounter.get() + ", \""
+                + coldReadCounter.getName() + "\": " + coldReadCounter.get() + avgTupleSz.getName() + "\": "
+                + avgTupleSz.get() + ", \"" + minTupleSz.getName() + "\": " + minTupleSz.get() + ", \""
+                + minTupleSz.getName() + "\": " + timeCounter.get() + ", \"" + " }";
     }
 }

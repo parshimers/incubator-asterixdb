@@ -130,17 +130,17 @@ public class TaskProfile extends AbstractProfile {
             jpe.put("name", key);
             jpe.put("time", Double
                     .parseDouble(new DecimalFormat("#.####").format((double) value.getTimeCounter().get() / 1000000)));
-            if(value.getDiskIoCounter().get() > 0 ){
+            if (value.getDiskIoCounter().get() > 0) {
                 jpe.put("disk-io", value.getDiskIoCounter().get());
                 jpe.put("cold-read", value.coldReadCounter().get());
             }
-            if(value.getTupleCounter().get() > 0 ){
+            if (value.getTupleCounter().get() > 0) {
                 jpe.put("cardinality-out", value.getTupleCounter().get());
                 jpe.put("avg-tuple-size", value.getAverageTupleSz().get());
                 jpe.put("min-tuple-size", value.getMinTupleSz().get());
                 jpe.put("max-tuple-size", value.getMaxTupleSz().get());
             }
-            if(value.getParentCounter().get() > 0 ){
+            if (value.getParentCounter().get() > 0) {
                 jpe.put("cardinality-in", value.getTupleCounter().get());
             }
             countersObj.add(jpe);

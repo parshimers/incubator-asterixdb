@@ -34,7 +34,7 @@ public class ProfiledRunGenerator extends ProfiledFrameWriter implements IRunGen
     private final IRunGenerator runGenerator;
 
     private ProfiledRunGenerator(IRunGenerator runGenerator, IStatsCollector collector, String name,
-                                 IOperatorStats stats, ActivityId root) {
+            IOperatorStats stats, ActivityId root) {
         super(runGenerator, collector, name, stats, root);
         this.runGenerator = runGenerator;
     }
@@ -56,8 +56,7 @@ public class ProfiledRunGenerator extends ProfiledFrameWriter implements IRunGen
             IStatsCollector statsCollector = ctx.getStatsCollector();
             IOperatorStats stats = new OperatorStats(statName, null);
             statsCollector.add(stats);
-            return new ProfiledRunGenerator(runGenerator, ctx.getStatsCollector(), name,
-                    stats, root);
+            return new ProfiledRunGenerator(runGenerator, ctx.getStatsCollector(), name, stats, root);
         }
         return runGenerator;
     }

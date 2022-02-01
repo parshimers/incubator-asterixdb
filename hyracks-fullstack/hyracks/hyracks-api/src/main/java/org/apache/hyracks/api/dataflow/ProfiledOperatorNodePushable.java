@@ -27,7 +27,6 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
-import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 
 public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements IOperatorNodePushable, IPassableTimer {
@@ -116,13 +115,14 @@ public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements
         }
     }
 
-    public static IOperatorNodePushable time(IOperatorNodePushable op, IHyracksTaskContext ctx, ActivityId acId, IOperatorNodePushable source)
-            throws HyracksDataException {
+    public static IOperatorNodePushable time(IOperatorNodePushable op, IHyracksTaskContext ctx, ActivityId acId,
+            IOperatorNodePushable source) throws HyracksDataException {
         if (!(op instanceof ProfiledOperatorNodePushable) && !(op instanceof SuperActivityOperatorNodePushable)) {
             String name = acId.toString() + " - " + op.getDisplayName();
             IStatsCollector statsCollector = ctx.getStatsCollector();
-            IOperatorStats stats = new OperatorStats(name, source == null ? null : ((ProfiledOperatorNodePushable)source).tupleCounter );
-            if( op instanceof IIntrospectingOperator ){
+            IOperatorStats stats = new OperatorStats(name,
+                    source == null ? null : ((ProfiledOperatorNodePushable) source).tupleCounter);
+            if (op instanceof IIntrospectingOperator) {
                 ((IIntrospectingOperator) op).setOperatorStats(stats);
             }
             statsCollector.add(stats);

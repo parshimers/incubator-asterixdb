@@ -45,6 +45,7 @@ import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.IOperatorDescriptorRegistry;
 import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -52,9 +53,9 @@ import org.apache.hyracks.dataflow.common.comm.util.FrameUtils;
 import org.apache.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFamily;
 import org.apache.hyracks.dataflow.common.io.RunFileReader;
 import org.apache.hyracks.dataflow.std.base.AbstractActivityNode;
+import org.apache.hyracks.dataflow.std.base.AbstractIntrospectingUnaryInputSinkOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
-import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.buffermanager.DeallocatableFramePool;
 import org.apache.hyracks.dataflow.std.buffermanager.FramePoolBackedFrameBufferManager;
@@ -271,9 +272,10 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
             final IPredicateEvaluator predEvaluator =
                     (predEvaluatorFactory == null ? null : predEvaluatorFactory.createPredicateEvaluator());
 
-            return new AbstractUnaryInputSinkOperatorNodePushable() {
+            return new AbstractIntrospectingUnaryInputSinkOperatorNodePushable() {
                 private BuildAndPartitionTaskState state = new BuildAndPartitionTaskState(
                         ctx.getJobletContext().getJobId(), new TaskId(getActivityId(), partition));
+                IOperatorStats stats;
 
                 ITuplePartitionComputer probeHpc =
                         new FieldHashPartitionComputerFamily(probeKeys, propHashFunctionFactories)
@@ -293,7 +295,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
                             getNumberOfPartitions(state.memForJoin, inputsize0, fudgeFactor, nPartitions);
                     state.hybridHJ = new OptimizedHybridHashJoin(ctx.getJobletContext(), state.memForJoin,
                             state.numOfPartitions, PROBE_REL, BUILD_REL, probeRd, buildRd, probeHpc, buildHpc,
-                            predEvaluator, isLeftOuter, nonMatchWriterFactories);
+                            predEvaluator, isLeftOuter, nonMatchWriterFactories, stats);
 
                     state.hybridHJ.initBuild();
                     if (LOGGER.isTraceEnabled()) {
@@ -333,6 +335,11 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
                 @Override
                 public String getDisplayName() {
                     return "Hybrid Hash Join: Build";
+                }
+
+                @Override
+                public void setOperatorStats(IOperatorStats stats) {
+                    this.stats = stats;
                 }
 
             };
