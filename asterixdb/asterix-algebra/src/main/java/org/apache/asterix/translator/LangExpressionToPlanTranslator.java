@@ -947,8 +947,11 @@ abstract class LangExpressionToPlanTranslator
             AbstractFunctionCallExpression f = null;
             if (function.getKind().equals(SCALAR.toString())) {
                 f = new ScalarFunctionCallExpression(finfo, args);
-            } else if (function.getKind().equals(FunctionKind.AGGREGATE.toString())){
-                f = new AggregateFunctionCallExpression(finfo, false, args);
+            } else if (function.getKind().equals(FunctionKind.AGGREGATE.toString())) {
+                AggregateFunctionCallExpression expr = new AggregateFunctionCallExpression(finfo, true, args);
+                expr.setStepOneAggregate(finfo);
+                expr.setStepTwoAggregate(finfo);
+                f = expr;
             }
             f.setSourceLocation(sourceLoc);
             return f;

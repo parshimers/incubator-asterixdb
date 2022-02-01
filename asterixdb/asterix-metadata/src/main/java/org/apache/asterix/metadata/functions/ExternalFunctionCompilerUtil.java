@@ -93,7 +93,7 @@ public class ExternalFunctionCompilerUtil {
     }
 
     private static IFunctionInfo getAggregateFunctionInfo(MetadataProvider metadataProvider, Function function)
-        throws AlgebricksException {
+            throws AlgebricksException {
         List<IAType> paramTypes = getParameterTypes(function, metadataProvider);
 
         IAType returnType = getType(function.getReturnType(), metadataProvider);
