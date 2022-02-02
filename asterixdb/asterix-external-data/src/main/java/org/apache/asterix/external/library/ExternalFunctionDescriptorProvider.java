@@ -41,7 +41,7 @@ public class ExternalFunctionDescriptorProvider {
         return fd;
     }
 
-    private static IExternalFunctionDescriptor getExternalFunctionDescriptor(IExternalFunctionInfo finfo)
+    static IExternalFunctionDescriptor getExternalFunctionDescriptor(IExternalFunctionInfo finfo)
             throws AlgebricksException {
         switch (finfo.getKind()) {
             case SCALAR:
