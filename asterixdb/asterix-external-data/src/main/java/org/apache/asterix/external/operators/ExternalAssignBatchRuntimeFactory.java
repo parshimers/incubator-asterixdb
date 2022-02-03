@@ -33,8 +33,8 @@ import java.util.List;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
-import org.apache.asterix.external.ipc.PythonIPCProto;
-import org.apache.asterix.external.library.PythonLibraryEvaluator;
+import org.apache.asterix.external.api.IExternalLangIPCProto;
+import org.apache.asterix.external.api.ILibraryEvaluator;
 import org.apache.asterix.external.library.PythonLibraryEvaluatorFactory;
 import org.apache.asterix.external.library.msgpack.MessageUnpackerToADM;
 import org.apache.asterix.external.library.msgpack.MsgPackPointableVisitor;
@@ -87,7 +87,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
             private ArrayBackedValueStorage outputWrapper;
             private List<ArrayBackedValueStorage> argHolders;
             ArrayTupleBuilder tupleBuilder;
-            private List<Pair<Long, PythonLibraryEvaluator>> libraryEvaluators;
+            private List<Pair<Long, ILibraryEvaluator>> libraryEvaluators;
             private ATypeTag[][] nullCalls;
             private int[] numCalls;
             private VoidPointable ref;
@@ -109,7 +109,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                 try {
                     PythonLibraryEvaluatorFactory evalFactory = new PythonLibraryEvaluatorFactory(ctx);
                     for (IExternalFunctionDescriptor fnDesc : fnDescs) {
-                        PythonLibraryEvaluator eval = evalFactory.getEvaluator(fnDesc.getFunctionInfo(), sourceLoc);
+                        ILibraryEvaluator eval = evalFactory.getEvaluator(fnDesc.getFunctionInfo(), sourceLoc);
                         long id = eval.initialize(fnDesc.getFunctionInfo());
                         libraryEvaluators.add(new Pair<>(id, eval));
                     }
@@ -211,7 +211,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
                                             tRef.getFieldLength(cols[colIdx]));
-                                    ATypeTag argumentPresence = PythonLibraryEvaluator
+                                    ATypeTag argumentPresence = ILibraryEvaluator
                                             .peekArgument(fnDescs[func].getArgumentTypes()[colIdx], ref);
                                     argumentStatus = handleNullMatrix(func, t, argumentPresence, argumentStatus);
                                 }
@@ -224,7 +224,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 for (int colIdx = 0; colIdx < cols.length; colIdx++) {
                                     ref.set(buffer.array(), tRef.getFieldStart(cols[colIdx]),
                                             tRef.getFieldLength(cols[colIdx]));
-                                    PythonIPCProto.visitValueRef(fnDescs[func].getArgumentTypes()[colIdx],
+                                    IExternalLangIPCProto.visitValueRef(fnDescs[func].getArgumentTypes()[colIdx],
                                             argHolders.get(func).getDataOutput(), ref, pointableAllocator,
                                             pointableVisitor, fnDescs[func].getFunctionInfo().getNullCall());
                                 }
@@ -232,14 +232,14 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 numCalls[func]--;
                             }
                             if (cols.length == 0) {
-                                PythonLibraryEvaluator.setVoidArgument(argHolders.get(func));
+                                ILibraryEvaluator.setVoidArgument(argHolders.get(func));
                             }
                         }
                     }
 
                     //TODO: maybe this could be done in parallel for each unique library evaluator?
                     for (int argHolderIdx = 0; argHolderIdx < argHolders.size(); argHolderIdx++) {
-                        Pair<Long, PythonLibraryEvaluator> fnEval = libraryEvaluators.get(argHolderIdx);
+                        Pair<Long, ILibraryEvaluator> fnEval = libraryEvaluators.get(argHolderIdx);
                         ByteBuffer columnResult = fnEval.getSecond().callPythonMulti(fnEval.getFirst(),
                                 argHolders.get(argHolderIdx), numCalls[argHolderIdx]);
                         if (columnResult != null) {

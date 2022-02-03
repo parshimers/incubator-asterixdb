@@ -642,37 +642,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>net.revelc.code.formatter</groupId>
-        <artifactId>formatter-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <goals>
-              <goal>${source-format.goal}</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <configFile>${root.dir}/AsterixCodeFormatProfile.xml</configFile>
-          <skipFormatting>${source-format.skip}</skipFormatting>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>net.revelc.code</groupId>
-        <artifactId>impsort-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <goals>
-              <goal>${import-sort.goal}</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <groups>java,javax,org,com,*</groups>
-          <removeUnused>true</removeUnused>
-          <skip>${import-sort.skip}</skip>
-        </configuration>
-      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
@@ -685,16 +654,6 @@
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
           <version>0.12</version>
-        </plugin>
-        <plugin>
-          <groupId>net.revelc.code.formatter</groupId>
-          <artifactId>formatter-maven-plugin</artifactId>
-          <version>2.0.1</version>
-        </plugin>
-        <plugin>
-          <groupId>net.revelc.code</groupId>
-          <artifactId>impsort-maven-plugin</artifactId>
-          <version>1.2.0</version>
         </plugin>
         <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
         <plugin>
@@ -741,19 +700,6 @@
                   </pluginExecutionFilter>
                   <action>
                     <ignore />
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>net.revelc.code.formatter</groupId>
-                    <artifactId>formatter-maven-plugin</artifactId>
-                    <versionRange>[2.0.1,)</versionRange>
-                    <goals>
-                      <goal>format</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore></ignore>
                   </action>
                 </pluginExecution>
               </pluginExecutions>
