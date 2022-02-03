@@ -18,22 +18,36 @@
  */
 package org.apache.asterix.external.library;
 
+import org.apache.asterix.om.functions.IExternalFunctionDescriptor;
+import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
+import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.runtime.aggregates.scalar.AbstractScalarAggregateDescriptor;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 
-public class ScalarExternalAggregateDescriptor extends AbstractScalarAggregateDescriptor {
+public class ScalarExternalAggregateDescriptor extends AbstractScalarAggregateDescriptor implements IExternalFunctionDescriptor {
 
     private static final long serialVersionUID = 1L;
-    ExternalFunctionDescriptorFactory extFact;
+    ExternalAggregateFunctionDescriptorFactory extFact;
+    private IAType[] argTypes;
 
     public ScalarExternalAggregateDescriptor(IFunctionDescriptorFactory factory) {
         super(factory);
-        extFact = (ExternalFunctionDescriptorFactory) factory;
+        extFact = (ExternalAggregateFunctionDescriptorFactory) factory;
     }
 
     @Override
     public FunctionIdentifier getIdentifier() {
         return extFact.getfInfo().getFunctionIdentifier();
+    }
+
+    @Override
+    public IExternalFunctionInfo getFunctionInfo() {
+        return extFact.getfInfo();
+    }
+
+    @Override
+    public IAType[] getArgumentTypes() {
+        return argTypes;
     }
 }

@@ -48,11 +48,6 @@ public class ExternalAggregateFunctionDescriptor extends AbstractAggregateFuncti
     }
 
     @Override
-    public IScalarEvaluatorFactory createEvaluatorFactory(IScalarEvaluatorFactory[] args) throws AlgebricksException {
-        return new ExternalScalarFunctionEvaluatorFactory(finfo, args, argTypes, sourceLoc);
-    }
-
-    @Override
     public IAggregateEvaluatorFactory createAggregateEvaluatorFactory(IScalarEvaluatorFactory[] args) {
         return new ExternalAggregateFunctionEvaluatorFactory(finfo, args, argTypes, sourceLoc);
     }

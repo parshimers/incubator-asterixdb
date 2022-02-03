@@ -47,11 +47,15 @@ public class ExternalFunctionDescriptorProvider {
             case SCALAR:
                 return new ExternalScalarFunctionDescriptor(finfo);
             case AGGREGATE:
-                return new ExternalAggregateFunctionDescriptor(finfo);
+                return new ScalarExternalAggregateDescriptor(new ExternalAggregateFunctionDescriptorFactory(finfo));
             case UNNEST:
                 throw new AsterixException(ErrorCode.LIBRARY_EXTERNAL_FUNCTION_UNSUPPORTED_KIND, finfo.getKind());
             default:
                 throw new AsterixException(ErrorCode.LIBRARY_EXTERNAL_FUNCTION_UNKNOWN_KIND, finfo.getKind());
         }
+    }
+
+    static IExternalFunctionDescriptor getExternalAggregateFunctionDescriptor(IExternalFunctionInfo fInfo){
+        return new ExternalScalarFunctionDescriptor(fInfo);
     }
 }
