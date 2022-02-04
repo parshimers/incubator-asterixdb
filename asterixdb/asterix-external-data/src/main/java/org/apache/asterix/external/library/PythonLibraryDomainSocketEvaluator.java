@@ -20,10 +20,13 @@ package org.apache.asterix.external.library;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
+import java.net.ProtocolFamily;
+import java.net.SocketAddress;
 import java.net.StandardProtocolFamily;
-import java.net.UnixDomainSocketAddress;
 import java.nio.channels.Channels;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Path;
@@ -72,14 +75,26 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
         Path sockPath = Path.of("/tmp").resolve("asterix.sock");
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         StandardProtocolFamily fam;
+        SocketAddress sockAddr = null;
         try {
             VarHandle sockEnum = lookup.in(StandardProtocolFamily.class).findVarHandle(StandardProtocolFamily.class,"UNIX",StandardProtocolFamily.class);
+            Class domainSock = Class.forName("java.net.UnixDomainSocketAddress");
+            MethodType unixDomainSockAddrType = MethodType.methodType(domainSock,Path.class);
+            MethodHandle unixDomainSockAddr = lookup.findStatic(domainSock,"of",unixDomainSockAddrType);
+            MethodType sockChanMethodType = MethodType.methodType(SocketChannel.class, ProtocolFamily.class);
+            MethodHandle sockChanOpen = lookup.findStatic(SocketChannel.class,"open",sockChanMethodType);
+            sockAddr = ((SocketAddress) unixDomainSockAddr.invoke(sockPath));
+            chan = (SocketChannel) sockChanOpen.invoke(sockEnum.get());
         } catch (NoSuchFieldException e) {
         } catch (IllegalAccessException e) {
             e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (Throwable e) {
+            e.printStackTrace();
         }
-        UnixDomainSocketAddress sockAddr = UnixDomainSocketAddress.of(sockPath);
-        chan = SocketChannel.open(StandardProtocolFamily.UNIX);
         chan.connect(sockAddr);
         proto = new PythonDomainSocketProto(Channels.newOutputStream(chan),Channels.newInputStream(chan));
         proto.start();

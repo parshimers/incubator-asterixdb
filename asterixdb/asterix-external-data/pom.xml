@@ -30,9 +30,9 @@
         <distribution>repo</distribution>
         <comments>A business-friendly OSS license</comments>
     </license>
-</licenses>
-<artifactId>asterix-external-data-base</artifactId>
-<properties>
+  </licenses>
+  <artifactId>asterix-external-data</artifactId>
+  <properties>
     <root.dir>${basedir}/..</root.dir>
     <generatedSourcesDirectory>${project.build.directory}/generated-sources/lexer/</generatedSourcesDirectory>
 </properties>
