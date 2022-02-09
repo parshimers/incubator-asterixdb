@@ -55,7 +55,7 @@ public class ExternalFunctionDescriptorProvider {
         }
     }
 
-    static IExternalFunctionDescriptor getExternalAggregateFunctionDescriptor(IExternalFunctionInfo fInfo){
+    static IExternalFunctionDescriptor getExternalAggregateFunctionDescriptor(IExternalFunctionInfo fInfo) {
         return new ExternalScalarFunctionDescriptor(fInfo);
     }
 }

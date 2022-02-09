@@ -41,6 +41,7 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.api.exceptions.Warning;
 import org.apache.hyracks.data.std.api.IPointable;
+import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
@@ -50,10 +51,9 @@ import org.msgpack.core.buffer.ArrayBufferInput;
 
 class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunctionEvaluator {
 
-    private final String INIT_IDENTIFIER = "init";
     private final String STEP_IDENTIFIER = "step";
     private final String FINISH_IDENTIFIER = "finish";
-    private final String FINISH_PARTIAL_IDENTIFIER = "finish_partial";
+//    private final String FINISH_PARTIAL_IDENTIFIER = "finish_partial";
     private final PythonLibraryEvaluator libraryEvaluator;
 
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
@@ -68,10 +68,10 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
     private ArrayBufferInput unpackerInput;
     private MessageUnpackerToADM unpackerToADM;
 
-    private long initFnId;
-    private long stepFnId;
-    private long finishFnId;
-    private long finishPartialFnId;
+    private final long initFnId;
+    private final long stepFnId;
+    private final long finishFnId;
+//    private long finishPartialFnId;
 
     // store aggregate functions
 
@@ -83,10 +83,11 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
             this.libraryEvaluator = evaluatorFactory.getEvaluator(finfo, sourceLoc);
             // try to initialize function ids
             // modify the function info to get the right functions
+            String INIT_IDENTIFIER = "init";
             this.initFnId = libraryEvaluator.initialize(addIdentifier(finfo, INIT_IDENTIFIER));
             this.stepFnId = libraryEvaluator.initialize(addIdentifier(finfo, STEP_IDENTIFIER));
             this.finishFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_IDENTIFIER));
-            this.finishPartialFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_PARTIAL_IDENTIFIER));
+//            this.finishPartialFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_PARTIAL_IDENTIFIER));
         } catch (IOException | AsterixException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
@@ -108,9 +109,10 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
 
     @Override
     public void init() throws HyracksDataException {
+        argHolder.clear();
         boolean nullCall = finfo.getNullCall();
         try {
-            libraryEvaluator.callPython(initFnId, argTypes, argValues, nullCall);
+            libraryEvaluator.callPython(initFnId, new IAType[0], new IValueReference[0], nullCall);
             resultBuffer.reset();
         } catch (Exception e) {
             throw new HyracksDataException("Error evaluating Python UDF", e);
@@ -136,7 +138,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
     public void finish(IPointable result) throws HyracksDataException {
         boolean nullCall = finfo.getNullCall();
         try {
-            ByteBuffer res = libraryEvaluator.callPython(finishFnId, argTypes, argValues, nullCall);
+            ByteBuffer res = libraryEvaluator.callPython(finishFnId, new IAType[0], new IValueReference[0], nullCall);
             resultBuffer.reset();
             wrap(res, resultBuffer.getDataOutput());
         } catch (Exception e) {
@@ -147,18 +149,17 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
 
     @Override
     public void finishPartial(IPointable result) throws HyracksDataException {
-        // search for finish function in class?
+        // TODO: figure out what to do with finishPartial
     }
 
     private IExternalFunctionInfo addIdentifier(IExternalFunctionInfo finfo, String identifier) {
         // create new function info with different externalIdentifiers
-        List<String> newIdentifiers = new ArrayList<String>(finfo.getExternalIdentifier());
-        newIdentifiers.add(identifier);
-        IExternalFunctionInfo newFinfo = new ExternalFunctionInfo(finfo.getFunctionIdentifier(), finfo.getKind(),
+        List<String> newIdentifiers = new ArrayList<>(finfo.getExternalIdentifier());
+        newIdentifiers.set(newIdentifiers.size() - 1, newIdentifiers.get(newIdentifiers.size() - 1) + "." + identifier);
+        return new ExternalFunctionInfo(finfo.getFunctionIdentifier(), finfo.getKind(),
                 finfo.getParameterTypes(), finfo.getReturnType(), finfo.getResultTypeComputer(), finfo.getLanguage(),
                 finfo.getLibraryDataverseName(), finfo.getLibraryName(), newIdentifiers, finfo.getResources(),
                 finfo.isFunctional(), finfo.getNullCall());
-        return newFinfo;
     }
 
     private void wrap(ByteBuffer resultWrapper, DataOutput out) throws HyracksDataException {
