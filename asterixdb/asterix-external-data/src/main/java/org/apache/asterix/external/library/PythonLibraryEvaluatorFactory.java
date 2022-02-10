@@ -57,9 +57,9 @@ public class PythonLibraryEvaluatorFactory {
     public PythonLibraryEvaluatorFactory(IHyracksTaskContext ctx) throws AsterixException {
         this.ctx = ctx;
         config();
+        libraryManager = ((INcApplicationContext) ctx.getJobletContext().getServiceContext().getApplicationContext())
+                .getLibraryManager();
         if(!domainSockEnable) {
-            libraryManager = ((INcApplicationContext) ctx.getJobletContext().getServiceContext().getApplicationContext())
-                    .getLibraryManager();
             router = libraryManager.getRouter();
             ipcSys = libraryManager.getIPCI();
             IApplicationConfig appCfg = ctx.getJobletContext().getServiceContext().getAppConfig();
@@ -136,7 +136,7 @@ public class PythonLibraryEvaluatorFactory {
         Runtime rt = Runtime.getRuntime();
         if(rt.version().feature() >= 17 && SystemUtils.IS_OS_LINUX){
             ///!!! FIX ME
-            if(new File("/tmp/asterixdb.sock").exists()){
+            if(new File("/tmp/test.socket").exists()){
                 domainSockEnable = true;
             }
         }

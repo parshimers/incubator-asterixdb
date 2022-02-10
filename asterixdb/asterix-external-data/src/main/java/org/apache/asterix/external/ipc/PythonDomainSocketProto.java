@@ -19,17 +19,25 @@ package org.apache.asterix.external.ipc;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channel;
+import java.nio.channels.SocketChannel;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.api.IExternalLangIPCProto;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.util.StorageUtil;
 
 public class PythonDomainSocketProto extends AbstractPythonIPCProto implements IExternalLangIPCProto {
-    InputStream sockIn;
+    private final String wd;
+    SocketChannel chan;
+    private ByteBuffer headerBuffer;
 
-    public PythonDomainSocketProto(OutputStream sockOut, InputStream sockIn) {
+    public PythonDomainSocketProto(OutputStream sockOut, SocketChannel chan, String wd) {
         super(sockOut);
-        this.sockIn = sockIn;
+        this.chan = chan;
+        this.wd = wd;
+        headerBuffer = ByteBuffer.allocate(21);
     }
 
     @Override
@@ -37,12 +45,35 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
     }
 
     @Override
+    public void helo() throws IOException, AsterixException {
+        recvBuffer.clear();
+        recvBuffer.position(0);
+        recvBuffer.limit(0);
+        messageBuilder.reset();
+        messageBuilder.helloDS(wd);
+        sendHeader(routeId, messageBuilder.getLength());
+        sendMsg();
+        receiveMsg();
+        if (getResponseType() != MessageType.HELO) {
+            throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
+                    "Expected HELO, recieved " + getResponseType().name());
+        }
+    }
+
+    @Override
     public void receiveMsg() throws IOException, AsterixException {
         //NO.
-        recvBuffer.put(sockIn.readAllBytes());
-        if (bufferBox.getFirst() != recvBuffer) {
-            recvBuffer = bufferBox.getFirst();
+        //TODO: handle reading header size and such. this is broken.
+        headerBuffer.clear();
+        chan.read(headerBuffer);
+        headerBuffer.flip();
+        int msgSz = headerBuffer.getInt() - 17;
+        if(recvBuffer.capacity() < msgSz){
+            recvBuffer = ByteBuffer.allocate(((msgSz/32768)+1)*32768);
         }
+        recvBuffer.limit(msgSz);
+        chan.read(recvBuffer);
+        recvBuffer.flip();
         messageBuilder.readHead(recvBuffer);
         if (messageBuilder.type == MessageType.ERROR) {
             unpackerInput.reset(recvBuffer.array(), recvBuffer.position() + recvBuffer.arrayOffset(),

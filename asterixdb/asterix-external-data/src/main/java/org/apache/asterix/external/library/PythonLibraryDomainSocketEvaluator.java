@@ -72,12 +72,12 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
                 (PythonLibrary) libMgr.getLibrary(fnId.getLibraryDataverseName(), fnId.getLibraryName());
         String wd = library.getFile().getAbsolutePath();
         //fixme
-        Path sockPath = Path.of("/tmp").resolve("asterix.sock");
+        Path sockPath = Path.of("/tmp").resolve("test.socket");
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         StandardProtocolFamily fam;
         SocketAddress sockAddr = null;
         try {
-            VarHandle sockEnum = lookup.in(StandardProtocolFamily.class).findVarHandle(StandardProtocolFamily.class,"UNIX",StandardProtocolFamily.class);
+            VarHandle sockEnum = lookup.in(StandardProtocolFamily.class).findStaticVarHandle(StandardProtocolFamily.class,"UNIX",StandardProtocolFamily.class);
             Class domainSock = Class.forName("java.net.UnixDomainSocketAddress");
             MethodType unixDomainSockAddrType = MethodType.methodType(domainSock,Path.class);
             MethodHandle unixDomainSockAddr = lookup.findStatic(domainSock,"of",unixDomainSockAddrType);
@@ -96,7 +96,7 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
             e.printStackTrace();
         }
         chan.connect(sockAddr);
-        proto = new PythonDomainSocketProto(Channels.newOutputStream(chan),Channels.newInputStream(chan));
+        proto = new PythonDomainSocketProto(Channels.newOutputStream(chan),chan, wd);
         proto.start();
         proto.helo();
     }
