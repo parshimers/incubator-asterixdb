@@ -49,45 +49,7 @@ public class ScalarExternalAggregateDescriptor extends AbstractScalarAggregateDe
         for (int i = 0; i < states.length; i++) {
             argTypes[i] = (IAType) states[i];
         }
-    }
-
-    @Override
-    public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args)
-            throws AlgebricksException {
-
-        // The aggregate function will get a SingleFieldFrameTupleReference that points to the result of the
-        // ScanCollection. The list-item will always reside in the first field (column) of the
-        // SingleFieldFrameTupleReference.
-        int numArgs = args.length;
-        IScalarEvaluatorFactory[] aggFuncArgs = new IScalarEvaluatorFactory[numArgs];
-
-        aggFuncArgs[0] = new ColumnAccessEvalFactory(0);
-
-        for (int i = 1; i < numArgs; ++i) {
-            aggFuncArgs[i] = args[i];
-        }
-
-        return new IScalarEvaluatorFactory() {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            public IScalarEvaluator createScalarEvaluator(IEvaluatorContext ctx) throws HyracksDataException {
-                // Use ScanCollection to iterate over list items.
-                ScanCollectionDescriptor.ScanCollectionUnnestingFunctionFactory scanCollectionFactory =
-                        new ScanCollectionDescriptor.ScanCollectionUnnestingFunctionFactory(args[0], sourceLoc);
-                IExternalFunctionInfo finfo = ((ExternalAggregateFunctionDescriptor) aggFuncDesc).getFunctionInfo();
-                AggregateExternalTypeComputer typeComputer = new AggregateExternalTypeComputer(finfo.getReturnType(),
-                        finfo.getParameterTypes(), finfo.getNullCall());
-                ExternalFunctionInfo externalFunctionInfo = new ExternalFunctionInfo(finfo.getFunctionIdentifier(),
-                        finfo.getKind(), finfo.getParameterTypes(), finfo.getReturnType(), typeComputer,
-                        finfo.getLanguage(), finfo.getLibraryDataverseName(), finfo.getLibraryName(),
-                        finfo.getExternalIdentifier(), finfo.getResources(), finfo.isFunctional(), finfo.getNullCall());
-                IAggregateEvaluatorFactory aggregateFunctionEvaluatorFactory = new ExternalAggregateFunctionEvaluatorFactory(externalFunctionInfo, aggFuncArgs, argTypes, sourceLoc);
-
-                return createScalarAggregateEvaluator(aggregateFunctionEvaluatorFactory.createAggregateEvaluator(ctx),
-                        scanCollectionFactory, ctx);
-            }
-        };
+        aggFuncDesc.setImmutableStates(states);
     }
 
     @Override

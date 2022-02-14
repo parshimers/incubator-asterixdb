@@ -36,7 +36,7 @@ public abstract class FunctionInfo implements IFunctionInfo {
 
     public FunctionInfo(FunctionIdentifier functionIdentifier, IResultTypeComputer typeComputer, boolean isFunctional) {
         this.functionIdentifier = Objects.requireNonNull(functionIdentifier);
-        this.typeComputer = Objects.requireNonNull(typeComputer);
+        this.typeComputer = typeComputer;
         this.isFunctional = isFunctional;
     }
 

@@ -53,7 +53,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
 
     private final String STEP_IDENTIFIER = "step";
     private final String FINISH_IDENTIFIER = "finish";
-//    private final String FINISH_PARTIAL_IDENTIFIER = "finish_partial";
+    //    private final String FINISH_PARTIAL_IDENTIFIER = "finish_partial";
     private final PythonLibraryEvaluator libraryEvaluator;
 
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
@@ -71,7 +71,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
     private final long initFnId;
     private final long stepFnId;
     private final long finishFnId;
-//    private long finishPartialFnId;
+    //    private long finishPartialFnId;
 
     // store aggregate functions
 
@@ -87,7 +87,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
             this.initFnId = libraryEvaluator.initialize(addIdentifier(finfo, INIT_IDENTIFIER));
             this.stepFnId = libraryEvaluator.initialize(addIdentifier(finfo, STEP_IDENTIFIER));
             this.finishFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_IDENTIFIER));
-//            this.finishPartialFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_PARTIAL_IDENTIFIER));
+            //            this.finishPartialFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_PARTIAL_IDENTIFIER));
         } catch (IOException | AsterixException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
         }
@@ -156,8 +156,8 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
         // create new function info with different externalIdentifiers
         List<String> newIdentifiers = new ArrayList<>(finfo.getExternalIdentifier());
         newIdentifiers.set(newIdentifiers.size() - 1, newIdentifiers.get(newIdentifiers.size() - 1) + "." + identifier);
-        return new ExternalFunctionInfo(finfo.getFunctionIdentifier(), finfo.getKind(),
-                finfo.getParameterTypes(), finfo.getReturnType(), finfo.getResultTypeComputer(), finfo.getLanguage(),
+        return new ExternalFunctionInfo(finfo.getFunctionIdentifier(), finfo.getKind(), finfo.getParameterTypes(),
+                finfo.getReturnType(), finfo.getResultTypeComputer(), finfo.getLanguage(),
                 finfo.getLibraryDataverseName(), finfo.getLibraryName(), newIdentifiers, finfo.getResources(),
                 finfo.isFunctional(), finfo.getNullCall());
     }
