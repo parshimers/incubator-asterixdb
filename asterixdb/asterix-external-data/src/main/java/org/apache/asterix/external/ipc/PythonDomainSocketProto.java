@@ -17,21 +17,22 @@
 package org.apache.asterix.external.ipc;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.SocketChannel;
 
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.external.api.IExternalLangIPCProto;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.util.StorageUtil;
+import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
+import org.msgpack.core.MessagePack;
 
 public class PythonDomainSocketProto extends AbstractPythonIPCProto implements IExternalLangIPCProto {
     private final String wd;
     SocketChannel chan;
     private ByteBuffer headerBuffer;
+    private ProcessHandle pid;
 
     public PythonDomainSocketProto(OutputStream sockOut, SocketChannel chan, String wd) {
         super(sockOut);
@@ -52,8 +53,13 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
         messageBuilder.reset();
         messageBuilder.helloDS(wd);
         sendHeader(routeId, messageBuilder.getLength());
-        sendMsg();
-        receiveMsg();
+        sendMsg(true);
+        receiveMsg(true);
+        byte pidType = recvBuffer.get();
+        if(pidType != MessagePack.Code.UINT32){
+            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Returned pid type is incorrect");
+        }
+        pid = ProcessHandle.of(recvBuffer.getInt()).get();
         if (getResponseType() != MessageType.HELO) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
                     "Expected HELO, recieved " + getResponseType().name());
@@ -61,9 +67,41 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
     }
 
     @Override
-    public void receiveMsg() throws IOException, AsterixException {
+    public void sendMsg() throws IOException{
+        sendMsg(false);
+    }
+
+    @Override
+    public void sendMsg(ArrayBackedValueStorage args) throws IOException{
+        sendMsg(false,args);
+    }
+
+    public void sendMsg(boolean sendIfDead) throws IOException {
+        if(!sendIfDead && (pid == null || !pid.isAlive())){
+            return;
+        }
+        super.sendMsg();
+    }
+
+    public void sendMsg(boolean sendIfDead, ArrayBackedValueStorage args) throws IOException {
+        if(!sendIfDead && (pid == null || !pid.isAlive())){
+            return;
+        }
+        super.sendMsg(args);
+    }
+
+
+    @Override
+    public void receiveMsg() throws IOException, AsterixException{
+        receiveMsg(false);
+    }
+
+    public void receiveMsg(boolean sendIfDead) throws IOException, AsterixException {
         //NO.
         //TODO: handle reading header size and such. this is broken.
+        if(!sendIfDead && (pid == null || !pid.isAlive())){
+            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Python process exited unexpectedly");
+        }
         headerBuffer.clear();
         chan.read(headerBuffer);
         headerBuffer.flip();

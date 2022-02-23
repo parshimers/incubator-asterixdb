@@ -15,3 +15,5 @@
 # limitations under the License.
 adduser --system --group --quiet --home /opt/apache-asterixdb/ \
 --no-create-home --disabled-login --force-badname asterixdb
+adduser --system --group --quiet --home /opt/apache-asterixdb/ \
+--no-create-home --disabled-login --force-badname asterixdb-udf

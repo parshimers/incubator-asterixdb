@@ -68,6 +68,14 @@
       <filtered>true</filtered>
     </fileSet>
     <fileSet>
+      <directory>src/main/</directory>
+      <outputDirectory>apache-asterixdb-${project.version}/opt/aws/conf</outputDirectory>
+      <includes>
+        <include>**/instance_settings.yml</include>
+      </includes>
+      <filtered>true</filtered>
+    </fileSet>
+    <fileSet>
       <directory>target/appassembler/repo</directory>
       <outputDirectory>apache-asterixdb-${project.version}/repo</outputDirectory>
     </fileSet>

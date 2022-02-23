@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.external.library;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -30,33 +29,23 @@ import java.net.StandardProtocolFamily;
 import java.nio.channels.Channels;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
-import org.apache.asterix.external.ipc.ExternalFunctionResultRouter;
 import org.apache.asterix.external.ipc.PythonDomainSocketProto;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
+import org.apache.hyracks.api.exceptions.ErrorCode;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.api.job.JobId;
-import org.apache.hyracks.ipc.impl.IPCSystem;
 
 public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEvaluator {
 
 
     private final ILibraryManager libMgr;
-    private File pythonHome;
-    private ExternalFunctionResultRouter router;
-    private IPCSystem ipcSys;
-    private String sitePkgs;
-    private List<String> pythonArgs;
-    private Map<String, String> pythonEnv;
-
-
     SocketChannel chan;
 
     public PythonLibraryDomainSocketEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, ILibraryManager libMgr,
@@ -71,11 +60,10 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
         PythonLibrary library =
                 (PythonLibrary) libMgr.getLibrary(fnId.getLibraryDataverseName(), fnId.getLibraryName());
         String wd = library.getFile().getAbsolutePath();
-        //fixme
+        //fixme - needs to be a config property
         Path sockPath = Path.of("/tmp").resolve("test.socket");
         MethodHandles.Lookup lookup = MethodHandles.lookup();
-        StandardProtocolFamily fam;
-        SocketAddress sockAddr = null;
+        SocketAddress sockAddr;
         try {
             VarHandle sockEnum = lookup.in(StandardProtocolFamily.class).findStaticVarHandle(StandardProtocolFamily.class,"UNIX",StandardProtocolFamily.class);
             Class domainSock = Class.forName("java.net.UnixDomainSocketAddress");
@@ -85,15 +73,9 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
             MethodHandle sockChanOpen = lookup.findStatic(SocketChannel.class,"open",sockChanMethodType);
             sockAddr = ((SocketAddress) unixDomainSockAddr.invoke(sockPath));
             chan = (SocketChannel) sockChanOpen.invoke(sockEnum.get());
-        } catch (NoSuchFieldException e) {
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
         } catch (Throwable e) {
-            e.printStackTrace();
+            //TODO: is this an appropriate error?
+            throw HyracksDataException.create(ErrorCode.LOCAL_NETWORK_ERROR,e);
         }
         chan.connect(sockAddr);
         proto = new PythonDomainSocketProto(Channels.newOutputStream(chan),chan, wd);

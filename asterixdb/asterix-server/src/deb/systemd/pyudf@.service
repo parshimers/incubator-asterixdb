@@ -1,0 +1,14 @@
+[Unit]
+Description=AsterixDB UDF Executor Service
+After=network.target pyudf.socket
+Requires=pyudf.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/asterixdb/bin/udf_listener.py
+TimeoutStopSec=5
+DynamicUser=yes
+StandardError=journal
+
+[Install]
+WantedBy=default.target
