@@ -50,10 +50,10 @@ import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.ArrayBufferInput;
 
 class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunctionEvaluator {
-
-    private final String STEP_IDENTIFIER = "step";
-    private final String FINISH_IDENTIFIER = "finish";
-    //    private final String FINISH_PARTIAL_IDENTIFIER = "finish_partial";
+    private static final String INIT_IDENTIFIER = "init";
+    private static final String STEP_IDENTIFIER = "step";
+    private static final String FINISH_IDENTIFIER = "finish";
+    //    private static final String FINISH_PARTIAL_IDENTIFIER = "finish_partial";
     private final PythonLibraryEvaluator libraryEvaluator;
 
     private final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
@@ -81,11 +81,10 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
             this.libraryEvaluator = evaluatorFactory.getEvaluator(finfo, sourceLoc);
             // try to initialize function ids
             // modify the function info to get the right functions
-            String INIT_IDENTIFIER = "init";
             libraryEvaluator.initializeClass(finfo);
-            this.initFnId = libraryEvaluator.initialize(addIdentifier(finfo, INIT_IDENTIFIER));
-            this.stepFnId = libraryEvaluator.initialize(addIdentifier(finfo, STEP_IDENTIFIER));
-            this.finishFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_IDENTIFIER));
+            this.initFnId = libraryEvaluator.initialize(addFunctionIdentifier(finfo, INIT_IDENTIFIER));
+            this.stepFnId = libraryEvaluator.initialize(addFunctionIdentifier(finfo, STEP_IDENTIFIER));
+            this.finishFnId = libraryEvaluator.initialize(addFunctionIdentifier(finfo, FINISH_IDENTIFIER));
             //            this.finishPartialFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_PARTIAL_IDENTIFIER));
         } catch (IOException | AsterixException e) {
             throw new HyracksDataException("Failed to initialize Python", e);
@@ -151,10 +150,12 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
         // TODO: figure out how to handle finish partial
     }
 
-    private IExternalFunctionInfo addIdentifier(IExternalFunctionInfo finfo, String identifier) {
-        // create new function info with different externalIdentifiers
+    private IExternalFunctionInfo addFunctionIdentifier(IExternalFunctionInfo finfo, String functionName) {
+        // create new function info with function name added to the class identifier
         List<String> newIdentifiers = new ArrayList<>(finfo.getExternalIdentifier());
-        newIdentifiers.set(newIdentifiers.size() - 1, newIdentifiers.get(newIdentifiers.size() - 1) + "." + identifier);
+        int lastIndex = newIdentifiers.size() - 1;
+        String newIdentifier = newIdentifiers.get(lastIndex) + "." + functionName;
+        newIdentifiers.set(lastIndex, newIdentifier);
         return new ExternalFunctionInfo(finfo.getFunctionIdentifier(), finfo.getKind(), finfo.getParameterTypes(),
                 finfo.getReturnType(), finfo.getResultTypeComputer(), finfo.getLanguage(),
                 finfo.getLibraryDataverseName(), finfo.getLibraryName(), newIdentifiers, finfo.getResources(),
