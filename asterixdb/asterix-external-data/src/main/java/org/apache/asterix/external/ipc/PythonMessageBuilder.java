@@ -108,6 +108,17 @@ public class PythonMessageBuilder {
         MessagePackUtils.packStr(buf, fn);
     }
 
+    public void initClass(final String module, final String clazz) throws HyracksDataException {
+        this.type = MessageType.INIT_CLASS;
+        // sum(string lengths) + 2 from fix array tag and message type
+        dataLength = PythonMessageBuilder.getStringLength(module) + getStringLength(clazz);
+        packHeader();
+        int numArgs = 2; // module name and class name
+        MessagePackUtils.packFixArrayHeader(buf, (byte) numArgs);
+        MessagePackUtils.packStr(buf, module);
+        MessagePackUtils.packStr(buf, clazz);
+    }
+
     public void call(int numArgs, int len) throws HyracksDataException {
         buf.clear();
         buf.position(0);

@@ -24,7 +24,9 @@ public enum MessageType {
     INIT_RSP,
     CALL,
     CALL_RSP,
-    ERROR;
+    ERROR,
+    INIT_CLASS,
+    INIT_CLASS_RSP;
 
     static MessageType[] messageTypes;
     static {

@@ -46,6 +46,8 @@ class MessageType(IntEnum):
     CALL = 4
     CALL_RSP = 5
     ERROR = 6
+    INIT_CLASS = 7
+    INIT_CLASS_RSP = 8
 
 
 class MessageFlags(IntEnum):
@@ -71,10 +73,13 @@ class Wrapper(object):
     response_buf = BytesIO()
     stdin_buf = BytesIO()
     wrapped_fns = {}
+    wrapped_classes = {}
     alive = True
     readbuf = bytearray(FRAMESZ)
     readview = memoryview(readbuf)
 
+    def get_class_identifier(self, module_name, class_name):
+        return f"{module_name}.{class_name}"
 
     def init(self, module_name, class_name, fn_name):
         self.wrapped_module = import_module(module_name)
@@ -84,16 +89,25 @@ class Wrapper(object):
             self.wrapped_module = None
             raise ImportError("Module was not found in library")
         if class_name is not None:
-            self.wrapped_class = getattr(
-                import_module(module_name), class_name)()
+            class_identifier = self.get_class_identifier(module_name, class_name)
+            if class_identifier in self.wrapped_classes:
+                self.wrapped_class = self.wrapped_classes[class_identifier]
+            else:
+                self.wrapped_class = getattr(
+                    self.wrapped_module, class_name)()
         if self.wrapped_class is not None:
             wrapped_fn = getattr(self.wrapped_class, fn_name)
         else:
-            wrapped_fn = getattr(import_module(module_name), fn_name)
+            wrapped_fn = getattr(self.wrapped_module, fn_name)
         if wrapped_fn is None:
             raise ImportError(
                 "Could not find class or function in specified module")
         self.wrapped_fns[self.mid] = wrapped_fn
+
+    def init_class(self, module_name, class_name):
+        self.wrapped_module = import_module(module_name)
+        class_identifier = self.get_class_identifier(module_name, class_name)
+        self.wrapped_classes[class_identifier] = getattr(self.wrapped_module, class_name)()
 
     def next_tuple(self, *args, key=None):
         return self.wrapped_fns[key](*args)
@@ -165,6 +179,22 @@ class Wrapper(object):
         self.send_msg()
         self.packer.reset()
         return True
+    
+    def handle_init_class(self):
+        self.flag = MessageFlags.NORMAL
+        self.response_buf.seek(0)
+        args = self.unpacked_msg[1]
+        module = args[0]
+        clazz = args[1]
+        self.init_class(module, clazz)
+        self.packer.pack(int(MessageType.INIT_CLASS_RSP))
+        dlen = 1  # just the tag.
+        resp_len = self.write_header(self.response_buf, dlen)
+        self.response_buf.write(self.packer.bytes())
+        self.resp = self.response_buf.getbuffer()[0:resp_len]
+        self.send_msg()
+        self.packer.reset()
+        return
 
     def quit(self):
         self.alive = False
@@ -214,6 +244,7 @@ class Wrapper(object):
         MessageType.HELO: helo,
         MessageType.QUIT: quit,
         MessageType.INIT: handle_init,
+        MessageType.INIT_CLASS: handle_init_class,
         MessageType.CALL: handle_call
     }
 

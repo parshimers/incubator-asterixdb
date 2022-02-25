@@ -113,6 +113,21 @@ public class PythonIPCProto {
         return functionId;
     }
 
+    public void initClass(String module, String clazz) throws IOException, AsterixException {
+        recvBuffer.clear();
+        recvBuffer.position(0);
+        recvBuffer.limit(0);
+        messageBuilder.reset();
+        messageBuilder.initClass(module, clazz);
+        sendHeader(0, messageBuilder.getLength());
+        sendMsg();
+        receiveMsg();
+        if (getResponseType() != MessageType.INIT_CLASS_RSP) {
+            throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
+                    "Expected INIT_CLASS_RSP, recieved " + getResponseType().name());
+        }
+    }
+
     public ByteBuffer call(long functionId, IAType[] argTypes, IValueReference[] argValues, boolean nullCall)
             throws IOException, AsterixException {
         recvBuffer.clear();

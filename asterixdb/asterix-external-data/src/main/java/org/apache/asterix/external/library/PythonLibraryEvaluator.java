@@ -128,6 +128,13 @@ public class PythonLibraryEvaluator extends AbstractStateObject implements IDeal
         return proto.init(packageModule, clazz, fn);
     }
 
+    public void initializeClass(IExternalFunctionInfo finfo) throws IOException, AsterixException {
+        List<String> externalIdents = finfo.getExternalIdentifier();
+        String packageModule = externalIdents.get(0);
+        String clazz = externalIdents.get(1);
+        proto.initClass(packageModule, clazz);
+    }
+
     public ByteBuffer callPython(long id, IAType[] argTypes, IValueReference[] valueReferences, boolean nullCall)
             throws IOException {
         ByteBuffer ret = null;

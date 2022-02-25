@@ -73,8 +73,6 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
     private final long finishFnId;
     //    private long finishPartialFnId;
 
-    // store aggregate functions
-
     ExternalAggregatePythonFunctionEvaluator(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
             IAType[] argTypes, IEvaluatorContext ctx, SourceLocation sourceLoc) throws HyracksDataException {
         super(finfo, args, argTypes, ctx);
@@ -84,6 +82,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
             // try to initialize function ids
             // modify the function info to get the right functions
             String INIT_IDENTIFIER = "init";
+            libraryEvaluator.initializeClass(finfo);
             this.initFnId = libraryEvaluator.initialize(addIdentifier(finfo, INIT_IDENTIFIER));
             this.stepFnId = libraryEvaluator.initialize(addIdentifier(finfo, STEP_IDENTIFIER));
             this.finishFnId = libraryEvaluator.initialize(addIdentifier(finfo, FINISH_IDENTIFIER));
@@ -149,7 +148,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
 
     @Override
     public void finishPartial(IPointable result) throws HyracksDataException {
-        // TODO: figure out what to do with finishPartial
+        // TODO: figure out how to handle finish partial
     }
 
     private IExternalFunctionInfo addIdentifier(IExternalFunctionInfo finfo, String identifier) {
