@@ -5,9 +5,10 @@ Requires=pyudf.socket
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/asterixdb/bin/udf_listener.py
+ExecStart=/usr/bin/python3 /opt/apache-asterixdb/bin/udf_listener.py
 TimeoutStopSec=5
 DynamicUser=yes
+StandardError=journal
 StandardError=journal
 
 [Install]

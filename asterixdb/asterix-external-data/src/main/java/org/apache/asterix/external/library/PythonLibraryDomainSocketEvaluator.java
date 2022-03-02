@@ -61,7 +61,7 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
                 (PythonLibrary) libMgr.getLibrary(fnId.getLibraryDataverseName(), fnId.getLibraryName());
         String wd = library.getFile().getAbsolutePath();
         //fixme - needs to be a config property
-        Path sockPath = Path.of("/tmp").resolve("test.socket");
+        Path sockPath = Path.of("/tmp").resolve("asterixdb.socket");
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         SocketAddress sockAddr;
         try {

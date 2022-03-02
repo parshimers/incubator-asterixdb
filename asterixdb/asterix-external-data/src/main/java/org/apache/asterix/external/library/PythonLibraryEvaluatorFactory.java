@@ -136,7 +136,7 @@ public class PythonLibraryEvaluatorFactory {
         Runtime rt = Runtime.getRuntime();
         if(rt.version().feature() >= 17 && SystemUtils.IS_OS_LINUX){
             ///!!! FIX ME
-            if(new File("/tmp/test.socket").exists()){
+            if(new File("/tmp/asterixdb.socket").exists()){
                 domainSockEnable = true;
             }
         }

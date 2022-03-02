@@ -263,10 +263,8 @@ class Wrapper(object):
                 self.unpacker.feed(self.readview[REAL_HEADER_SZ:self.sz])
                 self.unpacked_msg = list(self.unpacker)
                 self.msg_type = MessageType(self.unpacked_msg[0])
-                self.log.flush()
                 self.type_handler[self.msg_type](self)
             except BaseException as e:
-                self.log.flush()
                 self.handle_error(traceback.format_exc())
 
     def send_msg(self):
