@@ -156,10 +156,11 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
         int lastIndex = newIdentifiers.size() - 1;
         String newIdentifier = newIdentifiers.get(lastIndex) + "." + functionName;
         newIdentifiers.set(lastIndex, newIdentifier);
+        //TODO: isprivate?
         return new ExternalFunctionInfo(finfo.getFunctionIdentifier(), finfo.getKind(), finfo.getParameterTypes(),
                 finfo.getReturnType(), finfo.getResultTypeComputer(), finfo.getLanguage(),
                 finfo.getLibraryDataverseName(), finfo.getLibraryName(), newIdentifiers, finfo.getResources(),
-                finfo.isFunctional(), finfo.getNullCall());
+                finfo.isFunctional(), finfo.getNullCall(), false);
     }
 
     private void wrap(ByteBuffer resultWrapper, DataOutput out) throws HyracksDataException {
