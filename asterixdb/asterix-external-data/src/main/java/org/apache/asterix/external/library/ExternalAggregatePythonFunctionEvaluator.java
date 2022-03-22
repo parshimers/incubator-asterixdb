@@ -127,6 +127,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
         try {
             ByteBuffer res = libraryEvaluator.callPython(stepFnId, argTypes, argValues, nullCall);
             resultBuffer.reset();
+//            wrap(res, resultBuffer.getDataOutput());
         } catch (Exception e) {
             throw new HyracksDataException("Error evaluating Python UDF", e);
         }
@@ -178,7 +179,7 @@ class ExternalAggregatePythonFunctionEvaluator extends ExternalAggregateFunction
             }
             int numresults = resultWrapper.get() ^ FIXARRAY_PREFIX;
             if (numresults > 0) {
-                unpackerToADM.unpack(resultWrapper, out, true);
+                unpackerToADM.unpack(resultWrapper, out, false);
             }
             unpackerInput.reset(resultWrapper.array(), resultWrapper.position() + resultWrapper.arrayOffset(),
                     resultWrapper.remaining());
