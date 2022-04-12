@@ -65,7 +65,8 @@ public class ReplicaSynchronizer {
         final ReplicaFilesSynchronizer fileSync = new ReplicaFilesSynchronizer(appCtx, replica, deltaRecovery);
         // flush replicated dataset to generate disk component for any remaining in-memory components
         final IReplicationStrategy replStrategy = appCtx.getReplicationManager().getReplicationStrategy();
-        appCtx.getDatasetLifecycleManager().flushDataset(replStrategy);
+        appCtx.getDatasetLifecycleManager().flushDataset(replStrategy,
+                p -> p == replica.getIdentifier().getPartition());
         waitForReplicatedDatasetsIO();
         fileSync.sync();
     }
@@ -73,7 +74,7 @@ public class ReplicaSynchronizer {
     private void checkpointReplicaIndexes() throws IOException {
         final int partition = replica.getIdentifier().getPartition();
         String masterNode =
-                appCtx.getReplicaManager().isPartitionOwner(partition) ? appCtx.getServiceContext().getNodeId() : null;
+                appCtx.getReplicaManager().isPartitionOrigin(partition) ? appCtx.getServiceContext().getNodeId() : null;
         CheckpointPartitionIndexesTask task =
                 new CheckpointPartitionIndexesTask(partition, getPartitionMaxComponentId(partition), masterNode);
         ReplicationProtocol.sendTo(replica, task);

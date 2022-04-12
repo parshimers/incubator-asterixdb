@@ -21,9 +21,9 @@
 <parent>
     <artifactId>apache-asterixdb</artifactId>
     <groupId>org.apache.asterix</groupId>
-    <version>0.9.7-SNAPSHOT</version>
-</parent>
-<licenses>
+    <version>0.9.8-SNAPSHOT</version>
+  </parent>
+  <licenses>
     <license>
         <name>Apache License, Version 2.0</name>
         <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
@@ -504,8 +504,36 @@
         <artifactId>hadoop-aws</artifactId>
     </dependency>
     <dependency>
+<<<<<<< HEAD
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-azure</artifactId>
+=======
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-azure</artifactId>
+      <exclusions>
+        <!-- apply patch for HADOOP-17225 to workaround CVE-2019-10172 -->
+        <exclusion>
+          <groupId>org.codehaus.jackson</groupId>
+          <artifactId>jackson-mapper-asl</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.codehaus.jackson</groupId>
+          <artifactId>jackson-core-asl</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- apply patch for HADOOP-17225 to workaround CVE-2019-10172 -->
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-mapper-asl</artifactId>
+      <version>1.9.14-atlassian-6</version>
+    </dependency>
+    <!-- apply patch for HADOOP-17225 to workaround CVE-2019-10172 -->
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-core-asl</artifactId>
+      <version>1.9.14-atlassian-6</version>
+>>>>>>> master
     </dependency>
     <dependency>
         <groupId>io.netty</groupId>
@@ -520,4 +548,11 @@
         <artifactId>netty-transport-native-unix-common</artifactId>
     </dependency>
 </dependencies>
+  <!-- apply patch for HADOOP-17225 to workaround CVE-2019-10172 -->
+  <repositories>
+    <repository>
+      <id>atlassian-3rdparty</id>
+      <url>https://packages.atlassian.com/maven-3rdparty/</url>
+    </repository>
+  </repositories>
 </project>
