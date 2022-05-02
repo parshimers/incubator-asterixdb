@@ -504,10 +504,6 @@
         <artifactId>hadoop-aws</artifactId>
     </dependency>
     <dependency>
-<<<<<<< HEAD
-        <groupId>org.apache.hadoop</groupId>
-        <artifactId>hadoop-azure</artifactId>
-=======
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-azure</artifactId>
       <exclusions>
@@ -533,7 +529,6 @@
       <groupId>org.codehaus.jackson</groupId>
       <artifactId>jackson-core-asl</artifactId>
       <version>1.9.14-atlassian-6</version>
->>>>>>> master
     </dependency>
     <dependency>
         <groupId>io.netty</groupId>

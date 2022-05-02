@@ -1485,6 +1485,9 @@ public class TestExecutor {
                 command = stripJavaComments(statement).trim().split(" ");
                 handlePortCommand(command);
                 break;
+            case "podman":
+                command = stripJavaComments(statement).trim().split(" ");
+                break;
             default:
                 throw new IllegalArgumentException("No statements of type " + ctx.getType());
         }
@@ -1504,6 +1507,8 @@ public class TestExecutor {
                 new TestFileContext(testFile, "validate"), expectedResultFile, actualResultFile, queryCount,
                 expectedResultFileCtxs.size(), cUnit.getParameter(), ComparisonEnum.TEXT);
     }
+
+
 
     protected void executeHttpRequest(OutputFormat fmt, String statement, Map<String, Object> variableCtx,
             String reqType, File testFile, File expectedResultFile, File actualResultFile, MutableInt queryCount,
@@ -2864,13 +2869,53 @@ public class TestExecutor {
             File testFile) throws Exception {
         if (testCaseCtx.getTestCase().isCheckWarnings()) {
             boolean expectedSourceLoc = testCaseCtx.isSourceLocationExpected(cUnit);
+            boolean onlyContains = cUnit.isWarningContains() == null ? false : cUnit.isWarningContains();
             validateWarnings(result.getWarnings(), cUnit.getExpectedWarn(), testCaseCtx.expectedWarnings,
-                    expectedSourceLoc, testFile);
+                    expectedSourceLoc, onlyContains, testFile);
+        }
+    }
+
+    protected void parseLibString(String statement) throws Exception{
+        // <library-directory>
+        // TODO: make this case work well with entity names containing spaces by
+        // looking for \"
+        String[] lines = stripAllComments(statement).trim().split("\n");
+        for (String line : lines) {
+            String[] command = line.trim().split(" ");
+            //TODO: this is not right. URLEncoder does not properly encode paths.
+            String dataverse = URLEncoder.encode(command[1], StandardCharsets.US_ASCII.name());
+            String library = URLEncoder.encode(command[2], StandardCharsets.US_ASCII.name());
+            URI path = createEndpointURI("/admin/udf/" + dataverse + "/" + library);
+            if (command.length < 2) {
+                throw new Exception("invalid library command: " + line);
+            }
+            switch (command[0]) {
+                case "install":
+                    if (command.length != 7) {
+                        throw new Exception("invalid library format");
+                    }
+                    String type = command[3];
+                    String username = command[4];
+                    String pw = command[5];
+                    String libPath = command[6];
+                    librarian.install(path, type, libPath, new Pair<>(username, pw));
+                    break;
+                case "uninstall":
+                    if (command.length != 5) {
+                        throw new Exception("invalid library format");
+                    }
+                    username = command[3];
+                    pw = command[4];
+                    librarian.uninstall(path, new Pair<>(username, pw));
+                    break;
+                default:
+                    throw new Exception("invalid library format");
+            }
         }
     }
 
     protected void validateWarnings(List<String> actualWarnings, List<String> expectedWarn, BitSet expectedWarnings,
-            boolean expectedSourceLoc, File testFile) throws Exception {
+                                    boolean expectedSourceLoc, boolean onlyContains, File testFile) throws Exception {
         if (actualWarnings != null) {
             for (String actualWarn : actualWarnings) {
                 OptionalInt first = IntStream.range(0, expectedWarn.size())

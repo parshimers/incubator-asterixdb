@@ -56,10 +56,22 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
         sendMsg(true);
         receiveMsg(true);
         byte pidType = recvBuffer.get();
-        if(pidType != MessagePack.Code.UINT32){
-            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Returned pid type is incorrect");
+        if(pidType != MessagePack.Code.UINT32 && pidType != MessagePack.Code.UINT16 ){
+            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Returned pid type is incorrect: "+pidType);
         }
-        pid = ProcessHandle.of(recvBuffer.getInt()).get();
+        switch (pidType){
+            case MessagePack.Code.UINT32:
+                pid = ProcessHandle.of(recvBuffer.getInt()).get();
+                break;
+            case MessagePack.Code.UINT16:
+                pid = ProcessHandle.of(recvBuffer.getShort()).get();
+                break;
+            case MessagePack.Code.UINT8:
+                pid = ProcessHandle.of(recvBuffer.get()).get();
+                break;
+            default:
+                throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Returned pid type is incorrect: "+pidType);
+        }
         if (getResponseType() != MessageType.HELO) {
             throw HyracksDataException.create(org.apache.hyracks.api.exceptions.ErrorCode.ILLEGAL_STATE,
                     "Expected HELO, recieved " + getResponseType().name());
@@ -105,6 +117,10 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
         headerBuffer.clear();
         chan.read(headerBuffer);
         headerBuffer.flip();
+        if(headerBuffer.remaining()<Integer.BYTES){
+            recvBuffer.limit(0);
+            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Python process exited unexpectedly");
+        }
         int msgSz = headerBuffer.getInt() - 17;
         if(recvBuffer.capacity() < msgSz){
             recvBuffer = ByteBuffer.allocate(((msgSz/32768)+1)*32768);

@@ -872,26 +872,14 @@
                 <configuration>
                   <dataSet>
                     <data>
-                      <src>${project.build.directory}/${project.build.finalName}-binary-assembly/apache-asterixdb-${project.version}/</src>
-                      <excludes>bin/**</excludes>
+                      <src>${project.build.directory}/${project.build.finalName}-binary-assembly/apache-asterixdb-${project.version}</src>
                       <type>directory</type>
                       <mapper>
                         <type>perm</type>
                         <prefix>/opt/apache-asterixdb/</prefix>
-                        <user>asterixdb</user>
-                        <group>asterixdb</group>
-                        <filemode>644</filemode>
-                      </mapper>
-                    </data>
-                    <data>
-                      <src>${project.build.directory}/${project.build.finalName}-binary-assembly/apache-asterixdb-${project.version}/bin</src>
-                      <type>directory</type>
-                      <mapper>
-                        <type>perm</type>
-                        <prefix>/opt/apache-asterixdb/bin</prefix>
-                        <user>asterixdb</user>
-                        <group>asterixdb</group>
-                        <filemode>754</filemode>
+                        <user>root</user>
+                        <group>root</group>
+                        <filemode>755</filemode>
                       </mapper>
                     </data>
                     <data>
@@ -911,8 +899,9 @@
                       <mapper>
                         <prefix>/opt/apache-asterixdb/bin</prefix>
                         <type>perm</type>
-                        <user>asterixdb</user>
-                        <group>asterixdb</group>
+                        <user>root</user>
+                        <group>root</group>
+                        <filemode>555</filemode>
                       </mapper>
                     </data>
                     <data>

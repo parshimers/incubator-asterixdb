@@ -66,8 +66,8 @@ class Wrapper(object):
     resp = None
     unpacked_msg = None
     msg_type = None
-    packer = msgpack.Packer(autoreset=False)
-    unpacker = msgpack.Unpacker()
+    packer = msgpack.Packer(autoreset=False, use_bin_type=False)
+    unpacker = msgpack.Unpacker(raw=False)
     response_buf = BytesIO()
     stdin_buf = BytesIO()
     wrapped_fns = {}
@@ -143,7 +143,6 @@ class Wrapper(object):
         self.response_buf.seek(0)
         self.packer.pack(int(MessageType.HELO))
         self.packer.pack(int(getpid()))
-        print(int(getpid()),file=sys.stderr)
         dlen = 9  # tag(1) + body(4)
         resp_len = self.write_header(self.response_buf, dlen)
         self.response_buf.write(self.packer.bytes())
@@ -205,7 +204,7 @@ class Wrapper(object):
         self.flag = MessageFlags.NORMAL
         self.packer.reset()
         self.response_buf.seek(0)
-        body = msgpack.packb(e)
+        body = msgpack.packb(str(e))
         dlen = len(body) + 1  # 1 for tag
         resp_len = self.write_header(self.response_buf, dlen)
         self.packer.pack(int(MessageType.ERROR))
@@ -265,7 +264,7 @@ class Wrapper(object):
                 self.msg_type = MessageType(self.unpacked_msg[0])
                 self.type_handler[self.msg_type](self)
             except BaseException as e:
-                self.handle_error(traceback.format_exc())
+                self.handle_error(''.join(traceback.format_exc().replace('\x00','')))
 
     def send_msg(self):
         self.sock.sendall(self.resp)

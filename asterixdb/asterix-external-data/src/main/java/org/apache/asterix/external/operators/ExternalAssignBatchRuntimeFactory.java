@@ -178,7 +178,7 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                             for (int j = 0; j < numEntries; j++) {
                                 if (ctx.getWarningCollector().shouldWarn()) {
                                     ctx.getWarningCollector().warn(Warning.of(sourceLoc,
-                                            ErrorCode.EXTERNAL_UDF_EXCEPTION, unpacker.unpackString()));
+                                            ErrorCode.EXTERNAL_UDF_EXCEPTION, unpacker.unpackString().replace('\0',' ')));
                                 }
                             }
                         } catch (MessagePackException e) {

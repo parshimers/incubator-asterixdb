@@ -25,6 +25,40 @@
     <version>0.9.8-SNAPSHOT</version>
   </parent>
   <artifactId>asterix-docker</artifactId>
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>asterix-server</artifactId>
+            <version>${project.version}</version>
+            <type>deb</type>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.asterix</groupId>
+            <artifactId>asterix-app</artifactId>
+            <version>${project.version}</version>
+            <classifier>tests</classifier>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.asterix</groupId>
+            <artifactId>asterix-test-framework</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>1.17.1</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
   <properties>
     <root.dir>${basedir}/..</root.dir>
@@ -38,31 +72,62 @@
       <comments>A business-friendly OSS license</comments>
     </license>
   </licenses>
-
-  <profiles>
-    <profile>
-        <id>docker</id>
-        <build>
-          <plugins>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>nl.lexemmens</groupId>
+            <artifactId>podman-maven-plugin</artifactId>
+            <version>1.8.0</version>
+              <executions>
+                  <execution>
+                      <goals>
+                          <goal>build</goal>
+                      </goals>
+                      <phase>generate-test-resources</phase>
+                  </execution>
+              </executions>
+            <configuration>
+                <skipAuth>true</skipAuth>
+      <images>
+          <image>
+              <name>asterixdb/socktest</name>
+              <build>
+                  <noCache>true</noCache>
+                  <pull>false</pull>
+                  <createLatestTag>true</createLatestTag>
+                  <tags>
+                      <asterixdb>test</asterixdb>
+                  </tags>
+              </build>
+          </image>
+      </images>
+            </configuration>
+          </plugin>
             <plugin>
-              <groupId>com.spotify</groupId>
-              <artifactId>docker-maven-plugin</artifactId>
-              <version>0.2.11</version>
-              <configuration>
-                <imageName>asterixdb/demo</imageName>
-                <dockerDirectory>docker</dockerDirectory>
-                <resources>
-                  <resource>
-                    <targetPath>/</targetPath>
-                    <directory>../asterix-server/target/</directory>
-                    <include>asterix-server-${project.version}-binary-assembly.zip</include>
-                  </resource>
-                </resources>
-              </configuration>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-external-data-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>target/</outputDirectory>
+                            <overwrite>true</overwrite>
+                            <resources>
+                                <resource>
+                                    <directory>../asterix-server/target</directory>
+                                    <includes>
+                                        <include>asterix-server*.deb</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
-          </plugins>
-        </build>
-    </profile>
-  </profiles>
+        </plugins>
+      </build>
 
 </project>

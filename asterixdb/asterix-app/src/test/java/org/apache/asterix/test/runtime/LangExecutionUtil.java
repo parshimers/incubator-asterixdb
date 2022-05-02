@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.asterix.app.external.ExternalUDFLibrarian;
+import org.apache.asterix.app.external.IExternalUDFLibrarian;
 import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
@@ -70,6 +71,19 @@ public class LangExecutionUtil {
         outdir.mkdirs();
         ExecutionTestUtil.setUp(cleanupOnStart, configFile, integrationUtil, startHdfs, null);
         librarian = new ExternalUDFLibrarian();
+        testExecutor.setLibrarian(librarian);
+        if (repeat != 1) {
+            System.out.println("FYI: each test will be run " + repeat + " times.");
+        }
+    }
+
+    public static void setUp(String configFile, TestExecutor executor, boolean startHdfs, boolean disableLangExec, IExternalUDFLibrarian librarian) throws Exception {
+        testExecutor = executor;
+        File outdir = new File(PATH_ACTUAL);
+        outdir.mkdirs();
+        if(!disableLangExec) {
+            ExecutionTestUtil.setUp(cleanupOnStart, configFile, integrationUtil, startHdfs, null);
+        }
         testExecutor.setLibrarian(librarian);
         if (repeat != 1) {
             System.out.println("FYI: each test will be run " + repeat + " times.");
@@ -151,7 +165,9 @@ public class LangExecutionUtil {
         NodeControllerService[] ncs = integrationUtil.ncs;
         // Checks that dataset files are uniformly distributed across each io device.
         for (NodeControllerService nc : ncs) {
-            checkNcStore(nc);
+            if(nc != null ){
+                checkNcStore(nc);
+            }
         }
     }
 
