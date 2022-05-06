@@ -115,7 +115,10 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
             throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Python process exited unexpectedly");
         }
         headerBuffer.clear();
-        chan.read(headerBuffer);
+        int read = chan.read(headerBuffer);
+        if(read < 0) {
+            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Socket closed");
+        }
         headerBuffer.flip();
         if(headerBuffer.remaining()<Integer.BYTES){
             recvBuffer.limit(0);
@@ -125,8 +128,16 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
         if(recvBuffer.capacity() < msgSz){
             recvBuffer = ByteBuffer.allocate(((msgSz/32768)+1)*32768);
         }
+        recvBuffer.clear();
         recvBuffer.limit(msgSz);
-        chan.read(recvBuffer);
+        int size = msgSz;
+        while(size > 0) {
+            read = chan.read(recvBuffer);
+            if(read < 0 ){
+                throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION, "Socket closed");
+            }
+            size -= read;
+        }
         recvBuffer.flip();
         messageBuilder.readHead(recvBuffer);
         if (messageBuilder.type == MessageType.ERROR) {

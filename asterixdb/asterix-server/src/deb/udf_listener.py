@@ -131,19 +131,19 @@ class Wrapper(object):
         self.send_msg()
         self.packer.reset()
 
-    def cd(self):
-        chdir(self.unpacked_msg[1][1] + "/site-packages")
+    def cd(self, basedir):
+        chdir(basedir + "/site-packages")
         sys.path.insert(0,getcwd())
 
     def helo(self):
         # need to ack the connection back before sending actual HELO
         #   self.init_remote_ipc()
-        self.cd()
+        self.cd(self.unpacked_msg[1][1])
         self.flag = MessageFlags.NORMAL
         self.response_buf.seek(0)
         self.packer.pack(int(MessageType.HELO))
         self.packer.pack(int(getpid()))
-        dlen = 9  # tag(1) + body(4)
+        dlen = len(self.packer.bytes())  # tag(1) + body(4)
         resp_len = self.write_header(self.response_buf, dlen)
         self.response_buf.write(self.packer.bytes())
         self.resp = self.response_buf.getbuffer()[0:resp_len]

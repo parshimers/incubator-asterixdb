@@ -59,7 +59,7 @@ public class StandardUTF8ToModifiedUTF8DataOutput implements DataOutput {
         reader.prepareNextRead(b, off, len);
         int numOfChars = reader.read(inputBuffer);
         int length = 0;
-        while (numOfChars > 0) {
+        while (numOfChars > 0 && length < len) {
             appendBuffer = append(inputBuffer, appendBuffer, length, numOfChars);
             length += numOfChars;
             numOfChars = reader.read(inputBuffer);

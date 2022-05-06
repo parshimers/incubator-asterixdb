@@ -244,9 +244,10 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                                 argHolders.get(argHolderIdx), numCalls[argHolderIdx]);
                         if (columnResult != null) {
                             Pair<ByteBuffer, Counter> resultholder = batchResults.get(argHolderIdx);
-                            if (resultholder.getFirst().capacity() < columnResult.capacity()) {
+                            if (resultholder.getFirst().capacity() < columnResult.remaining()) {
                                 ByteBuffer realloc = ctx.reallocateFrame(resultholder.getFirst(),
-                                        columnResult.capacity() * 2, false);
+                                        ctx.getInitialFrameSize()*((columnResult.remaining()/ctx.getInitialFrameSize())+1), false);
+                                realloc.limit(columnResult.limit());
                                 resultholder.setFirst(realloc);
                             }
                             ByteBuffer resultBuf = resultholder.getFirst();
