@@ -33,12 +33,14 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
     SocketChannel chan;
     private ByteBuffer headerBuffer;
     private ProcessHandle pid;
+    public static final int HYR_HEADER_SIZE = 21; // 4 (sz) + 8 (mid) + 8 (rmid) + 1 (flags)
+    public static final int HYR_HEADER_SIZE_NOSZ = 17; // 8 + 8 + 1
 
     public PythonDomainSocketProto(OutputStream sockOut, SocketChannel chan, String wd) {
         super(sockOut);
         this.chan = chan;
         this.wd = wd;
-        headerBuffer = ByteBuffer.allocate(21);
+        headerBuffer = ByteBuffer.allocate(HYR_HEADER_SIZE);
     }
 
     @Override
@@ -109,47 +111,49 @@ public class PythonDomainSocketProto extends AbstractPythonIPCProto implements I
     }
 
     public void receiveMsg(boolean sendIfDead) throws IOException, AsterixException {
-        //NO.
-        //TODO: handle reading header size and such. this is broken.
         if(!sendIfDead && (pid == null || !pid.isAlive())){
-            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Python process exited unexpectedly");
+            throw new AsterixException("Python process exited unexpectedly");
         }
-        headerBuffer.clear();
-        int read = chan.read(headerBuffer);
-        if(read < 0) {
-            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Socket closed");
-        }
-        headerBuffer.flip();
+        readFully(headerBuffer.capacity(),headerBuffer);
         if(headerBuffer.remaining()<Integer.BYTES){
             recvBuffer.limit(0);
-            throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION,"Python process exited unexpectedly");
+            throw new AsterixException("Python process exited unexpectedly");
         }
-        int msgSz = headerBuffer.getInt() - 17;
+        int msgSz = headerBuffer.getInt() - HYR_HEADER_SIZE_NOSZ;
         if(recvBuffer.capacity() < msgSz){
             recvBuffer = ByteBuffer.allocate(((msgSz/32768)+1)*32768);
         }
-        recvBuffer.clear();
-        recvBuffer.limit(msgSz);
-        int size = msgSz;
-        while(size > 0) {
-            read = chan.read(recvBuffer);
-            if(read < 0 ){
-                throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION, "Socket closed");
-            }
-            size -= read;
-        }
-        recvBuffer.flip();
+        readFully(msgSz,recvBuffer);
         messageBuilder.readHead(recvBuffer);
         if (messageBuilder.type == MessageType.ERROR) {
             unpackerInput.reset(recvBuffer.array(), recvBuffer.position() + recvBuffer.arrayOffset(),
                     recvBuffer.remaining());
             unpacker.reset(unpackerInput);
-            throw new AsterixException(unpacker.unpackString());
+            throw new AsterixException(unpacker.unpackString().replace('\0',' '));
         }
+    }
+
+    private void readFully(int msgSz, ByteBuffer buf) throws IOException, AsterixException {
+        buf.limit(msgSz);
+        buf.clear();
+        int read;
+        int size = msgSz;
+        while(size > 0) {
+            read = chan.read(buf);
+            if(read < 0 ){
+                throw new AsterixException("Socket closed");
+            }
+            size -= read;
+        }
+        buf.flip();
     }
     @Override
     public void quit() throws HyracksDataException {
         messageBuilder.quit();
+    }
+
+    public ProcessHandle getPid() {
+        return pid;
     }
 
 }

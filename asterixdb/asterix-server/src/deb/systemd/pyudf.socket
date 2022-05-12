@@ -3,7 +3,7 @@ Description=AsterixDB UDF Domain Socket
 PartOf=asterixdb_udf.service
 
 [Socket]
-ListenStream=/tmp/asterixdb.socket
+ListenStream=/tmp/pyudf.socket
 SocketMode=0660
 SocketUser=asterixdb-udf
 SocketGroup=asterixdb

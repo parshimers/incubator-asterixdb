@@ -88,19 +88,16 @@
               </executions>
             <configuration>
                 <skipAuth>true</skipAuth>
-      <images>
-          <image>
-              <name>asterixdb/socktest</name>
-              <build>
-                  <noCache>true</noCache>
-                  <pull>false</pull>
-                  <createLatestTag>true</createLatestTag>
-                  <tags>
-                      <asterixdb>test</asterixdb>
-                  </tags>
-              </build>
-          </image>
-      </images>
+                <images>
+                    <image>
+                        <name>asterixdb/socktest</name>
+                        <build>
+                            <pull>false</pull>
+                            <createLatestTag>true</createLatestTag>
+                            <containerFileDir>src/test/resources/socktest</containerFileDir>
+                        </build>
+                    </image>
+                </images>
             </configuration>
           </plugin>
             <plugin>

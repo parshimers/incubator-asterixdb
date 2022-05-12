@@ -132,7 +132,7 @@ public class AsterixHyracksIntegrationUtil {
         cc = new ClusterControllerService(ccConfig, ccApplication);
 
         nodeNames = ccConfig.getConfigManager().getNodeNames();
-        if (deleteOldInstanceData) {
+        if (deleteOldInstanceData && nodeNames != null) {
             deleteTransactionLogs();
             removeTestStorageFiles();
             deleteCCFiles();
@@ -303,7 +303,7 @@ public class AsterixHyracksIntegrationUtil {
 
         stopCC(false);
 
-        if (deleteOldInstanceData) {
+        if (deleteOldInstanceData && nodeNames != null) {
             deleteTransactionLogs();
             removeTestStorageFiles();
             deleteCCFiles();

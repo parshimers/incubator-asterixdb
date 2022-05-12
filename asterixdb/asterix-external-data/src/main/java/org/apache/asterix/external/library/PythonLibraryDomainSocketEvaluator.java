@@ -41,18 +41,25 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.control.common.controllers.NCConfig;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEvaluator {
 
 
     private final ILibraryManager libMgr;
+    private final Path sockPath;
     SocketChannel chan;
+    ProcessHandle pid;
+    private static final Logger LOGGER = LogManager.getLogger(ExternalLibraryManager.class);
 
     public PythonLibraryDomainSocketEvaluator(JobId jobId, PythonLibraryEvaluatorId evaluatorId, ILibraryManager libMgr,
                                               TaskAttemptId task,
-                                              IWarningCollector warningCollector, SourceLocation sourceLoc) {
+                                              IWarningCollector warningCollector, SourceLocation sourceLoc, Path sockPath) {
         super(jobId, evaluatorId, task, warningCollector, sourceLoc);
         this.libMgr = libMgr;
+        this.sockPath = sockPath;
     }
 
     public void start() throws IOException, AsterixException {
@@ -60,8 +67,6 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
         PythonLibrary library =
                 (PythonLibrary) libMgr.getLibrary(fnId.getLibraryDataverseName(), fnId.getLibraryName());
         String wd = library.getFile().getAbsolutePath();
-        //fixme - needs to be a config property
-        Path sockPath = Path.of("/tmp").resolve("asterixdb.socket");
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         SocketAddress sockAddr;
         try {
@@ -74,23 +79,25 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
             sockAddr = ((SocketAddress) unixDomainSockAddr.invoke(sockPath));
             chan = (SocketChannel) sockChanOpen.invoke(sockEnum.get());
         } catch (Throwable e) {
-            //TODO: is this an appropriate error?
             throw HyracksDataException.create(ErrorCode.LOCAL_NETWORK_ERROR,e);
         }
         chan.connect(sockAddr);
         proto = new PythonDomainSocketProto(Channels.newOutputStream(chan),chan, wd);
         proto.start();
         proto.helo();
+        this.pid = ((PythonDomainSocketProto) proto).getPid();
     }
 
     @Override
     public void deallocate() {
-        //FIX ME
         try {
             proto.quit();
             chan.close();
         } catch (IOException e){
-            // FIX THAT TOO!
+            LOGGER.error("Caught exception exiting Python UDF:",e);
+        }
+        if(pid.isAlive()){
+            LOGGER.error("Python UDF "+pid.pid()+ " did not exit as expected.");
         }
     }
 
@@ -101,9 +108,10 @@ public class PythonLibraryDomainSocketEvaluator extends AbstractLibrarySocketEva
                 finfo.getLibraryName(), Thread.currentThread());
         PythonLibraryDomainSocketEvaluator evaluator = (PythonLibraryDomainSocketEvaluator) ctx.getStateObject(evaluatorId);
         if (evaluator == null) {
+            Path sockPath = Path.of(ctx.getJobletContext().getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_DS_PATH));
             evaluator = new PythonLibraryDomainSocketEvaluator(ctx.getJobletContext().getJobId(), evaluatorId, libMgr,
                     ctx.getTaskAttemptId(), warningCollector,
-                    sourceLoc);
+                    sourceLoc, sockPath);
             ctx.getJobletContext().registerDeallocatable(evaluator);
             evaluator.start();
             ctx.setStateObject(evaluator);

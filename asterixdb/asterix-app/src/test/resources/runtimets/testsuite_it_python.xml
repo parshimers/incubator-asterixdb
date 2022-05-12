@@ -68,8 +68,9 @@
     <test-case FilePath="external-library" check-warnings="true">
       <compilation-unit name="crash">
         <output-dir compare="Text">crash</output-dir>
-        <expected-warn>ASX0201: External UDF returned exception. Returned exception was: Function externallibtest:crash#0 failed to execute (in line 23, at column 1)</expected-warn>
-        <expected-warn>ASX0201: External UDF returned exception. Returned exception was: java.io.IOException: Python process exited with code: 1 (in line 23, at column 1)</expected-warn>
+        <expected-warn>ASX0201: External UDF returned exception.</expected-warn>
+        <expected-warn>ASX0201: External UDF returned exception.</expected-warn>
+        <warning-contains>true</warning-contains>
       </compilation-unit>
     </test-case>
     <test-case FilePath="external-library">

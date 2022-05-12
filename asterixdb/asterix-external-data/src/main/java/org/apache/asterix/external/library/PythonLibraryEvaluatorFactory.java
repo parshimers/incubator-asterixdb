@@ -22,6 +22,8 @@ import static org.apache.asterix.external.library.PythonLibraryTCPSocketEvaluato
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,7 +58,7 @@ public class PythonLibraryEvaluatorFactory {
 
     public PythonLibraryEvaluatorFactory(IHyracksTaskContext ctx) throws AsterixException {
         this.ctx = ctx;
-        config();
+        config(Path.of(ctx.getJobletContext().getServiceContext().getAppConfig().getString(NCConfig.Option.PYTHON_DS_PATH)));
         libraryManager = ((INcApplicationContext) ctx.getJobletContext().getServiceContext().getApplicationContext())
                 .getLibraryManager();
         if(!domainSockEnable) {
@@ -72,7 +74,7 @@ public class PythonLibraryEvaluatorFactory {
                     pythonPathCmd = "/usr/bin/env";
                     pythonArgs.add("python3");
                 } else {
-                    throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION, "Python interpreter not specified, and "
+                    throw AsterixException.create(ErrorCode.EXTERNAL_UDF_EXCEPTION, "Python interpreter not specified or domain socket not found, and "
                             + NCConfig.Option.PYTHON_CMD_AUTOLOCATE.ini() + " is false");
                 }
             }
@@ -132,11 +134,10 @@ public class PythonLibraryEvaluatorFactory {
         }
     }
 
-    private void config(){
+    private void config(Path sockPath){
         Runtime rt = Runtime.getRuntime();
         if(rt.version().feature() >= 17 && SystemUtils.IS_OS_LINUX){
-            ///!!! FIX ME
-            if(new File("/tmp/asterixdb.socket").exists()){
+            if(Files.exists(sockPath)){
                 domainSockEnable = true;
             }
         }

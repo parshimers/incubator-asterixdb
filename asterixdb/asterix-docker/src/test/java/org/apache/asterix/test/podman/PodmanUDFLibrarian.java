@@ -26,14 +26,14 @@ public class PodmanUDFLibrarian implements IExternalUDFLibrarian {
     public void install(URI path, String type, String libPath, Pair<String, String> credentials) throws Exception {
         Container.ExecResult curlResult = null;
         int retryCt = 0;
-        while(retryCt < 3){
+        while(retryCt < 5){
             try{
                 curlResult = asterix.execInContainer("curl", "--no-progress-meter", "-X", "POST", "-u", credentials.first + ":" + credentials.second, "-F", "data=@" + "/var/tmp/asterix-app/" + libPath, "-F", "type=" + type, "http://localhost:19004" + path.getRawPath());
                 handleResponse(curlResult);
                 return;
             } catch(RuntimeException e){
                 retryCt++;
-                if(retryCt > 3) throw e;
+                if(retryCt > 5) throw e;
             }
         }
     }
