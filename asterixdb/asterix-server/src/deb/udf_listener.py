@@ -264,7 +264,7 @@ class Wrapper(object):
                 self.msg_type = MessageType(self.unpacked_msg[0])
                 self.type_handler[self.msg_type](self)
             except BaseException as e:
-                self.handle_error(''.join(traceback.format_exc().replace('\x00','')))
+                self.handle_error(''.join(traceback.format_exc()))
 
     def send_msg(self):
         self.sock.sendall(self.resp)

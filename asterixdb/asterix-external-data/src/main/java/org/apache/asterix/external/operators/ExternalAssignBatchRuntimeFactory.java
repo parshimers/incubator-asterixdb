@@ -177,6 +177,9 @@ public final class ExternalAssignBatchRuntimeFactory extends AbstractOneInputOne
                             int numEntries = unpacker.unpackArrayHeader();
                             for (int j = 0; j < numEntries; j++) {
                                 if (ctx.getWarningCollector().shouldWarn()) {
+                                    //TODO: in domain socket mode, a NUL can appear at the end of the stacktrace strings.
+                                    //      this should probably not happen but warnings with control characters should
+                                    //      also be properly escaped
                                     ctx.getWarningCollector().warn(Warning.of(sourceLoc,
                                             ErrorCode.EXTERNAL_UDF_EXCEPTION, unpacker.unpackString().replace('\0',' ')));
                                 }
