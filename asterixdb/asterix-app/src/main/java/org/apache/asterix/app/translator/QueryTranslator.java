@@ -4180,9 +4180,11 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
             InternalDatasetDetails dsDetails = (InternalDatasetDetails) ds.getDatasetDetails();
             int sampleCardinalityTarget = stmtAnalyze.getSampleSize();
+            long sampleSeed = stmtAnalyze.getOrCreateSampleSeed();
 
-            Index.SampleIndexDetails newIndexDetailsPendingAdd = new Index.SampleIndexDetails(dsDetails.getPrimaryKey(),
-                    dsDetails.getKeySourceIndicator(), dsDetails.getPrimaryKeyType(), sampleCardinalityTarget, 0, 0);
+            Index.SampleIndexDetails newIndexDetailsPendingAdd =
+                    new Index.SampleIndexDetails(dsDetails.getPrimaryKey(), dsDetails.getKeySourceIndicator(),
+                            dsDetails.getPrimaryKeyType(), sampleCardinalityTarget, 0, 0, sampleSeed);
             newIndexPendingAdd = new Index(dataverseName, datasetName, newIndexName, sampleIndexType,
                     newIndexDetailsPendingAdd, false, false, MetadataUtil.PENDING_ADD_OP);
 
@@ -4224,7 +4226,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
             Index.SampleIndexDetails newIndexDetailsFinal = new Index.SampleIndexDetails(dsDetails.getPrimaryKey(),
                     dsDetails.getKeySourceIndicator(), dsDetails.getPrimaryKeyType(), sampleCardinalityTarget,
-                    stats.getCardinality(), stats.getAvgTupleSize());
+                    stats.getCardinality(), stats.getAvgTupleSize(), sampleSeed);
             Index newIndexFinal = new Index(dataverseName, datasetName, newIndexName, sampleIndexType,
                     newIndexDetailsFinal, false, false, MetadataUtil.PENDING_NO_OP);
 
