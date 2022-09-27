@@ -123,7 +123,7 @@ public class LSMBTreeBatchPointSearchOperatorNodePushable extends BTreeSearchOpe
                 break;
             }
         }
-        stats.getTupleCounter().update(matchingTupleCount);
+        stats.getInputTupleCounter().update(matchingTupleCount);
 
     }
 
