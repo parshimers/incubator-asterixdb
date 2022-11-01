@@ -26,9 +26,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.graph.EndpointPair;
+import com.google.common.graph.Traverser;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.constraints.Constraint;
 import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.ConnectorDescriptorId;
+import org.apache.hyracks.api.dataflow.IConnectorDescriptor;
+import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
 import org.apache.hyracks.api.dataflow.TaskId;
 import org.apache.hyracks.api.dataflow.connectors.IConnectorPolicy;
@@ -56,6 +61,8 @@ import org.apache.hyracks.control.common.job.profiling.om.JobProfile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
 
 public class JobRun implements IJobStatusConditionVariable {
     private final DeploymentId deploymentId;
@@ -419,6 +426,18 @@ public class JobRun implements IJobStatusConditionVariable {
         result.set("profile", profile.toJSON());
 
         return result;
+    }
+
+    public String postProcessing() {
+        MutableGraph<OperatorDescriptorId> jobSpec = GraphBuilder.<OperatorDescriptorId> directed().build();
+        JobSpecification spec = getJobSpecification();
+        spec.getOperatorMap().keySet().forEach(op -> jobSpec.addNode(op));
+        spec.getConnectorOperatorMap().values().forEach(p -> {
+            jobSpec.putEdge(p.getLeft().getKey().getOperatorId(), p.getRight().getKey().getOperatorId());
+        });
+        Traverser<OperatorDescriptorId> trav = Traverser.forGraph(jobSpec);
+        trav.breadthFirst(new OperatorDescriptorId(0));
+        return "";
     }
 
     public Map<OperatorDescriptorId, Map<Integer, String>> getOperatorLocations() {

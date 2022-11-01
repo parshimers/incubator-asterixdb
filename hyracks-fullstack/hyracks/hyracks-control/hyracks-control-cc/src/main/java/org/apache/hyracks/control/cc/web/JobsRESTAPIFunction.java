@@ -27,6 +27,7 @@ import org.apache.hyracks.control.cc.web.util.IJSONOutputFunction;
 import org.apache.hyracks.control.cc.web.util.JSONOutputRequestUtil;
 import org.apache.hyracks.control.cc.work.GetActivityClusterGraphJSONWork;
 import org.apache.hyracks.control.cc.work.GetJobRunJSONWork;
+import org.apache.hyracks.control.cc.work.GetJobSpecificationJSONWork;
 import org.apache.hyracks.control.cc.work.GetJobSummariesJSONWork;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,6 +71,10 @@ public class JobsRESTAPIFunction implements IJSONOutputFunction {
                     GetJobRunJSONWork gjre = new GetJobRunJSONWork(ccs.getJobManager(), jobId);
                     ccs.getWorkQueue().scheduleAndSync(gjre);
                     result.set("result", gjre.getJSON());
+                } else if ("job-specification".equalsIgnoreCase(arguments[1])) {
+                    GetJobSpecificationJSONWork gjspec = new GetJobSpecificationJSONWork(ccs, jobId);
+                    ccs.getWorkQueue().scheduleAndSync(gjspec);
+                    result.set("result", gjspec.getJSON());
                 }
 
                 break;
