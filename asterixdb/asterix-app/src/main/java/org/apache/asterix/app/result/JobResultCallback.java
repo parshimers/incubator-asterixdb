@@ -25,6 +25,7 @@ import java.util.Set;
 
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.translator.ResultMetadata;
+import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.exceptions.Warning;
 import org.apache.hyracks.api.job.JobFlag;
 import org.apache.hyracks.api.job.JobId;
@@ -98,6 +99,12 @@ public class JobResultCallback implements IJobResultCallback {
         metadata.setWarnings(AggregateWarnings);
         metadata.setTotalWarningsCount(aggregateTotalWarningsCount);
         if (run != null && run.getFlags() != null && run.getFlags().contains(JobFlag.PROFILE_RUNTIME)) {
+            //TODO: hack
+            try {
+                run.postProcessing();
+            } catch (HyracksException e) {
+                e.printStackTrace();
+            }
             metadata.setJobProfile(run.getJobProfile().toJSON());
         } else {
             metadata.setJobProfile(null);

@@ -35,7 +35,7 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
 
     // The downstream data consumer of this writer.
     private final IFrameWriter writer;
-    private long frameStart = 0;
+    protected long frameStart = -1;
     final ICounter timeCounter;
     final ICounter tupleCounter;
     final IStatsCollector collector;
@@ -59,12 +59,9 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
 
     @Override
     public final void open() throws HyracksDataException {
-        try {
-            startClock();
+        startClock();
             writer.open();
-        } finally {
             stopClock();
-        }
     }
 
     @Override
@@ -123,35 +120,28 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
         }
     }
 
-    private void stopClock() {
-        pause();
-        collector.giveClock(this);
+    protected void stopClock() {
+        long t = System.nanoTime();
+        long delta = t-frameStart;
+        timeCounter.update(delta);
+        frameStart = System.nanoTime();
     }
 
-    private void startClock() {
-        if (frameStart > 0) {
-            return;
+    protected void startClock() {
+        if(frameStart != -1){
+            long t = System.nanoTime();
+            long delta = t-frameStart;
+            timeCounter.update(delta);
         }
-        frameStart = collector.takeClock(this);
+        frameStart = System.nanoTime();
     }
 
     @Override
     public void resume() {
-        if (frameStart > 0) {
-            return;
-        }
-        long nt = System.nanoTime();
-        frameStart = nt;
     }
 
     @Override
     public void pause() {
-        if (frameStart > 1) {
-            long nt = System.nanoTime();
-            long delta = nt - frameStart;
-            timeCounter.update(delta);
-            frameStart = -1;
-        }
     }
 
     private int getTupleStartOffset(int tupleIndex, int tupleCountOffset, ByteBuffer buffer) {
