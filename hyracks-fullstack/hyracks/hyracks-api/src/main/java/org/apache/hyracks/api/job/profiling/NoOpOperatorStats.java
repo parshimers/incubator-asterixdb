@@ -22,6 +22,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 
@@ -130,5 +131,16 @@ public class NoOpOperatorStats implements IOperatorStats {
     @Override
     public OperatorDescriptorId getId() {
         return INVALID_ODID;
+    }
+
+    @Override
+    //TODO: FIX FIX FIX FIX
+    public MultiResolutionEventProfiler getProfiler() {
+        return null;
+    }
+
+    @Override
+    public ICounter getFrameCounter() {
+        return NOOP_COUNTER;
     }
 }

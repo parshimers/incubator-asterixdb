@@ -23,6 +23,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 import org.apache.hyracks.api.com.job.profiling.counters.Counter;
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 
@@ -42,6 +43,8 @@ public class OperatorStats implements IOperatorStats {
     public final ICounter level;
     public final ICounter bytesRead;
     public final ICounter bytesWritten;
+    public final ICounter frameCounter;
+    public MultiResolutionEventProfiler profiler;
 
     //TODO: this is quickly becoming gross it should just be a map where the value is obliged to be a Counter
 
@@ -62,6 +65,8 @@ public class OperatorStats implements IOperatorStats {
         level = new Counter("level");
         bytesRead = new Counter("bytesRead");
         bytesWritten = new Counter("bytesWritten");
+        frameCounter = new Counter("frameCounter");
+        profiler = new MultiResolutionEventProfiler(64);
         level.set(-1);
 
     }
@@ -141,11 +146,19 @@ public class OperatorStats implements IOperatorStats {
     public OperatorDescriptorId getId() {
         return id;
     }
+    @Override
+    public MultiResolutionEventProfiler getProfiler(){
+        return profiler;
+    }
+
+    @Override
+    public ICounter getFrameCounter() { return frameCounter;}
 
     @Override
     public void writeFields(DataOutput output) throws IOException {
         output.writeUTF(operatorName);
         id.writeFields(output);
+        profiler.writeFields(output);
         output.writeLong(tupleCounter.get());
         output.writeLong(timeCounter.get());
         output.writeLong(pageReads.get());
@@ -157,11 +170,13 @@ public class OperatorStats implements IOperatorStats {
         output.writeLong(level.get());
         output.writeLong(bytesRead.get());
         output.writeLong(bytesWritten.get());
+        output.writeLong(frameCounter.get());
     }
 
     @Override
     public void readFields(DataInput input) throws IOException {
         id = OperatorDescriptorId.create(input);
+        profiler = MultiResolutionEventProfiler.create(input);
         tupleCounter.set(input.readLong());
         timeCounter.set(input.readLong());
         pageReads.set(input.readLong());
@@ -173,6 +188,7 @@ public class OperatorStats implements IOperatorStats {
         level.set(input.readLong());
         bytesRead.set(input.readLong());
         bytesWritten.set(input.readLong());
+        frameCounter.set(input.readLong());
     }
 
     @Override

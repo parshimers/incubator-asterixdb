@@ -16,17 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.control.common.job.profiling.counters;
+package org.apache.hyracks.api.com.job.profiling.counters;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 
 import org.apache.hyracks.api.io.IWritable;
 
 public class MultiResolutionEventProfiler implements IWritable, Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private int[] times;
 
@@ -37,6 +38,10 @@ public class MultiResolutionEventProfiler implements IWritable, Serializable {
     private int resolution;
 
     private int eventCounter;
+
+    private int totalCt;
+
+    private long timesBetween;
 
     public static MultiResolutionEventProfiler create(DataInput dis) throws IOException {
         MultiResolutionEventProfiler multiResolutionEventProfiler = new MultiResolutionEventProfiler();
@@ -61,12 +66,16 @@ public class MultiResolutionEventProfiler implements IWritable, Serializable {
         if (eventCounter % resolution != 0) {
             return;
         }
+        long time = System.currentTimeMillis();
+        if(offset > 0) {
+            timesBetween += (time - ((times[ptr - 1 ]) + offset));
+        }
+        totalCt++;
         if (ptr >= times.length) {
             compact();
             return;
         }
         eventCounter = 0;
-        long time = System.currentTimeMillis();
         if (offset < 0) {
             offset = time;
         }
@@ -98,6 +107,9 @@ public class MultiResolutionEventProfiler implements IWritable, Serializable {
         return offset;
     }
 
+    public double getAvgTime() {
+        return timesBetween;
+    }
     @Override
     public void writeFields(DataOutput output) throws IOException {
         output.writeInt(eventCounter);
@@ -108,6 +120,8 @@ public class MultiResolutionEventProfiler implements IWritable, Serializable {
         for (int i = 0; i < times.length; i++) {
             output.writeInt(times[i]);
         }
+        output.writeInt(totalCt);
+        output.writeLong(timesBetween);
     }
 
     @Override
@@ -121,5 +135,7 @@ public class MultiResolutionEventProfiler implements IWritable, Serializable {
         for (int i = 0; i < times.length; i++) {
             times[i] = input.readInt();
         }
+        totalCt = input.readInt();
+        timesBetween = input.readLong();
     }
 }

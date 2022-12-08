@@ -20,7 +20,6 @@ package org.apache.hyracks.control.cc.job;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -28,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.graph.EndpointPair;
-import com.google.common.graph.Graph;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.client.impl.IOperatorDescriptorVisitor;
@@ -70,6 +67,8 @@ import org.apache.hyracks.control.common.job.profiling.om.JobProfile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.graph.EndpointPair;
+import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import com.google.common.graph.Traverser;
@@ -534,9 +533,9 @@ public class JobRun implements IJobStatusConditionVariable {
                 for (ActivityId prevNode : ac.successors(node)) {
                     prevTimes += odidStats.get(prevNode.getOperatorDescriptorId()).getTimeCounter().get();
                 }
-                long totalTime = nodeStats.getTimeCounter().get();
-                long delta = prevTimes - totalTime;
-                nodeStats.getTimeCounter().set(delta);
+//                long totalTime = nodeStats.getTimeCounter().get();
+//                long delta = prevTimes - totalTime;
+//                nodeStats.getTimeCounter().set(delta);
             }
         }
     }
@@ -551,11 +550,11 @@ public class JobRun implements IJobStatusConditionVariable {
             StringBuilder sb = new StringBuilder();
             sb.append("strict digraph G {\n");
 
-            for(ActivityId n : graph.nodes()) {
+            for (ActivityId n : graph.nodes()) {
                 sb.append("  \"" + n.toString() + "\" " + fancyLabel(n) + "\n");
             }
 
-            for(EndpointPair<ActivityId> e : graph.edges()) {
+            for (EndpointPair<ActivityId> e : graph.edges()) {
                 sb.append("  \"" + e.source().toString() + "\" -> \"" + e.target().toString() + "\"\n");
             }
 
@@ -564,8 +563,7 @@ public class JobRun implements IJobStatusConditionVariable {
         }
 
         private static String fancyLabel(final ActivityId node) {
-            return String.format("[ label=\"%s\" ]",
-                    node.toString());
+            return String.format("[ label=\"%s\" ]", node.toString());
         }
     }
 }

@@ -20,6 +20,7 @@ package org.apache.hyracks.api.job.profiling;
 
 import java.io.Serializable;
 
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
 import org.apache.hyracks.api.io.IWritable;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
@@ -86,4 +87,8 @@ public interface IOperatorStats extends IWritable, Serializable {
     ICounter getBytesWritten();
 
     OperatorDescriptorId getId();
+
+    MultiResolutionEventProfiler getProfiler();
+
+    ICounter getFrameCounter();
 }

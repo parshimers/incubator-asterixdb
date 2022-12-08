@@ -34,7 +34,7 @@ import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.partitions.PartitionId;
 import org.apache.hyracks.control.common.job.profiling.StatsCollector;
-import org.apache.hyracks.control.common.job.profiling.counters.MultiResolutionEventProfiler;
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -152,6 +152,19 @@ public class TaskProfile extends AbstractProfile {
             if (value.getBytesWritten().get() > 0) {
                 jpe.put("bytes-written", value.getBytesWritten().get());
             }
+            MultiResolutionEventProfiler samples = value.getProfiler();
+            jpe.put("offset", samples.getOffset());
+            int resolution = samples.getResolution();
+            int sampleCount = samples.getCount();
+            ArrayNode ftA = om.createArrayNode();
+            int[] ft = samples.getSamples();
+            for (int i = 0; i < sampleCount; ++i) {
+                ftA.add(ft[i]);
+            }
+            jpe.set("frame-times", ftA);
+            jpe.put("resolution", resolution);
+            jpe.put("timey", Double
+                    .parseDouble(new DecimalFormat("#.####").format((double) (samples.getAvgTime())/1000)));
             countersObj.add(jpe);
         });
         json.set("counters", countersObj);

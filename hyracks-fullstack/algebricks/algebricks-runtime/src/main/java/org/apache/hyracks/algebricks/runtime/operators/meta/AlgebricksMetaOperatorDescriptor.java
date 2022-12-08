@@ -23,13 +23,21 @@ import java.util.Arrays;
 
 import org.apache.hyracks.algebricks.runtime.base.AlgebricksPipeline;
 import org.apache.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
+import org.apache.hyracks.algebricks.runtime.base.ProfiledPushRuntimeFactory;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.IIntrospectingOperator;
+import org.apache.hyracks.api.dataflow.IMetaOperator;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.IOperatorDescriptorRegistry;
+import org.apache.hyracks.api.job.JobFlag;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
+import org.apache.hyracks.api.job.profiling.IStatsCollector;
+import org.apache.hyracks.api.job.profiling.OperatorStats;
+import org.apache.hyracks.dataflow.std.base.AbstractMetaUnaryInputUnaryOutputOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
@@ -41,7 +49,7 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
     private static final long serialVersionUID = 1L;
 
     // array of factories for building the local runtime pipeline
-    private final AlgebricksPipeline pipeline;
+    private AlgebricksPipeline pipeline;
 
     public AlgebricksMetaOperatorDescriptor(IOperatorDescriptorRegistry spec, int inputArity, int outputArity,
             IPushRuntimeFactory[] runtimeFactories, RecordDescriptor[] internalRecordDescriptors) {
@@ -130,7 +138,7 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
 
     private IOperatorNodePushable createOneInputOneOutputPushRuntime(final IHyracksTaskContext ctx,
             final IRecordDescriptorProvider recordDescProvider) {
-        return new AbstractUnaryInputUnaryOutputOperatorNodePushable() {
+        return new AbstractMetaUnaryInputUnaryOutputOperatorNodePushable() {
 
             private IFrameWriter startOfPipeline;
             private boolean opened = false;
@@ -138,6 +146,19 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
             @Override
             public void open() throws HyracksDataException {
                 if (startOfPipeline == null) {
+                    if(ctx.getJobFlags().contains(JobFlag.PROFILE_RUNTIME)){
+                        //TODO: should the output runtime factory be wrapped too?...
+                        IPushRuntimeFactory[] wrappedPipes = Arrays.copyOf(pipeline.getRuntimeFactories(),pipeline.getRuntimeFactories().length);
+                        IStatsCollector statsCollector = ctx.getStatsCollector();
+                        IOperatorStats ps = parentStats;
+                        for(int i=0;i<wrappedPipes.length;i++){
+                            IOperatorStats st = new OperatorStats(wrappedPipes[i].toString()+", pos: "+ i +", " + acId.toString(),stats.getId());
+                            statsCollector.add(st);
+                            wrappedPipes[i] = new ProfiledPushRuntimeFactory(wrappedPipes[i],stats,ps);
+                            ps = st;
+                        }
+                        pipeline = new AlgebricksPipeline(wrappedPipes,pipeline.getRecordDescriptors(),pipeline.getOutputRuntimeFactories(),pipeline.getOutputPositions());
+                    }
                     RecordDescriptor pipelineOutputRecordDescriptor =
                             outputArity > 0 ? AlgebricksMetaOperatorDescriptor.this.outRecDescs[0] : null;
                     RecordDescriptor pipelineInputRecordDescriptor = recordDescProvider

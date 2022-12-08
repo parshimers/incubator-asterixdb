@@ -25,7 +25,7 @@ import java.io.Serializable;
 
 import org.apache.hyracks.api.io.IWritable;
 import org.apache.hyracks.api.partitions.PartitionId;
-import org.apache.hyracks.control.common.job.profiling.counters.MultiResolutionEventProfiler;
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 
 public class PartitionProfile implements IWritable, Serializable {
     private static final long serialVersionUID = 1L;

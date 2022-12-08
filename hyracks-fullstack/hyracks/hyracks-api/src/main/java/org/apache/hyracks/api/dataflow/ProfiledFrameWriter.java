@@ -20,6 +20,7 @@ package org.apache.hyracks.api.dataflow;
 
 import java.nio.ByteBuffer;
 
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 import org.apache.hyracks.api.comm.FrameConstants;
 import org.apache.hyracks.api.comm.FrameHelper;
 import org.apache.hyracks.api.comm.IFrameWriter;
@@ -38,6 +39,7 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     protected long frameStart = -1;
     final ICounter timeCounter;
     final ICounter tupleCounter;
+    final ICounter frameCounter;
     final IStatsCollector collector;
     final IOperatorStats stats;
     final IOperatorStats parentStats;
@@ -45,6 +47,8 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     private int maxSz = -1;
     private long avgSz;
     final String name;
+
+    private MultiResolutionEventProfiler profiler;
 
     public ProfiledFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, IOperatorStats stats,
             IOperatorStats parentStats) {
@@ -55,13 +59,13 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
         this.parentStats = parentStats;
         this.timeCounter = stats.getTimeCounter();
         this.tupleCounter = parentStats != null ? parentStats.getTupleCounter() : null;
+        this.frameCounter = parentStats != null ? parentStats.getFrameCounter() : null;
+        this.profiler = parentStats != null ? parentStats.getProfiler() : null;
     }
 
     @Override
     public final void open() throws HyracksDataException {
-        startClock();
-            writer.open();
-            stopClock();
+        writer.open();
     }
 
     @Override
@@ -87,21 +91,21 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
                 parentStats.getMinTupleSz().set(minSz);
                 parentStats.getAverageTupleSz().set(avgSz);
                 tupleCounter.update(tupleCount);
+                frameCounter.update(1);
             }
-            startClock();
+//            startClock();
             writer.nextFrame(buffer);
+            if(profiler != null){profiler.reportEvent();}
         } finally {
-            stopClock();
+//            stopClock();
         }
     }
 
     @Override
     public final void flush() throws HyracksDataException {
         try {
-            startClock();
             writer.flush();
         } finally {
-            stopClock();
         }
     }
 
@@ -113,24 +117,22 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     @Override
     public void close() throws HyracksDataException {
         try {
-            startClock();
             writer.close();
         } finally {
-            stopClock();
         }
     }
 
     protected void stopClock() {
         long t = System.nanoTime();
-        long delta = t-frameStart;
+        long delta = t - frameStart;
         timeCounter.update(delta);
         frameStart = System.nanoTime();
     }
 
     protected void startClock() {
-        if(frameStart != -1){
+        if (frameStart != -1) {
             long t = System.nanoTime();
-            long delta = t-frameStart;
+            long delta = t - frameStart;
             timeCounter.update(delta);
         }
         frameStart = System.nanoTime();

@@ -26,6 +26,7 @@ import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
+import org.apache.hyracks.api.job.profiling.NoOpOperatorStats;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 
@@ -48,14 +49,12 @@ public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements
 
     @Override
     public void initialize() throws HyracksDataException {
-        startClock();
-            op.initialize();
-            stopClock();
+        op.initialize();
     }
 
     @Override
     public void deinitialize() throws HyracksDataException {
-            op.deinitialize();
+        op.deinitialize();
     }
 
     @Override
@@ -105,9 +104,14 @@ public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements
         String name = acId.toString() + " - " + op.getDisplayName();
         IStatsCollector statsCollector = ctx.getStatsCollector();
         IOperatorStats stats = new OperatorStats(name, acId.getOperatorDescriptorId());
-        statsCollector.add(stats);
         if (op instanceof IIntrospectingOperator) {
             ((IIntrospectingOperator) op).setOperatorStats(stats);
+        }
+        if(op instanceof IMetaOperator) {
+                ((IMetaOperator) op).setParentStats(source != null ? source.getStats(): NoOpOperatorStats.INSTANCE);
+                ((IMetaOperator) op).setAcId(acId);
+        } else {
+            statsCollector.add(stats);
         }
         if (!(op instanceof ProfiledOperatorNodePushable) && !(op instanceof SuperActivityOperatorNodePushable)) {
             return new ProfiledOperatorNodePushable(op, acId, ctx.getStatsCollector(), stats, source);
