@@ -28,6 +28,7 @@ import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
+import org.apache.hyracks.api.job.profiling.NoOpOperatorStats;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.util.IntSerDeUtils;
@@ -37,10 +38,10 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     // The downstream data consumer of this writer.
     private final IFrameWriter writer;
     protected long frameStart = -1;
-    final ICounter timeCounter;
+    public final ICounter timeCounter;
     final ICounter tupleCounter;
     final ICounter frameCounter;
-    final IStatsCollector collector;
+    public IStatsCollector collector;
     final IOperatorStats stats;
     final IOperatorStats parentStats;
     private int minSz = Integer.MAX_VALUE;
@@ -93,11 +94,13 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
                 tupleCounter.update(tupleCount);
                 frameCounter.update(1);
             }
-//            startClock();
+            //                        startClock();
             writer.nextFrame(buffer);
-            if(profiler != null){profiler.reportEvent();}
+            if (profiler != null) {
+                profiler.reportEvent();
+            }
         } finally {
-//            stopClock();
+            //                        stopClock();
         }
     }
 
@@ -122,14 +125,14 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
         }
     }
 
-    protected void stopClock() {
+    public void stopClock() {
         long t = System.nanoTime();
         long delta = t - frameStart;
         timeCounter.update(delta);
         frameStart = System.nanoTime();
     }
 
-    protected void startClock() {
+    public void startClock() {
         if (frameStart != -1) {
             long t = System.nanoTime();
             long delta = t - frameStart;
@@ -166,7 +169,7 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
             IStatsCollector statsCollector = ctx.getStatsCollector();
             IOperatorStats stats = new OperatorStats(name);
             statsCollector.add(stats);
-            return new ProfiledFrameWriter(writer, ctx.getStatsCollector(), name, stats, null);
+            return new ProfiledFrameWriter(writer, ctx.getStatsCollector(), name, stats, NoOpOperatorStats.INSTANCE);
 
         } else
             return writer;

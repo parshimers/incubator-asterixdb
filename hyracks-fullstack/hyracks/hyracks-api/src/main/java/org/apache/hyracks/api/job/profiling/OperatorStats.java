@@ -146,13 +146,16 @@ public class OperatorStats implements IOperatorStats {
     public OperatorDescriptorId getId() {
         return id;
     }
+
     @Override
-    public MultiResolutionEventProfiler getProfiler(){
+    public MultiResolutionEventProfiler getProfiler() {
         return profiler;
     }
 
     @Override
-    public ICounter getFrameCounter() { return frameCounter;}
+    public ICounter getFrameCounter() {
+        return frameCounter;
+    }
 
     @Override
     public void writeFields(DataOutput output) throws IOException {

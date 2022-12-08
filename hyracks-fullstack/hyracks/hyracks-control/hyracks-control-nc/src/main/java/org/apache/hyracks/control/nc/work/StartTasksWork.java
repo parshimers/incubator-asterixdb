@@ -34,14 +34,7 @@ import org.apache.hyracks.api.comm.IPartitionWriterFactory;
 import org.apache.hyracks.api.comm.NetworkAddress;
 import org.apache.hyracks.api.comm.PartitionChannel;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
-import org.apache.hyracks.api.dataflow.ActivityId;
-import org.apache.hyracks.api.dataflow.ConnectorDescriptorId;
-import org.apache.hyracks.api.dataflow.EnforceFrameWriter;
-import org.apache.hyracks.api.dataflow.IActivity;
-import org.apache.hyracks.api.dataflow.IConnectorDescriptor;
-import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
-import org.apache.hyracks.api.dataflow.TaskAttemptId;
-import org.apache.hyracks.api.dataflow.TaskId;
+import org.apache.hyracks.api.dataflow.*;
 import org.apache.hyracks.api.dataflow.connectors.IConnectorPolicy;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
@@ -55,7 +48,11 @@ import org.apache.hyracks.api.job.DeployedJobSpecId;
 import org.apache.hyracks.api.job.IJobletEventListenerFactory;
 import org.apache.hyracks.api.job.JobFlag;
 import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
+import org.apache.hyracks.api.job.profiling.NoOpOperatorStats;
+import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.partitions.PartitionId;
+import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.comm.channels.NetworkInputChannel;
 import org.apache.hyracks.control.common.deployment.DeploymentUtils;
@@ -185,6 +182,20 @@ public class StartTasksWork extends AbstractWork {
                         IFrameWriter writer = conn.createPartitioner(task, recordDesc, pwFactory, partition,
                                 partitionCount, td.getOutputPartitionCounts()[i]);
                         writer = (enforce && !profile) ? EnforceFrameWriter.enforce(writer) : writer;
+                        if(profile){
+                            //ugghh...
+                            String opName = ac.getId().toString() + " - " + operator.getDisplayName();
+                            IOperatorStats parentStats = NoOpOperatorStats.INSTANCE;
+                            if(operator instanceof SuperActivityOperatorNodePushable){
+                                SuperActivityOperatorNodePushable mOp = ((SuperActivityOperatorNodePushable)operator);
+                                parentStats = mOp.getLastStats();
+                            } else {
+                                parentStats = task.getStatsCollector().getOperatorStats(opName);
+                            }
+                            IOperatorStats stats = new OperatorStats(conn.getDisplayName());
+                            //dont put in stats collector b/c redundant
+                            writer = new ProfiledFrameWriter(writer,task.getStatsCollector(),conn.getDisplayName(),stats,parentStats);
+                        }
                         operator.setOutputFrameWriter(i, writer, recordDesc);
                     }
                 }

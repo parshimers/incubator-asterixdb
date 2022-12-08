@@ -28,13 +28,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.exceptions.Warning;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.partitions.PartitionId;
 import org.apache.hyracks.control.common.job.profiling.StatsCollector;
-import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -163,8 +163,8 @@ public class TaskProfile extends AbstractProfile {
             }
             jpe.set("frame-times", ftA);
             jpe.put("resolution", resolution);
-            jpe.put("timey", Double
-                    .parseDouble(new DecimalFormat("#.####").format((double) (samples.getAvgTime())/1000)));
+            jpe.put("timey",
+                    Double.parseDouble(new DecimalFormat("#.####").format((double) (samples.getAvgTime()) / 1000)));
             countersObj.add(jpe);
         });
         json.set("counters", countersObj);

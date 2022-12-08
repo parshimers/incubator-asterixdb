@@ -533,9 +533,9 @@ public class JobRun implements IJobStatusConditionVariable {
                 for (ActivityId prevNode : ac.successors(node)) {
                     prevTimes += odidStats.get(prevNode.getOperatorDescriptorId()).getTimeCounter().get();
                 }
-//                long totalTime = nodeStats.getTimeCounter().get();
-//                long delta = prevTimes - totalTime;
-//                nodeStats.getTimeCounter().set(delta);
+                //                long totalTime = nodeStats.getTimeCounter().get();
+                //                long delta = prevTimes - totalTime;
+                //                nodeStats.getTimeCounter().set(delta);
             }
         }
     }

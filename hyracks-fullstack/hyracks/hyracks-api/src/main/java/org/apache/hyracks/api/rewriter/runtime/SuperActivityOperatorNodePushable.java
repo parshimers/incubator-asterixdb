@@ -38,16 +38,13 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
-import org.apache.hyracks.api.dataflow.ActivityId;
-import org.apache.hyracks.api.dataflow.EnforceFrameWriter;
-import org.apache.hyracks.api.dataflow.IActivity;
-import org.apache.hyracks.api.dataflow.IConnectorDescriptor;
-import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
-import org.apache.hyracks.api.dataflow.ProfiledOperatorNodePushable;
+import org.apache.hyracks.api.dataflow.*;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobFlag;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
+import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.util.ExceptionUtils;
 
 /**
@@ -65,6 +62,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
     private final int partition;
     private final int nPartitions;
     private int inputArity = 0;
+    private ProfiledOperatorNodePushable lastOp;
 
     public SuperActivityOperatorNodePushable(SuperActivity parent, Map<ActivityId, IActivity> startActivities,
             IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions)
@@ -148,6 +146,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
                     if (sourceOp instanceof ProfiledOperatorNodePushable) {
                         destOp = ProfiledOperatorNodePushable.time(wrapped, ctx, destId,
                                 (ProfiledOperatorNodePushable) sourceOp);
+                        lastOp = (ProfiledOperatorNodePushable) destOp;
                     } else {
                         destOp = ProfiledOperatorNodePushable.time(wrapped, ctx, destId, null);
                     }
@@ -187,6 +186,13 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
     @Override
     public int getInputArity() {
         return inputArity;
+    }
+
+    public IOperatorStats getLastStats(){
+        if (lastOp.op instanceof IMetaOperator) {
+            return ((IMetaOperator) lastOp.op).getStats();
+        }
+        return lastOp.getStats();
     }
 
     @Override

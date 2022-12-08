@@ -32,8 +32,8 @@ import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable
 
 public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements IOperatorNodePushable, IPassableTimer {
 
-    IOperatorNodePushable op;
-    ProfiledOperatorNodePushable parentOp;
+    public IOperatorNodePushable op;
+    public ProfiledOperatorNodePushable parentOp;
     ActivityId acId;
     HashMap<Integer, IFrameWriter> inputs;
 
@@ -107,9 +107,9 @@ public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements
         if (op instanceof IIntrospectingOperator) {
             ((IIntrospectingOperator) op).setOperatorStats(stats);
         }
-        if(op instanceof IMetaOperator) {
-                ((IMetaOperator) op).setParentStats(source != null ? source.getStats(): NoOpOperatorStats.INSTANCE);
-                ((IMetaOperator) op).setAcId(acId);
+        if (op instanceof IMetaOperator) {
+            ((IMetaOperator) op).setParentStats(source != null ? source.getStats() : NoOpOperatorStats.INSTANCE);
+            ((IMetaOperator) op).setAcId(acId);
         } else {
             statsCollector.add(stats);
         }

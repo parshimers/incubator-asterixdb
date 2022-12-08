@@ -20,13 +20,13 @@ package org.apache.hyracks.control.nc.profiling;
 
 import java.nio.ByteBuffer;
 
+import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.comm.IPartitionWriterFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.IConnectorDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.partitions.PartitionId;
-import org.apache.hyracks.api.com.job.profiling.counters.MultiResolutionEventProfiler;
 import org.apache.hyracks.control.common.job.profiling.om.PartitionProfile;
 import org.apache.hyracks.control.nc.Task;
 

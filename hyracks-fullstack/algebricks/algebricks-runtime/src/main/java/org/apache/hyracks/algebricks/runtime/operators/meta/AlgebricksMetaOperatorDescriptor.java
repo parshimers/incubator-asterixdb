@@ -26,8 +26,6 @@ import org.apache.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
 import org.apache.hyracks.algebricks.runtime.base.ProfiledPushRuntimeFactory;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
-import org.apache.hyracks.api.dataflow.IIntrospectingOperator;
-import org.apache.hyracks.api.dataflow.IMetaOperator;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
@@ -39,7 +37,6 @@ import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.dataflow.std.base.AbstractMetaUnaryInputUnaryOutputOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
-import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -142,22 +139,36 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
 
             private IFrameWriter startOfPipeline;
             private boolean opened = false;
+            private IOperatorStats lastStat;
+
+            @Override
+            public IOperatorStats getStats(){
+                IPushRuntimeFactory[] pipes = pipeline.getRuntimeFactories();
+                lastStat = new OperatorStats(
+                        pipes[pipes.length-1]+ ", pos: " + (pipes.length-1) + ", " + acId.toString(), stats.getId());
+                return lastStat;
+            }
 
             @Override
             public void open() throws HyracksDataException {
                 if (startOfPipeline == null) {
-                    if(ctx.getJobFlags().contains(JobFlag.PROFILE_RUNTIME)){
+                    if (ctx.getJobFlags().contains(JobFlag.PROFILE_RUNTIME)) {
                         //TODO: should the output runtime factory be wrapped too?...
-                        IPushRuntimeFactory[] wrappedPipes = Arrays.copyOf(pipeline.getRuntimeFactories(),pipeline.getRuntimeFactories().length);
+                        IPushRuntimeFactory[] wrappedPipes =
+                                Arrays.copyOf(pipeline.getRuntimeFactories(), pipeline.getRuntimeFactories().length);
                         IStatsCollector statsCollector = ctx.getStatsCollector();
                         IOperatorStats ps = parentStats;
-                        for(int i=0;i<wrappedPipes.length;i++){
-                            IOperatorStats st = new OperatorStats(wrappedPipes[i].toString()+", pos: "+ i +", " + acId.toString(),stats.getId());
+                        for (int i = 0; i < wrappedPipes.length-1; i++) {
+                            IOperatorStats st = new OperatorStats(
+                                    wrappedPipes[i].toString() + ", pos: " + i + ", " + acId.toString(), stats.getId());
                             statsCollector.add(st);
-                            wrappedPipes[i] = new ProfiledPushRuntimeFactory(wrappedPipes[i],stats,ps);
-                            ps = st;
+                            wrappedPipes[i] = new ProfiledPushRuntimeFactory(wrappedPipes[i], st, ps);
                         }
-                        pipeline = new AlgebricksPipeline(wrappedPipes,pipeline.getRecordDescriptors(),pipeline.getOutputRuntimeFactories(),pipeline.getOutputPositions());
+                        statsCollector.add(ps);
+                        wrappedPipes[wrappedPipes.length-1] = new ProfiledPushRuntimeFactory(wrappedPipes[wrappedPipes.length-1], lastStat, ps);
+
+                        pipeline = new AlgebricksPipeline(wrappedPipes, pipeline.getRecordDescriptors(),
+                                pipeline.getOutputRuntimeFactories(), pipeline.getOutputPositions());
                     }
                     RecordDescriptor pipelineOutputRecordDescriptor =
                             outputArity > 0 ? AlgebricksMetaOperatorDescriptor.this.outRecDescs[0] : null;

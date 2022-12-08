@@ -22,7 +22,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Arrays;
 
 import org.apache.hyracks.api.io.IWritable;
 
@@ -67,8 +66,8 @@ public class MultiResolutionEventProfiler implements IWritable, Serializable {
             return;
         }
         long time = System.currentTimeMillis();
-        if(offset > 0) {
-            timesBetween += (time - ((times[ptr - 1 ]) + offset));
+        if (offset > 0) {
+            timesBetween += (time - ((times[ptr - 1]) + offset));
         }
         totalCt++;
         if (ptr >= times.length) {
@@ -110,6 +109,7 @@ public class MultiResolutionEventProfiler implements IWritable, Serializable {
     public double getAvgTime() {
         return timesBetween;
     }
+
     @Override
     public void writeFields(DataOutput output) throws IOException {
         output.writeInt(eventCounter);
