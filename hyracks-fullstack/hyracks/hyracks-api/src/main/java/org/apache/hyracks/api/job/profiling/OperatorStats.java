@@ -35,6 +35,7 @@ public class OperatorStats implements IOperatorStats {
     public OperatorDescriptorId id;
     public final ICounter tupleCounter;
     public final ICounter timeCounter;
+    public final ICounter setUpTearDownCounter;
     public final ICounter pageReads;
     public final ICounter coldReadCounter;
     public final ICounter avgTupleSz;
@@ -56,6 +57,7 @@ public class OperatorStats implements IOperatorStats {
         this.id = id;
         tupleCounter = new Counter("tupleCounter");
         timeCounter = new Counter("timeCounter");
+        setUpTearDownCounter = new Counter("setUpTearDownCounter");
         pageReads = new Counter("diskIoCounter");
         coldReadCounter = new Counter("coldReadCounter");
         avgTupleSz = new Counter("avgTupleSz");
@@ -93,6 +95,11 @@ public class OperatorStats implements IOperatorStats {
     @Override
     public ICounter getTimeCounter() {
         return timeCounter;
+    }
+
+    @Override
+    public ICounter getSetupTeardownCounter() {
+        return setUpTearDownCounter;
     }
 
     @Override
@@ -181,6 +188,7 @@ public class OperatorStats implements IOperatorStats {
         id.writeFields(output);
         output.writeLong(tupleCounter.get());
         output.writeLong(timeCounter.get());
+        output.writeLong(setUpTearDownCounter.get());
         output.writeLong(pageReads.get());
         output.writeLong(coldReadCounter.get());
         output.writeLong(avgTupleSz.get());
@@ -198,6 +206,7 @@ public class OperatorStats implements IOperatorStats {
         id = OperatorDescriptorId.create(input);
         tupleCounter.set(input.readLong());
         timeCounter.set(input.readLong());
+        setUpTearDownCounter.set(input.readLong());
         pageReads.set(input.readLong());
         coldReadCounter.set(input.readLong());
         avgTupleSz.set(input.readLong());
@@ -231,6 +240,7 @@ public class OperatorStats implements IOperatorStats {
     public String toString() {
         return "{ " + "\"operatorName\": \"" + operatorName + "\", " + "\"" + tupleCounter.getName() + "\": "
                 + tupleCounter.get() + ", \"" + timeCounter.getName() + "\": " + timeCounter.get() + ", \""
+                + setUpTearDownCounter.getName() + "\": " + setUpTearDownCounter.get() + ", \""
                 + coldReadCounter.getName() + "\": " + coldReadCounter.get() + avgTupleSz.getName() + "\": "
                 + avgTupleSz.get() + ", \"" + minTupleSz.getName() + "\": " + minTupleSz.get() + ", \""
                 + minTupleSz.getName() + "\": " + timeCounter.get() + ", \"" + inputTupleCounter.getName() + "\": "

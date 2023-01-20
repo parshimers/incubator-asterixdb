@@ -37,39 +37,54 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     private final IFrameWriter writer;
     private long frameStart = 0;
     final ICounter timeCounter;
+
+    final ICounter setUpTearDownCounter;
     final ICounter tupleCounter;
     final IStatsCollector collector;
     final IOperatorStats stats;
     final IOperatorStats parentStats;
+
+    final ProfiledFrameWriter parent;
+
     private int minSz = Integer.MAX_VALUE;
     private int maxSz = -1;
     private long avgSz;
     final String name;
+    private long betweenTimee = -1;
+    private boolean trackBetween;
 
     public ProfiledFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, IOperatorStats stats,
-            IOperatorStats parentStats) {
+            ProfiledFrameWriter parent) {
         this.writer = writer;
         this.collector = collector;
         this.name = name;
         this.stats = stats;
-        this.parentStats = parentStats;
+        this.parent = parent;
+        this.parentStats = parent != null ? parent.stats : null;
         this.timeCounter = stats.getTimeCounter();
-        this.tupleCounter = parentStats != null ? parentStats.getTupleCounter() : null;
+        this.setUpTearDownCounter = stats.getSetupTeardownCounter();
+        this.tupleCounter = parent != null ? parent.stats.getTupleCounter() : null;
     }
 
     @Override
     public final void open() throws HyracksDataException {
+        long nt = 0;
         try {
-            startClock();
+            nt = System.nanoTime();
             writer.open();
         } finally {
-            stopClock();
+            setUpTearDownCounter.set(System.nanoTime() - nt);
         }
     }
 
     @Override
     public final void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         try {
+            if (trackBetween) {
+                if (betweenTimee > 0) {
+                    parentStats.getTimeCounter().update(System.nanoTime() - betweenTimee);
+                }
+            }
             int tupleCountOffset = FrameHelper.getTupleCountOffset(buffer.limit());
             int tupleCount = IntSerDeUtils.getInt(buffer.array(), tupleCountOffset);
             if (tupleCounter != null) {
@@ -91,48 +106,48 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
                 parentStats.getAverageTupleSz().set(avgSz);
                 tupleCounter.update(tupleCount);
             }
-            startClock();
+            if (parent != null) {
+                parent.pause();
+            }
+            resume();
             writer.nextFrame(buffer);
         } finally {
-            stopClock();
+            if (trackBetween) {
+                betweenTimee = System.nanoTime();
+            }
+            pause();
         }
     }
 
     @Override
     public final void flush() throws HyracksDataException {
         try {
-            startClock();
+            if (parent != null) {
+                parent.pause();
+            }
+            resume();
             writer.flush();
         } finally {
-            stopClock();
+            pause();
         }
     }
 
     @Override
     public final void fail() throws HyracksDataException {
+        pause();
         writer.fail();
     }
 
     @Override
     public void close() throws HyracksDataException {
+        long nt = 0;
         try {
-            startClock();
+            pause();
+            nt = System.nanoTime();
             writer.close();
         } finally {
-            stopClock();
+            setUpTearDownCounter.update(System.nanoTime() - nt);
         }
-    }
-
-    private void stopClock() {
-        pause();
-        collector.giveClock(this);
-    }
-
-    private void startClock() {
-        if (frameStart > 0) {
-            return;
-        }
-        frameStart = collector.takeClock(this);
     }
 
     @Override
@@ -152,6 +167,10 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
             timeCounter.update(delta);
             frameStart = -1;
         }
+    }
+
+    public void trackBetween() {
+        trackBetween = true;
     }
 
     private int getTupleStartOffset(int tupleIndex, int tupleCountOffset, ByteBuffer buffer) {

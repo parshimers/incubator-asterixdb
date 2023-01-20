@@ -85,6 +85,11 @@ public class NoOpOperatorStats implements IOperatorStats {
     }
 
     @Override
+    public ICounter getSetupTeardownCounter() {
+        return NOOP_COUNTER;
+    }
+
+    @Override
     public ICounter getPageReads() {
         return NOOP_COUNTER;
     }

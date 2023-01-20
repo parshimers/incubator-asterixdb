@@ -34,12 +34,14 @@
                     "counters": [
                         {
                             "name": "R{.+}",
-                            "time": "R{[0-9.]+}",
+                            "run-time": "R{[0-9.]+}",
+                            "open-time": "R{[0-9.]+}",
                             "runtime-id": "R{.+}"
                         },
                         {
                             "name": "R{.+}",
-                            "time": "R{[0-9.]+}",
+                            "run-time": "R{[0-9.]+}",
+                            "open-time": "R{[0-9.]+}",
                             "runtime-id": "R{.+}",
                             "pages-read": "R{[0-9.]+}",
                             "pages-read-cold": "R{[0-9.]+}",
@@ -50,7 +52,8 @@
                         },
                         {
                             "name": "R{.+}",
-                            "time": "R{[0-9.]+}",
+                            "run-time": "R{[0-9.]+}",
+                            "open-time": "R{[0-9.]+}",
                             "runtime-id": "R{.+}",
                             "cardinality-out": "R{[0-9.]+}",
                             "avg-tuple-size": "R{[0-9.]+}",
@@ -67,7 +70,8 @@
                   "counters": [
                     {
                         "name": "R{.+}",
-                        "time": "R{[0-9.]+}",
+                        "run-time": "R{[0-9.]+}",
+                        "open-time": "R{[0-9.]+}",
                         "runtime-id": "R{.+}",
                         "cardinality-out": "R{[0-9.]+}",
                         "avg-tuple-size": "R{[0-9.]+}",
@@ -76,7 +80,8 @@
                     },
                     {
                         "name": "R{.+}",
-                        "time": "R{[0-9.]+}",
+                        "run-time": "R{[0-9.]+}",
+                        "open-time": "R{[0-9.]+}",
                         "runtime-id": "R{.+}"
                     }
                   ]

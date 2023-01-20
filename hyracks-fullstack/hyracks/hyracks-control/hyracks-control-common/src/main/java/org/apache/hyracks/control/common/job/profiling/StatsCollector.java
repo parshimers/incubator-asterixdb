@@ -34,7 +34,7 @@ import org.apache.hyracks.api.job.profiling.NoOpOperatorStats;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
 
 public class StatsCollector implements IStatsCollector {
-    private static final long serialVersionUID = 6858817639895434572L;
+    private static final long serialVersionUID = 6858817639895434573L;
 
     private final Map<String, IOperatorStats> operatorStatsMap = new LinkedHashMap<>();
     private transient Deque<IPassableTimer> clockHolder = new ArrayDeque<>();
@@ -88,25 +88,6 @@ public class StatsCollector implements IStatsCollector {
         for (int i = 0; i < operatorCount; i++) {
             IOperatorStats opStats = OperatorStats.create(input);
             operatorStatsMap.put(opStats.getName(), opStats);
-        }
-    }
-
-    @Override
-    public long takeClock(IPassableTimer newHolder) {
-        if (newHolder != null) {
-            if (clockHolder.peek() != null) {
-                clockHolder.peek().pause();
-            }
-            clockHolder.push(newHolder);
-        }
-        return System.nanoTime();
-    }
-
-    @Override
-    public void giveClock(IPassableTimer currHolder) {
-        clockHolder.removeLastOccurrence(currHolder);
-        if (clockHolder.peek() != null) {
-            clockHolder.peek().resume();
         }
     }
 
