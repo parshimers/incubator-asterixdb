@@ -36,7 +36,6 @@ import org.apache.hyracks.algebricks.core.jobgen.impl.JobGenContext;
 import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
-import org.apache.hyracks.storage.am.common.impls.DefaultTupleProjectorFactory;
 
 public class SampleDataSource extends DataSource {
 
@@ -63,7 +62,7 @@ public class SampleDataSource extends DataSource {
             IProjectionInfo<?> projectionInfo) throws AlgebricksException {
         return metadataProvider.buildBtreeRuntime(jobSpec, opSchema, typeEnv, context, true, false, null, dataset,
                 sampleIndexName, null, null, true, true, false, null, null, null, tupleFilterFactory, outputLimit,
-                false, false, DefaultTupleProjectorFactory.INSTANCE);
+                false, false);
     }
 
     @Override

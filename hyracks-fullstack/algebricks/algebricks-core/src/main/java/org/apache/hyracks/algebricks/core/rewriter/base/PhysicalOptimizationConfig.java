@@ -282,14 +282,6 @@ public class PhysicalOptimizationConfig {
         setString(QUERY_PLAN_SHAPE, queryPlanShape);
     }
 
-    public boolean isBatchLookupEnabled() {
-        return getBoolean(BATCH_LOOKUP, AlgebricksConfig.BATCH_LOOKUP_DEFAULT);
-    }
-
-    public void setBatchLookup(boolean batchedLookup) {
-        setBoolean(BATCH_LOOKUP, batchedLookup);
-    }
-
     public void setExternalScanBufferSize(int bufferSize) {
         setInt(EXTERNAL_SCAN_BUFFER_SIZE, bufferSize);
     }

@@ -77,8 +77,6 @@ public class OptimizationConfUtil {
         int externalScanBufferSize = getExternalScanBufferSize(
                 (String) querySpecificConfig.get(CompilerProperties.COMPILER_EXTERNALSCANMEMORY_KEY),
                 compilerProperties.getExternalScanMemorySize(), sourceLoc);
-        boolean batchLookup = getBoolean(querySpecificConfig, CompilerProperties.COMPILER_BATCHED_LOOKUP_KEY,
-                compilerProperties.isBatchLookup());
         boolean cbo =
                 getBoolean(querySpecificConfig, CompilerProperties.COMPILER_CBO_KEY, compilerProperties.getCBOMode());
         boolean cboTest = getBoolean(querySpecificConfig, CompilerProperties.COMPILER_CBO_TEST_KEY,
@@ -105,7 +103,6 @@ public class OptimizationConfUtil {
         physOptConf.setMinMemoryAllocation(minMemoryAllocation);
         physOptConf.setArrayIndexEnabled(arrayIndex);
         physOptConf.setExternalScanBufferSize(externalScanBufferSize);
-        physOptConf.setBatchLookup(batchLookup);
         physOptConf.setCBOMode(cbo);
         physOptConf.setCBOTestMode(cboTest);
         physOptConf.setForceJoinOrderMode(forceJoinOrder);

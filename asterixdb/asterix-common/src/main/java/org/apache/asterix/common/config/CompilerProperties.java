@@ -105,10 +105,6 @@ public class CompilerProperties extends AbstractProperties {
                 BOOLEAN,
                 AlgebricksConfig.ARRAY_INDEX_DEFAULT,
                 "Enable/disable using array-indexes in queries"),
-        COMPILER_BATCH_LOOKUP(
-                BOOLEAN,
-                AlgebricksConfig.BATCH_LOOKUP_DEFAULT,
-                "Enable/disable batch point-lookups when running queries with secondary indexes"),
         COMPILER_CBO(BOOLEAN, AlgebricksConfig.CBO_DEFAULT, "Set the mode for cost based optimization"),
         COMPILER_CBOTEST(BOOLEAN, AlgebricksConfig.CBO_TEST_DEFAULT, "Set the mode for cost based optimization"),
         COMPILER_FORCEJOINORDER(
@@ -187,8 +183,6 @@ public class CompilerProperties extends AbstractProperties {
     public static final String COMPILER_ARRAYINDEX_KEY = Option.COMPILER_ARRAYINDEX.ini();
 
     public static final String COMPILER_EXTERNALSCANMEMORY_KEY = Option.COMPILER_EXTERNALSCANMEMORY.ini();
-
-    public static final String COMPILER_BATCHED_LOOKUP_KEY = Option.COMPILER_BATCH_LOOKUP.ini();
 
     public static final String COMPILER_CBO_KEY = Option.COMPILER_CBO.ini();
 
@@ -270,10 +264,6 @@ public class CompilerProperties extends AbstractProperties {
 
     public int getExternalScanMemorySize() {
         return accessor.getInt(Option.COMPILER_EXTERNALSCANMEMORY);
-    }
-
-    public boolean isBatchLookup() {
-        return accessor.getBoolean(Option.COMPILER_BATCH_LOOKUP);
     }
 
     public boolean getCBOMode() {
