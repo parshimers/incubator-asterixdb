@@ -20,6 +20,8 @@ package org.apache.hyracks.api.dataflow;
 
 import java.nio.ByteBuffer;
 
+import org.apache.hyracks.api.HyracksConsumer;
+import org.apache.hyracks.api.HyracksRunnable;
 import org.apache.hyracks.api.comm.FrameConstants;
 import org.apache.hyracks.api.comm.FrameHelper;
 import org.apache.hyracks.api.comm.IFrameWriter;
@@ -31,7 +33,7 @@ import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.util.IntSerDeUtils;
 
-public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
+public class ProfiledFrameWriter implements IFrameWriter {
 
     // The downstream data consumer of this writer.
     private final IFrameWriter writer;
@@ -50,8 +52,6 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
     private int maxSz = -1;
     private long avgSz;
     final String name;
-    private long betweenTimee = -1;
-    private boolean trackBetween;
 
     public ProfiledFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, IOperatorStats stats,
             ProfiledFrameWriter parent) {
@@ -66,111 +66,74 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
         this.tupleCounter = parent != null ? parent.stats.getTupleCounter() : null;
     }
 
-    @Override
-    public final void open() throws HyracksDataException {
+    private void time(HyracksRunnable r) throws HyracksDataException {
         long nt = 0;
         try {
             nt = System.nanoTime();
-            writer.open();
+            r.run();
         } finally {
-            setUpTearDownCounter.set(System.nanoTime() - nt);
+            timeCounter.update(System.nanoTime() - nt);
+        }
+    }
+
+    private void time(HyracksConsumer<ByteBuffer> c, ByteBuffer buffer) throws HyracksDataException {
+        long nt = 0;
+        try {
+            nt = System.nanoTime();
+            c.accept(buffer);
+        } finally {
+            timeCounter.update(System.nanoTime() - nt);
+        }
+    }
+
+    @Override
+    public final void open() throws HyracksDataException {
+        time(writer::open);
+    }
+
+    private void updateTupleStats(ByteBuffer buffer) {
+        int tupleCountOffset = FrameHelper.getTupleCountOffset(buffer.limit());
+        int tupleCount = IntSerDeUtils.getInt(buffer.array(), tupleCountOffset);
+        if (tupleCounter != null) {
+            long prevCount = tupleCounter.get();
+            for (int i = 0; i < tupleCount; i++) {
+                int tupleLen = getTupleLength(i, tupleCountOffset, buffer);
+                if (maxSz < tupleLen) {
+                    maxSz = tupleLen;
+                }
+                if (minSz > tupleLen) {
+                    minSz = tupleLen;
+                }
+                long prev = avgSz * prevCount;
+                avgSz = (prev + tupleLen) / (prevCount + 1);
+                prevCount++;
+            }
+            parentStats.getMaxTupleSz().set(maxSz);
+            parentStats.getMinTupleSz().set(minSz);
+            parentStats.getAverageTupleSz().set(avgSz);
+            tupleCounter.update(tupleCount);
         }
     }
 
     @Override
     public final void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-        try {
-            if (trackBetween) {
-                if (betweenTimee > 0) {
-                    parentStats.getTimeCounter().update(System.nanoTime() - betweenTimee);
-                }
-            }
-            int tupleCountOffset = FrameHelper.getTupleCountOffset(buffer.limit());
-            int tupleCount = IntSerDeUtils.getInt(buffer.array(), tupleCountOffset);
-            if (tupleCounter != null) {
-                long prevCount = tupleCounter.get();
-                for (int i = 0; i < tupleCount; i++) {
-                    int tupleLen = getTupleLength(i, tupleCountOffset, buffer);
-                    if (maxSz < tupleLen) {
-                        maxSz = tupleLen;
-                    }
-                    if (minSz > tupleLen) {
-                        minSz = tupleLen;
-                    }
-                    long prev = avgSz * prevCount;
-                    avgSz = (prev + tupleLen) / (prevCount + 1);
-                    prevCount++;
-                }
-                parentStats.getMaxTupleSz().set(maxSz);
-                parentStats.getMinTupleSz().set(minSz);
-                parentStats.getAverageTupleSz().set(avgSz);
-                tupleCounter.update(tupleCount);
-            }
-            if (parent != null) {
-                parent.pause();
-            }
-            resume();
-            writer.nextFrame(buffer);
-        } finally {
-            if (trackBetween) {
-                betweenTimee = System.nanoTime();
-            }
-            pause();
-        }
+        updateTupleStats(buffer);
+        time(writer::nextFrame, buffer);
     }
 
     @Override
     public final void flush() throws HyracksDataException {
-        try {
-            if (parent != null) {
-                parent.pause();
-            }
-            resume();
-            writer.flush();
-        } finally {
-            pause();
-        }
+        time(writer::flush);
     }
 
     @Override
     public final void fail() throws HyracksDataException {
-        pause();
-        writer.fail();
+        time(writer::fail);
     }
 
     @Override
     public void close() throws HyracksDataException {
-        long nt = 0;
-        try {
-            pause();
-            nt = System.nanoTime();
-            writer.close();
-        } finally {
-            setUpTearDownCounter.update(System.nanoTime() - nt);
-        }
-    }
-
-    @Override
-    public void resume() {
-        if (frameStart > 0) {
-            return;
-        }
-        long nt = System.nanoTime();
-        frameStart = nt;
-    }
-
-    @Override
-    public void pause() {
-        if (frameStart > 1) {
-            long nt = System.nanoTime();
-            long delta = nt - frameStart;
-            timeCounter.update(delta);
-            frameStart = -1;
-        }
-    }
-
-    public void trackBetween() {
-        trackBetween = true;
+        time(writer::close);
     }
 
     private int getTupleStartOffset(int tupleIndex, int tupleCountOffset, ByteBuffer buffer) {
@@ -197,5 +160,9 @@ public class ProfiledFrameWriter implements IFrameWriter, IPassableTimer {
 
         } else
             return writer;
+    }
+
+    IOperatorStats getStats() {
+        return stats;
     }
 }

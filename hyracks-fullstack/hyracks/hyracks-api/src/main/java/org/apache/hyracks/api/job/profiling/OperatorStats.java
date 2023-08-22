@@ -21,7 +21,9 @@ package org.apache.hyracks.api.job.profiling;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.hyracks.api.com.job.profiling.counters.Counter;
@@ -46,6 +48,7 @@ public class OperatorStats implements IOperatorStats {
     public final ICounter bytesRead;
     public final ICounter bytesWritten;
     private final Map<String, IndexStats> indexesStats;
+    private transient List<IOperatorStats> children;
 
     //TODO: this is quickly becoming gross it should just be a map where the value is obliged to be a Counter
 
@@ -69,6 +72,7 @@ public class OperatorStats implements IOperatorStats {
         bytesWritten = new Counter("bytesWritten");
         level.set(-1);
         indexesStats = new HashMap<>();
+        children = new ArrayList<>();
     }
 
     public OperatorStats(String operatorName) {
@@ -180,6 +184,18 @@ public class OperatorStats implements IOperatorStats {
         timeCounter.update(stats.getTimeCounter().get());
         pageReads.update(stats.getPageReads().get());
         updateIndexesStats(stats.getIndexesStats());
+    }
+
+    @Override
+    public void computeCounters() {
+        for (IOperatorStats c : children) {
+            timeCounter.set(timeCounter.get() - c.getTimeCounter().get());
+            c.computeCounters();
+        }
+    }
+
+    public void addChild(OperatorStats stats) {
+        children.add(stats);
     }
 
     @Override

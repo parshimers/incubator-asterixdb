@@ -29,7 +29,7 @@ import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
 import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 
-public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements IOperatorNodePushable, IPassableTimer {
+public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements IOperatorNodePushable {
 
     IOperatorNodePushable op;
     ActivityId acId;
@@ -69,7 +69,7 @@ public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements
         //track the time between our invocations of their nextFrame() to infer our time spent
         if (parents.get(0) == null && writer instanceof ProfiledFrameWriter) {
             ProfiledFrameWriter wrapper = (ProfiledFrameWriter) writer;
-            wrapper.trackBetween();
+            ((OperatorStats) stats).addChild(((OperatorStats) wrapper.getStats()));
         }
         op.setOutputFrameWriter(index, writer, recordDesc);
     }
@@ -90,25 +90,6 @@ public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements
 
     public void addParent(int index, ProfiledOperatorNodePushable parent) {
         parents.put(index, parent);
-    }
-
-    @Override
-    public void resume() {
-        if (frameStart > 0) {
-            return;
-        }
-        long nt = System.nanoTime();
-        frameStart = nt;
-    }
-
-    @Override
-    public void pause() {
-        if (frameStart > 0) {
-            long nt = System.nanoTime();
-            long delta = nt - frameStart;
-            timeCounter.update(delta);
-            frameStart = -1;
-        }
     }
 
     public IOperatorStats getStats() {

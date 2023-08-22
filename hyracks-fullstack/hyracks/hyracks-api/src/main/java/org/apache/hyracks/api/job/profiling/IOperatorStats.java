@@ -95,4 +95,6 @@ public interface IOperatorStats extends IWritable, Serializable {
     Map<String, IndexStats> getIndexesStats();
 
     void updateFrom(IOperatorStats stats);
+
+    void computeCounters();
 }

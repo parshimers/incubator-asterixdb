@@ -153,4 +153,9 @@ public class NoOpOperatorStats implements IOperatorStats {
     public void updateFrom(IOperatorStats stats) {
         // no op
     }
+
+    @Override
+    public void computeCounters() {
+
+    }
 }

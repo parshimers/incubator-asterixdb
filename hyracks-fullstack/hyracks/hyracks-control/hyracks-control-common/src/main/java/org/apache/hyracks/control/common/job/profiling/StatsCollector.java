@@ -21,13 +21,12 @@ package org.apache.hyracks.control.common.job.profiling;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.apache.hyracks.api.dataflow.IPassableTimer;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.NoOpOperatorStats;
@@ -37,7 +36,7 @@ public class StatsCollector implements IStatsCollector {
     private static final long serialVersionUID = 6858817639895434573L;
 
     private final Map<String, IOperatorStats> operatorStatsMap = new LinkedHashMap<>();
-    private transient Deque<IPassableTimer> clockHolder = new ArrayDeque<>();
+    private final List<IOperatorStats> taskRoots = new ArrayList();
 
     @Override
     public void add(IOperatorStats operatorStats) {
@@ -45,6 +44,10 @@ public class StatsCollector implements IStatsCollector {
             throw new IllegalArgumentException("Operator with the same name already exists");
         }
         operatorStatsMap.put(operatorStats.getName(), operatorStats);
+    }
+
+    public void addRoot(IOperatorStats root) {
+        taskRoots.add(root);
     }
 
     @Override
@@ -77,6 +80,9 @@ public class StatsCollector implements IStatsCollector {
     @Override
     public void writeFields(DataOutput output) throws IOException {
         output.writeInt(operatorStatsMap.size());
+        for (IOperatorStats s : taskRoots) {
+            s.computeCounters();
+        }
         for (IOperatorStats operatorStats : operatorStatsMap.values()) {
             operatorStats.writeFields(output);
         }
