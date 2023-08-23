@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 
 import org.apache.hyracks.api.HyracksConsumer;
 import org.apache.hyracks.api.HyracksRunnable;
+import org.apache.hyracks.api.com.job.profiling.counters.Counter;
 import org.apache.hyracks.api.comm.FrameConstants;
 import org.apache.hyracks.api.comm.FrameHelper;
 import org.apache.hyracks.api.comm.IFrameWriter;
@@ -39,8 +40,6 @@ public class ProfiledFrameWriter implements IFrameWriter {
     private final IFrameWriter writer;
     private long frameStart = 0;
     final ICounter timeCounter;
-
-    final ICounter setUpTearDownCounter;
     final ICounter tupleCounter;
     final IStatsCollector collector;
     final IOperatorStats stats;
@@ -53,6 +52,8 @@ public class ProfiledFrameWriter implements IFrameWriter {
     private long avgSz;
     final String name;
 
+    public ICounter time;
+
     public ProfiledFrameWriter(IFrameWriter writer, IStatsCollector collector, String name, IOperatorStats stats,
             ProfiledFrameWriter parent) {
         this.writer = writer;
@@ -62,17 +63,17 @@ public class ProfiledFrameWriter implements IFrameWriter {
         this.parent = parent;
         this.parentStats = parent != null ? parent.stats : null;
         this.timeCounter = stats.getTimeCounter();
-        this.setUpTearDownCounter = stats.getSetupTeardownCounter();
         this.tupleCounter = parent != null ? parent.stats.getTupleCounter() : null;
+        this.time = new Counter("shadowTime");
     }
 
-    private void time(HyracksRunnable r) throws HyracksDataException {
+    void time(HyracksRunnable r) throws HyracksDataException {
         long nt = 0;
         try {
             nt = System.nanoTime();
             r.run();
         } finally {
-            timeCounter.update(System.nanoTime() - nt);
+            time.update(System.nanoTime() - nt);
         }
     }
 
@@ -82,7 +83,7 @@ public class ProfiledFrameWriter implements IFrameWriter {
             nt = System.nanoTime();
             c.accept(buffer);
         } finally {
-            timeCounter.update(System.nanoTime() - nt);
+            time.update(System.nanoTime() - nt);
         }
     }
 

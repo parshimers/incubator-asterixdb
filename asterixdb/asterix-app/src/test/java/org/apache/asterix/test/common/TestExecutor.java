@@ -1622,6 +1622,7 @@ public class TestExecutor {
                     break;
                 default:
                     extractedResult = ResultExtractor.extract(resultStream, responseCharset, fmt);
+                    String profile = IOUtils.toString(ResultExtractor.extractProfile(resultStream,responseCharset));
                     resultStream = extractedResult.getResult();
                     break;
             }

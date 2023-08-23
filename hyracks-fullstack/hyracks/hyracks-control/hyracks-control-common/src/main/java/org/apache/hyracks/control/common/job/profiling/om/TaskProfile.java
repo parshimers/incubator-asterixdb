@@ -130,8 +130,6 @@ public class TaskProfile extends AbstractProfile {
             jpe.put("name", key);
             jpe.put("run-time", Double
                     .parseDouble(new DecimalFormat("#.####").format((double) value.getTimeCounter().get() / 1000000)));
-            jpe.put("open-time", Double.parseDouble(
-                    new DecimalFormat("#.####").format((double) value.getSetupTeardownCounter().get() / 1000000)));
             if (value.getId().getId() >= 0) {
                 jpe.put("runtime-id", value.getId().toString());
             }

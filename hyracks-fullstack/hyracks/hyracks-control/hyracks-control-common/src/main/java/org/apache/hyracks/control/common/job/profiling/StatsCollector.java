@@ -36,7 +36,6 @@ public class StatsCollector implements IStatsCollector {
     private static final long serialVersionUID = 6858817639895434573L;
 
     private final Map<String, IOperatorStats> operatorStatsMap = new LinkedHashMap<>();
-    private final List<IOperatorStats> taskRoots = new ArrayList();
 
     @Override
     public void add(IOperatorStats operatorStats) {
@@ -44,10 +43,6 @@ public class StatsCollector implements IStatsCollector {
             throw new IllegalArgumentException("Operator with the same name already exists");
         }
         operatorStatsMap.put(operatorStats.getName(), operatorStats);
-    }
-
-    public void addRoot(IOperatorStats root) {
-        taskRoots.add(root);
     }
 
     @Override
@@ -80,9 +75,6 @@ public class StatsCollector implements IStatsCollector {
     @Override
     public void writeFields(DataOutput output) throws IOException {
         output.writeInt(operatorStatsMap.size());
-        for (IOperatorStats s : taskRoots) {
-            s.computeCounters();
-        }
         for (IOperatorStats operatorStats : operatorStatsMap.values()) {
             operatorStats.writeFields(output);
         }

@@ -44,8 +44,6 @@ public interface IOperatorStats extends IWritable, Serializable {
      */
     ICounter getTimeCounter();
 
-    ICounter getSetupTeardownCounter();
-
     /**
      * @return A counter used to track the number of pages pinned by an operator
      */
@@ -95,6 +93,4 @@ public interface IOperatorStats extends IWritable, Serializable {
     Map<String, IndexStats> getIndexesStats();
 
     void updateFrom(IOperatorStats stats);
-
-    void computeCounters();
 }

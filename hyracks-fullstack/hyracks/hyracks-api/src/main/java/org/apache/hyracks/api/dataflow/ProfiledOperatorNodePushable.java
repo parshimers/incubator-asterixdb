@@ -18,8 +18,12 @@
  */
 package org.apache.hyracks.api.dataflow;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
+import org.apache.hyracks.api.HyracksRunnable;
+import org.apache.hyracks.api.com.job.profiling.counters.Counter;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
@@ -27,34 +31,61 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.profiling.IOperatorStats;
 import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.OperatorStats;
+import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.api.rewriter.runtime.SuperActivityOperatorNodePushable;
 
-public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements IOperatorNodePushable {
+public class ProfiledOperatorNodePushable implements IOperatorNodePushable {
 
     IOperatorNodePushable op;
     ActivityId acId;
-    HashMap<Integer, IFrameWriter> inputs;
+    HashMap<Integer, ProfiledFrameWriter> inputs;
     HashMap<Integer, ProfiledOperatorNodePushable> parents;
-    long frameStart;
+
+    List<ProfiledFrameWriter> outputs;
+    IOperatorStats stats;
+    IStatsCollector collector;
+
+    ICounter time;
 
     ProfiledOperatorNodePushable(IOperatorNodePushable op, ActivityId acId, IStatsCollector collector,
             IOperatorStats stats, ProfiledOperatorNodePushable parentOp) throws HyracksDataException {
-        super(null, collector, acId.toString() + " - " + op.getDisplayName(), stats, parentOp);
+        this.stats = stats;
+        this.collector = collector;
         this.parents = new HashMap<>();
         parents.put(0, parentOp);
         this.op = op;
         this.acId = acId;
         inputs = new HashMap<>();
+        outputs = new ArrayList<>();
+        this.time = new Counter("shadowTime");
+    }
+
+    void time(HyracksRunnable r) throws HyracksDataException {
+        long nt = 0;
+        try {
+            nt = System.nanoTime();
+            r.run();
+        } finally {
+            time.update(System.nanoTime() - nt);
+        }
     }
 
     @Override
     public void initialize() throws HyracksDataException {
-        op.initialize();
+       time(op::initialize);
     }
 
     @Override
     public void deinitialize() throws HyracksDataException {
+        long totalTime = time.get();
+        for(ProfiledFrameWriter i: inputs.values()){
+           totalTime += i.time.get();
+        }
+        for(ProfiledFrameWriter w: outputs){
+            totalTime -= w.time.get();
+        }
         op.deinitialize();
+        stats.getTimeCounter().set(totalTime);
     }
 
     @Override
@@ -67,20 +98,24 @@ public class ProfiledOperatorNodePushable extends ProfiledFrameWriter implements
             throws HyracksDataException {
         //If we have no parent, that means we are a source, and so we need to ask our child to
         //track the time between our invocations of their nextFrame() to infer our time spent
-        if (parents.get(0) == null && writer instanceof ProfiledFrameWriter) {
+        if (writer instanceof ProfiledFrameWriter) {
             ProfiledFrameWriter wrapper = (ProfiledFrameWriter) writer;
-            ((OperatorStats) stats).addChild(((OperatorStats) wrapper.getStats()));
+            outputs.add(wrapper);
         }
         op.setOutputFrameWriter(index, writer, recordDesc);
     }
 
     @Override
     public IFrameWriter getInputFrameWriter(int index) {
-        if (!(op instanceof ProfiledFrameWriter)) {
-            return new ProfiledFrameWriter(op.getInputFrameWriter(index), collector,
-                    acId.toString() + "-" + op.getDisplayName(), stats, parents.get(index));
+        if (inputs.get(index) == null){
+            ProfiledFrameWriter pfw = new ProfiledFrameWriter(op.getInputFrameWriter(index), collector,
+                    acId.toString() + "-" + op.getDisplayName(), stats, null);
+            inputs.put(index, pfw);
+            return pfw;
         }
-        return op.getInputFrameWriter(index);
+        else {
+            return inputs.get(index);
+        }
     }
 
     @Override
