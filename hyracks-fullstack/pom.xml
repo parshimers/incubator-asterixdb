@@ -28,7 +28,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>18</version>
+    <version>40</version>
     <relativePath />
   </parent>
   <licenses>
@@ -77,7 +77,7 @@
     <jackson-annotations.version>2.22</jackson-annotations.version>
     <jackson-databind.version>${jackson.version}</jackson-databind.version>
     <!-- 4.2 is a new netty generation; stay on the 4.1.x line (patch updates only) -->
-    <netty.version>4.1.139.Final</netty.version>
+    <netty.version>4.2.19.Final</netty.version>
     <netty.tcnative.version>2.0.84.Final</netty.tcnative.version>
     <asm.version>9.11</asm.version>
     <!-- keep in sync with asterixdb/pom.xml -->
@@ -433,7 +433,7 @@
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>33.5.0-jre</version>
+        <version>33.7.2-jre</version>
         <exclusions>
           <exclusion>
             <groupId>com.google.code.findbugs</groupId>
@@ -486,7 +486,7 @@
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
         <!-- @pinned: 0.15+ removed the license/licenseFamily implementation classes configured below -->
-        <version>0.13</version>
+        <version>0.18</version>
       </dependency>
       <dependency>
         <groupId>org.ini4j</groupId>
@@ -563,12 +563,12 @@
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-simple</artifactId>
-        <version>1.7.36</version>
+        <version>2.0.20</version>
       </dependency>
       <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
-        <version>3.12.4</version>
+        <version>5.24.0</version>
       </dependency>
       <dependency>
         <groupId>org.powermock</groupId>
@@ -893,19 +893,19 @@
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
           <!-- @pinned: 0.15+ removed the license/licenseFamily implementation classes configured above -->
-          <version>0.12</version>
+          <version>0.18</version>
         </plugin>
         <plugin>
           <groupId>net.revelc.code.formatter</groupId>
           <artifactId>formatter-maven-plugin</artifactId>
           <!-- @pinned: newer versions rewrap javadoc @param, reformatting the entire tree -->
-          <version>2.0.1</version>
+          <version>2.29.0</version>
         </plugin>
         <plugin>
           <groupId>net.revelc.code</groupId>
           <artifactId>impsort-maven-plugin</artifactId>
           <!-- @pinned: paired with formatter-maven-plugin; avoid tree-wide import churn -->
-          <version>1.9.0</version>
+          <version>1.13.0</version>
           <dependencies>
             <dependency>
               <groupId>com.github.javaparser</groupId>
@@ -1020,7 +1020,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>2.22.2</version>
+          <version>3.6.0</version>
           <configuration>
             <systemPropertyVariables>
               <log4j.configurationFile>${testLog4jConfigFile}</log4j.configurationFile>
@@ -1040,7 +1040,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-antrun-plugin</artifactId>
-          <version>3.1.0</version> <!-- do not update to 3.2.0, it adds lots of warning spam (https://github.com/apache/maven-antrun-plugin/issues/348) -->
+          <version>3.2.0</version> <!-- do not update to 3.2.0, it adds lots of warning spam (https://github.com/apache/maven-antrun-plugin/issues/348) -->
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -1068,12 +1068,12 @@
           <!-- @pinned: 1.2's DefaultSiteTool needs org.codehaus.plexus.util.interpolation.ValueSource,
                which no plexus-utils shipped with a current Maven provides, so render-books fails with
                NoClassDefFoundError. -->
-          <version>1.1.4</version>
+          <version>1.2</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.0.0-M3</version>
+          <version>3.6.3</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -1135,7 +1135,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-            <version>1.6</version>
+            <version>3.2.8</version>
             <executions>
               <execution>
                 <id>sign-artifacts</id>
