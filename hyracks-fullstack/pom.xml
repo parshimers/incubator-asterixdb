@@ -28,7 +28,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>18</version>
+    <version>40</version>
     <relativePath />
   </parent>
   <licenses>
@@ -73,15 +73,15 @@
     <jacoco.version>0.8.15</jacoco.version>
     <log4j.version>2.26.1</log4j.version>
     <snappy.version>1.1.10.12</snappy.version>
-    <jackson.version>2.22.3</jackson.version>
+    <jackson.version>2.22.4</jackson.version>
     <jackson-annotations.version>2.22</jackson-annotations.version>
-    <jackson-databind.version>${jackson.version}</jackson-databind.version>
+    <jackson-databind.version>2.22.4</jackson-databind.version>
     <!-- 4.2 is a new netty generation; stay on the 4.1.x line (patch updates only) -->
     <netty.version>4.1.139.Final</netty.version>
     <netty.tcnative.version>2.0.84.Final</netty.tcnative.version>
-    <asm.version>9.11</asm.version>
+    <asm.version>9.11.1</asm.version>
     <!-- keep in sync with asterixdb/pom.xml -->
-    <awsjavasdk.version>2.55.15</awsjavasdk.version>
+    <awsjavasdk.version>2.56.0</awsjavasdk.version>
 
     <!-- keep in sync with asterixdb/pom.xml -->
     <google-cloud-storage.version>2.75.0</google-cloud-storage.version>
@@ -433,7 +433,7 @@
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>33.5.0-jre</version>
+        <version>33.7.2-jre</version>
         <exclusions>
           <exclusion>
             <groupId>com.google.code.findbugs</groupId>
@@ -563,7 +563,7 @@
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-simple</artifactId>
-        <version>1.7.36</version>
+        <version>2.0.20</version>
       </dependency>
       <dependency>
         <groupId>org.mockito</groupId>
@@ -1021,7 +1021,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>2.22.2</version>
+          <version>3.6.0</version>
           <configuration>
             <systemPropertyVariables>
               <log4j.configurationFile>${testLog4jConfigFile}</log4j.configurationFile>
@@ -1074,7 +1074,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.0.0-M3</version>
+          <version>3.6.3</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -1136,7 +1136,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-            <version>1.6</version>
+            <version>3.2.8</version>
             <executions>
               <execution>
                 <id>sign-artifacts</id>
